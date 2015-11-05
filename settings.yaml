@@ -1,0 +1,5 @@
+logging:
+  log_file: /var/log/tapapi.log
+
+es_cluster:
+    - 192.168.9.229:9200
