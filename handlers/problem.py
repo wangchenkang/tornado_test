@@ -3,12 +3,13 @@ from .base import BaseHandler
 from utils.routes import route
 
 
-@route('/video/chapter_stat')
-class ChapterVideo(BaseHandler):
+@route('/problem/chapter_stat')
+class ChapterProblem(BaseHandler):
     def get(self):
         course_id = self.get_argument('course_id')
         chapter_id = self.get_argument('chapter_id')
-        query = {
+        grade_gte = self.get_argument('grade_gte', 60)
+        query = { 
             'query': {
                 'filtered': {
                     'filter': {
@@ -16,7 +17,7 @@ class ChapterVideo(BaseHandler):
                             'must': [
                                 {'term': {'course_id': course_id}},
                                 {'term': {'chapter_id': chapter_id}},
-                                {'range': {'study_rage': {'gte': 0}}}
+                                {'range': {'grade_rate': {'gte': grade_gte}}}
                             ]
                         }
                     }
@@ -33,14 +34,15 @@ class ChapterVideo(BaseHandler):
             'size': 0
         }
 
-        data = self.es.search(index='main', doc_type='video', search_type='count', body=query)
-        video_stat = {
+        data = self.es.search(index='main', doc_type='student_grade', search_type='count', body=query)
+        problem_stat = {
             'total': data['hits']['total'],
             'sequentials': {}
         }
+        
         for item in data['aggregations']['sequentials']['buckets']:
-            video_stat['sequentials'][item['key']] = {
-                'student_num': item['doc_count'],
+            problem_stat['sequentials'][item['key']] = {
+                'student_num': item['doc_count']
             }
 
-        self.success_response(video_stat)
+        self.success_response(problem_stat)
