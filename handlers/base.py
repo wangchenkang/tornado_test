@@ -36,3 +36,24 @@ class BaseHandler(RequestHandler):
 
         self.write_json(data)
         raise Finish
+
+    @property
+    def course_id(self):
+        course_id = self.get_argument('course_id', None)
+        if course_id is None:
+            self.error_response(u'参数错误')
+        return course_id
+
+    @property
+    def chapter_id(self):
+        chapter_id = self.get_argument('chapter_id', None)
+        if chapter_id is None:
+            self.error_response(u'参数错误')
+        return chapter_id
+
+    def get_param(self, key, default=None):
+        param = self.get_argument(key, default)
+        if param is None:
+            self.error_response(u'参数错误')
+        return param
+

@@ -6,8 +6,8 @@ from utils.routes import route
 @route('/video/chapter_stat')
 class ChapterVideo(BaseHandler):
     def get(self):
-        course_id = self.get_argument('course_id')
-        chapter_id = self.get_argument('chapter_id')
+        course_id = self.course_id
+        chapter_id = self.chapter_id
         query = {
             'query': {
                 'filtered': {
@@ -49,9 +49,9 @@ class ChapterVideo(BaseHandler):
 @route('/video/chapter_student_stat')
 class ChapterStudentVideo(BaseHandler):
     def get(self):
-        course_id = self.get_argument('course_id')
-        chapter_id = self.get_argument('chapter_id')
-        uid = self.get_argument('uid')
+        course_id = self.course_id
+        chapter_id = self.chapter_id
+        uid = self.get_param('uid')
         students = [u.strip() for u in uid.split(',') if u.strip()]
 
         query = {
