@@ -52,7 +52,7 @@ class ChapterStudentDiscussion(BaseHandler):
     def get(self):
         course_id = self.course_id
         chapter_id = self.chapter_id
-        uid = self.get_param('uid')
+        uid = self.get_param('user_id')
         students = [u.strip() for u in uid.split(',') if u.strip()]
 
         query = {

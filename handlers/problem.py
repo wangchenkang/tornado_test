@@ -52,7 +52,7 @@ class ChapterStudentProblem(BaseHandler):
     def get(self):
         course_id = self.course_id
         chapter_id = self.chapter_id
-        uid = self.get_param('uid')
+        uid = self.get_param('user_id')
         students = [u.strip() for u in uid.split(',') if u.strip()]
 
         query = {
@@ -63,7 +63,7 @@ class ChapterStudentProblem(BaseHandler):
                             'must': [
                                 {'term': {'course_id': course_id}},
                                 {'term': {'chapter_id': chapter_id}},
-                                {'terms': {'uid': students}},
+                                {'terms': {'user_id': students}},
                             ]
                         }
                     }
@@ -78,20 +78,12 @@ class ChapterStudentProblem(BaseHandler):
                     'aggs': {
                         'students': {
                             'terms': {
-                                'field': 'uid',
+                                'field': 'user_id',
                                 'size': 0
                             },
                             'aggs': {
-                                'problems': {
-                                    'terms': {
-                                        'field': 'id',
-                                        'size': 0
-                                    },
-                                    'aggs': {
-                                        'record': {
-                                            'top_hits': {'size': 1}
-                                        }
-                                    }
+                                'record': {
+                                    'top_hits': {'size': 1}
                                 }
                             }
                         }
@@ -108,17 +100,13 @@ class ChapterStudentProblem(BaseHandler):
             sequential_id = sequential['key']
             chapter_student_stat.setdefault(sequential_id, {}) 
             for student in sequential['students']['buckets']:
+                if student['doc_count'] == 0:
+                    continue
                 student_id = student['key']
-                chapter_student_stat[sequential_id].setdefault(student_id, []) 
-                for problem_item in student['problems']['buckets']:
-                    if problem_item['doc_count'] == 0:
-                        continue
-                    student_record = problem_item['record']['hits']['hits'][0]
-                    student_problem_item = { 
-                        'problem_id': student_record['_source']['id'],
-                        'grade_rate': student_record['_source']['grade_rate'],
-                    }
-                    chapter_student_stat[sequential_id][student_id].append(student_problem_item)
+                student_record = student['record']['hits']['hits'][0]
+                chapter_student_stat[sequential_id][student_id] = { 
+                    'grade_rate': student_record['_source']['grade_rate'],
+                }
 
         result = { 
             'total': data['hits']['total'],
@@ -127,3 +115,63 @@ class ChapterStudentProblem(BaseHandler):
 
         self.success_response(result)
 
+@route('/problem/detail')
+class CourseProblemDetail(BaseHandler):
+    """
+    获取课程解析后的习题
+    """
+    def get(self):
+        course_id = self.course_id
+
+        query = {
+            'query': {
+                'filtered': {
+                    'filter': {
+                        'bool': {
+                            'must': [
+                                {'term': {'course_id': course_id}},
+                            ]
+                        }
+                    }
+                }
+            },
+            'aggs': {
+                'problems': {
+                    'terms': {
+                        'field': 'problem_id',
+                        'size': 0
+                    },
+                    'aggs': {
+                        'items': {
+                            'terms': {
+                                'field': 'problem_num',
+                                'size': 0
+                            },
+                            'aggs': {
+                                'record': {
+                                    'top_hits': {'size': 1}
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            'size': 0
+        }
+
+        data = self.es.search(index='course', doc_type='problem_detail', body=query)
+        problems = {}
+        for problem in data['aggregations']['problems']['buckets']:
+            problems.setdefault(problem['key'], {})
+            for item in problem['items']['buckets']:
+                item_detail = item['record']['hits']['hits'][0]
+                problems[problem['key']][item['key']] = {
+                    'detail': item_detail['_source']['detail'],
+                    'answer': item_detail['_source']['answer'],
+                    'problem_type': item_detail['_source']['problem_type'],
+                    'problem_id': item_detail['_source']['problem_id'],
+                    'problem_num': item_detail['_source']['problem_num'],
+                }
+
+
+        self.success_response({'problems': problems})

@@ -16,7 +16,7 @@ class ChapterVideo(BaseHandler):
                             'must': [
                                 {'term': {'course_id': course_id}},
                                 {'term': {'chapter_id': chapter_id}},
-                                {'range': {'study_rage': {'gte': 0}}}
+                                {'range': {'study_rate': {'gte': 0}}}
                             ]
                         }
                     }
@@ -33,6 +33,8 @@ class ChapterVideo(BaseHandler):
             'size': 0
         }
 
+
+        print query
         data = self.es.search(index='main', doc_type='video', search_type='count', body=query)
         video_stat = {
             'total': data['hits']['total'],
@@ -51,7 +53,7 @@ class ChapterStudentVideo(BaseHandler):
     def get(self):
         course_id = self.course_id
         chapter_id = self.chapter_id
-        uid = self.get_param('uid')
+        uid = self.get_param('user_id')
         students = [u.strip() for u in uid.split(',') if u.strip()]
 
         query = {
@@ -121,7 +123,9 @@ class ChapterStudentVideo(BaseHandler):
                         'review': student_record['_source']['review'],
                         'review_rate': student_record['_source']['review_rate'],
                         'watch_num': student_record['_source']['watch_num'],
-                        'duration': student_record['_source']['duration']
+                        'duration': student_record['_source']['duration'],
+                        'study_rate': student_record['_source']['study_rate'],
+                        'la_access': student_record['_source']['la_access']
                     }
                     chapter_student_stat[sequential_id][student_id].append(student_video_item)
 
