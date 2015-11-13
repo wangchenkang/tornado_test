@@ -34,7 +34,6 @@ class ChapterVideo(BaseHandler):
         }
 
 
-        print query
         data = self.es.search(index='main', doc_type='video', search_type='count', body=query)
         video_stat = {
             'total': data['hits']['total'],

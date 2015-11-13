@@ -82,6 +82,63 @@ class CourseDiscussion(BaseHandler):
 
         self.success_response(result)
 
+
+@route('/discussion/course_daily_stat')
+class CourseDailyStat(BaseHandler):
+    def get(self):
+        course_id = self.course_id
+        start = self.get_param('start')
+        end = self.get_param('end')
+        query =  { 
+            'query': {
+                'filtered': {
+                    'filter': {
+                        'bool': {
+                            'must': [
+                                {'term': {'course_id': course_id}},
+                                {'range': {'d_day': {'gte': start, 'lte': end}}}
+                            ]
+                        }
+                    }
+                }
+            },
+            'aggs': {
+                'date': {
+                    'terms': {
+                        'field': 'd_day',
+                        'size': 0
+                    },
+                    'aggs': {
+                        'groups': {
+                            'terms': {'field': 'group_id'},
+                            'aggs': {
+                                'record': {
+                                    'top_hits': {'size': 1}
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            'size': 0
+        }
+        data = self.es.search(index='main', doc_type='group_daily', search_type='count', body=query)
+
+        date_dict = {}
+        for item in data['aggregations']['date']['buckets']:
+            for group in item['groups']['buckets']:
+                group_detail = group['record']['hits']['hits'][0]['_source']
+                date_dict.setdefault(group_detail['d_day'], {})
+                date_dict[group_detail['d_day']][group_detail['group_id']] = {
+                    'group_id': group_detail['group_id'],
+                    'date': group_detail['d_day'],
+                    'post_number': group_detail['post_number'],
+                    'comment_number': group_detail['comment_number']
+                }
+
+        self.success_response({'date': date_dict})
+
+
 @route('/discussion/chapter_stat')
 class ChapterDiscussion(BaseHandler):
     """
@@ -262,6 +319,7 @@ class CoursePostsNoCommentDaily(BaseHandler):
         
         self.success_response({'date': date_result})
 
+
 @route('/discussion/no_comment_posts')
 class CoursePostsNoComment(BaseHandler):
     """
@@ -412,3 +470,83 @@ class StudentPostTopStat(BaseHandler):
         self.success_response({'students': students_list})
 
 
+@route('/discussion/students_detail')
+class StudentDetail(BaseHandler):
+    """
+    获取所有参与讨论学生统计
+    """
+    def get(self):
+        course_id = self.course_id
+        query = {
+            'query': {
+                'filtered': {
+                    'filter': {
+                        'bool': {
+                            'must': [
+                                {'term': {'course_id': course_id}}
+                            ],
+                            'should': [
+                                {'range': {'post_number': {'gt': 0}}},
+                                {'range': {'comment_number': {'gt': 0}}}
+                            ]
+                        }
+                    }
+                }
+            },
+            'size': 0
+        }
+
+        data = self.es.search(index='main', doc_type='user_sum', search_type='count', body=query)
+        total = data['hits']['total']
+
+        query['size'] = total
+        data = self.es.search(index='main', doc_type='user_sum', body=query)
+
+        students_detail = {}
+        for item in data['hits']['hits']:
+            students_detail[item['_source']['user_id']] = {
+                'user_id': int(item['_source']['user_id']),
+                'post_number': item['_source']['post_number'],
+                'comment_number': item['_source']['comment_number'],
+                'grade_percent': item['_source']['grade_percent'],
+                'group_id': item['_source']['group_id'],
+                'user_name': item['_source']['user_name']
+            }
+
+        self.success_response({'students': students_detail})
+
+
+@route('/discussion/students_relation')
+class StudentRelation(BaseHandler):
+    def get(self):
+        course_id = self.course_id
+        query = {
+            'query': {
+                'filtered': {
+                    'filter': {
+                        'bool': {
+                            'must': [
+                                {'term': {'course_id': course_id}}
+                            ]
+                        }
+                    }
+                }
+            },
+            'size': 0
+        }
+
+        data = self.es.search(index='main', doc_type='comment_num', search_type='count', body=query)
+        total = data['hits']['total']
+
+        query['size'] = total
+        data = self.es.search(index='main', doc_type='comment_num', body=query)
+
+        relations = []
+        for item in data['hits']['hits']:
+            relations.append({
+                'user_id1': item['_source']['user_id1'],
+                'user_id2': item['_source']['user_id2'],
+                'num': item['_source']['num']
+            })
+
+        self.success_response({'relations': relations})
