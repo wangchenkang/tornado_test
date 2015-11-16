@@ -34,7 +34,7 @@ class ChapterVideo(BaseHandler):
         }
 
 
-        data = self.es.search(index='main', doc_type='video', search_type='count', body=query)
+        data = self.es_search(index='main', doc_type='video', search_type='count', body=query)
         video_stat = {
             'total': data['hits']['total'],
             'sequentials': {}
@@ -105,7 +105,7 @@ class ChapterStudentVideo(BaseHandler):
             'size': 0
         }
 
-        data = self.es.search(index='main', doc_type='video', body=query)
+        data = self.es_search(index='main', doc_type='video', body=query)
         chapter_student_stat = {}
         for sequential in data['aggregations']['sequentials']['buckets']:
             sequential_id = sequential['key']

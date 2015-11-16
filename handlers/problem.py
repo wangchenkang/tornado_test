@@ -34,7 +34,7 @@ class ChapterProblem(BaseHandler):
             'size': 0
         }
 
-        data = self.es.search(index='main', doc_type='student_grade', search_type='count', body=query)
+        data = self.es_search(index='main', doc_type='student_grade', search_type='count', body=query)
         problem_stat = {
             'total': data['hits']['total'],
             'sequentials': {}
@@ -93,7 +93,7 @@ class ChapterStudentProblem(BaseHandler):
             'size': 0
         }
 
-        data = self.es.search(index='main', doc_type='student_grade', body=query)
+        data = self.es_search(index='main', doc_type='student_grade', body=query)
 
         chapter_student_stat = {}
         for sequential in data['aggregations']['sequentials']['buckets']:
@@ -159,7 +159,7 @@ class CourseProblemDetail(BaseHandler):
             'size': 0
         }
 
-        data = self.es.search(index='course', doc_type='problem_detail', body=query)
+        data = self.es_search(index='course', doc_type='problem_detail', body=query)
         problems = {}
         for problem in data['aggregations']['problems']['buckets']:
             problems.setdefault(problem['key'], {})

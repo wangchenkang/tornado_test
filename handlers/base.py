@@ -2,6 +2,7 @@
 import json
 from tornado.web import RequestHandler, Finish
 from tornado.options import options
+from elasticsearch import ConnectionError, ConnectionTimeout, RequestError
 
 
 class BaseHandler(RequestHandler):
@@ -57,3 +58,12 @@ class BaseHandler(RequestHandler):
             self.error_response(u'参数错误')
         return param
 
+    def es_search(self, **kwargs):
+        try:
+            response = self.es.search(**kwargs)
+        except (ConnectionError, ConnectionTimeout):
+            self.error_response(u'Elasticsearch 连接错误')
+        except RequestError, e:
+            self.error_response(u'查询错误: {} - {}'.format(e.status_code, e.error))
+
+        return response

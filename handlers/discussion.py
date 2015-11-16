@@ -54,7 +54,7 @@ class CourseDiscussion(BaseHandler):
             'size': 0
         }
 
-        data = self.es.search(index='main', doc_type='group_daily', search_type='count', body=query)
+        data = self.es_search(index='main', doc_type='group_daily', search_type='count', body=query)
         posts_total = 0
         comments_total = 0
         group_dict = {}
@@ -122,7 +122,7 @@ class CourseDailyStat(BaseHandler):
             },
             'size': 0
         }
-        data = self.es.search(index='main', doc_type='group_daily', search_type='count', body=query)
+        data = self.es_search(index='main', doc_type='group_daily', search_type='count', body=query)
 
         date_dict = {}
         for item in data['aggregations']['date']['buckets']:
@@ -172,7 +172,7 @@ class ChapterDiscussion(BaseHandler):
             'size': 0
         }
 
-        data = self.es.search(index='main', doc_type='discussion', search_type='count', body=query)
+        data = self.es_search(index='main', doc_type='discussion', search_type='count', body=query)
         discussion_stat = {
             'total': data['hits']['total'],
             'sequentials': {}
@@ -238,7 +238,7 @@ class ChapterStudentDiscussion(BaseHandler):
             'size': 0
         }
 
-        data = self.es.search(index='main', doc_type='discussion', body=query)
+        data = self.es_search(index='main', doc_type='discussion', body=query)
 
         chapter_student_stat = {}
         for sequential in data['aggregations']['sequentials']['buckets']:
@@ -308,7 +308,7 @@ class CoursePostsNoCommentDaily(BaseHandler):
             'size': 0
         }
 
-        data = self.es.search(index='main', doc_type='zero_comment_daily', search_type='count', body=query)
+        data = self.es_search(index='main', doc_type='zero_comment_daily', search_type='count', body=query)
         date_result = {}
         for item in data['aggregations']['date']['buckets']:
             record = item['record']['hits']['hits'][0]
@@ -343,7 +343,7 @@ class CoursePostsNoComment(BaseHandler):
             'size': 1
         }
 
-        data = self.es.search(index='main', doc_type='zero_comment', body=query)
+        data = self.es_search(index='main', doc_type='zero_comment', body=query)
         try:
             count = data['hits']['hits'][0]['_source']['all_num']
         except (KeyError, IndexError):
@@ -401,7 +401,7 @@ class StudentPostTopStat(BaseHandler):
             },
             'size': 0
         }
-        data = self.es.search(index='main', doc_type='user_daily', search_type='count', body=top_query)
+        data = self.es_search(index='main', doc_type='user_daily', search_type='count', body=top_query)
 
         students = {}
         for item in data['aggregations']['students']['buckets']:
@@ -449,7 +449,7 @@ class StudentPostTopStat(BaseHandler):
             },
             'size': 0
         }
-        data = self.es.search(index='main', doc_type='user_daily', search_type='count', body=query)
+        data = self.es_search(index='main', doc_type='user_daily', search_type='count', body=query)
         for item in data['aggregations']['students']['buckets']:
             for detail in item['date']['buckets']:
                 record = detail['record']['hits']['hits'][0]
@@ -496,11 +496,11 @@ class StudentDetail(BaseHandler):
             'size': 0
         }
 
-        data = self.es.search(index='main', doc_type='user_sum', search_type='count', body=query)
+        data = self.es_search(index='main', doc_type='user_sum', search_type='count', body=query)
         total = data['hits']['total']
 
         query['size'] = total
-        data = self.es.search(index='main', doc_type='user_sum', body=query)
+        data = self.es_search(index='main', doc_type='user_sum', body=query)
 
         students_detail = {}
         for item in data['hits']['hits']:
@@ -535,11 +535,11 @@ class StudentRelation(BaseHandler):
             'size': 0
         }
 
-        data = self.es.search(index='main', doc_type='comment_num', search_type='count', body=query)
+        data = self.es_search(index='main', doc_type='comment_num', search_type='count', body=query)
         total = data['hits']['total']
 
         query['size'] = total
-        data = self.es.search(index='main', doc_type='comment_num', body=query)
+        data = self.es_search(index='main', doc_type='comment_num', body=query)
 
         relations = []
         for item in data['hits']['hits']:
