@@ -143,7 +143,7 @@ class CourseVideo(BaseHandler):
         course_id = self.course_id
         uid_list = self.get_param('user_id')
 
-        max_length = 500
+        max_length = 1000
         user_id = [u.strip() for u in uid_list.split(',') if u.strip()][0:max_length]
 
         filter_args = [filter_course(course_id)]
