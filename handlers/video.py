@@ -1,6 +1,7 @@
 #! -*- coding: utf-8 -*-
 from .base import BaseHandler
 from utils.routes import route
+from utils.es_utils import *
 
 
 @route('/video/chapter_stat')
@@ -135,3 +136,28 @@ class ChapterStudentVideo(BaseHandler):
 
         self.success_response(result)
 
+@route('/video/course_video_study_rate')
+class CourseVideo(BaseHandler):
+    def get(self):
+        course_id = self.course_id
+        uid_list = self.get_argument("user_id","")
+        stu = uid_list.split(",")
+
+        filter_args = [filter_course(course_id)]
+        filter_args.append(filter_op("terms","uid",stu))
+        query = get_base(filter_args)
+
+        stu_num = search(self.es,"rollup","course_video_rate",query,search_type="count") 
+        query.update({"size": stu_num })
+
+        response = search(self.es,"rollup","course_video_rate",query) 
+        rst = []
+        for doc in response:
+            item = {}
+            item["uid"] = doc.get("_source",{}).get("uid","")
+            item["study_rate"] = float(doc.get("_source",{}).get("study_rate_open","0.00"))
+            rst.append(item)
+
+        self.success_response({"data":rst})
+        
+ 
