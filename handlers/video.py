@@ -136,28 +136,27 @@ class ChapterStudentVideo(BaseHandler):
 
         self.success_response(result)
 
-@route('/video/course_video_study_rate')
+
+@route('/video/course_study_rate')
 class CourseVideo(BaseHandler):
     def get(self):
         course_id = self.course_id
-        uid_list = self.get_argument("user_id","")
-        stu = uid_list.split(",")
+        uid_list = self.get_param('user_id')
+
+        max_length = 500
+        user_id = [u.strip() for u in uid_list.split(',') if u.strip()][0:max_length]
 
         filter_args = [filter_course(course_id)]
-        filter_args.append(filter_op("terms","uid",stu))
+        filter_args.append(filter_op('terms', 'uid', user_id))
         query = get_base(filter_args)
+        query.update({'size': max_length})
 
-        stu_num = search(self.es,"rollup","course_video_rate",query,search_type="count") 
-        query.update({"size": stu_num })
+        response = self.es_search(index='rollup', doc_type='course_video_rate', body=query) 
+        data = []
+        for doc in response['hits']['hits']:
+            data.append({
+                'user_id': doc['_source']['uid'],
+                'study_rate': doc['_source']['study_rate_open']
+            })
 
-        response = search(self.es,"rollup","course_video_rate",query) 
-        rst = []
-        for doc in response:
-            item = {}
-            item["uid"] = doc.get("_source",{}).get("uid","")
-            item["study_rate"] = float(doc.get("_source",{}).get("study_rate_open","0.00"))
-            rst.append(item)
-
-        self.success_response({"data":rst})
-        
- 
+        self.success_response({'data': data})

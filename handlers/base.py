@@ -20,10 +20,10 @@ class BaseHandler(RequestHandler):
 
         self.write(json_data)
 
-    def error_response(self, error):
+    def error_response(self, error_code, error_msg):
         data = {
-            'success': False,
-            'error': error
+            'error_code': error_code,
+            'error_msg': error_msg
         }
 
         self.write_json(data)
@@ -31,8 +31,8 @@ class BaseHandler(RequestHandler):
 
     def success_response(self, data):
         data.update({
-            'success': True,
-            'error': ''
+            'error_code': 0,
+            'error_msg': ''
         })
 
         self.write_json(data)
@@ -42,28 +42,28 @@ class BaseHandler(RequestHandler):
     def course_id(self):
         course_id = self.get_argument('course_id', None)
         if course_id is None:
-            self.error_response(u'参数错误')
+            self.error_response(200, u'参数错误')
         return course_id
 
     @property
     def chapter_id(self):
         chapter_id = self.get_argument('chapter_id', None)
         if chapter_id is None:
-            self.error_response(u'参数错误')
+            self.error_response(200, u'参数错误')
         return chapter_id
 
     def get_param(self, key, default=None):
         param = self.get_argument(key, default)
         if param is None:
-            self.error_response(u'参数错误')
+            self.error_response(200, u'参数错误')
         return param
 
     def es_search(self, **kwargs):
         try:
             response = self.es.search(**kwargs)
         except (ConnectionError, ConnectionTimeout):
-            self.error_response(u'Elasticsearch 连接错误')
+            self.error_response(100, u'Elasticsearch 连接错误')
         except RequestError, e:
-            self.error_response(u'查询错误: {} - {}'.format(e.status_code, e.error))
+            self.error_response(100, u'查询错误: {} - {}'.format(e.status_code, e.error))
 
         return response
