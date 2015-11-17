@@ -1,8 +1,10 @@
 #! -*- coding: utf-8 -*-
 from .base import BaseHandler
 from utils.routes import route
-from utils.es_utils import *
+from utils.log import Log
+from utils import es_utils
 
+Log.create('video')
 
 @route('/video/chapter_stat')
 class ChapterVideo(BaseHandler):
@@ -141,31 +143,55 @@ class ChapterStudentVideo(BaseHandler):
 class CourseVideo(BaseHandler):
     def get(self):
         course_id = self.course_id
-        uid_list = self.get_param('user_id')
+        user_id = self.get_argument('user_id', None)
 
-        max_length = 1000
-        user_id = [u.strip() for u in uid_list.split(',') if u.strip()][0:max_length]
+        query = {
+            'query': {
+                'filtered': {
+                    'filter': {
+                        'bool': {
+                            'must': [
+                                {'term': {'course_id': course_id}},
+                            ]
+                        }
+                    }
+                }
+            },
+            'size': 0
+        }
 
-        filter_args = [filter_course(course_id)]
-        filter_args.append(filter_op('terms', 'uid', user_id))
-        query = get_base(filter_args)
-        query.update({'size': max_length})
+        if user_id is not None:
+            max_length = 1000
+            user_id = [int(u.strip()) for u in user_id.split(',') if u.strip()][0:max_length]
+            query['query']['filtered']['filter']['bool']['must'].append({
+                'terms': {'uid': user_id}
+            })
+            query['size'] = max_length
+            data = self.es_search(index='rollup', doc_type='course_video_rate', body=query) 
+        else:
+            default_size = 100000
+            query['size'] = default_size
+            data = self.es_search(index='rollup', doc_type='course_video_rate', body=query) 
+            if data['hits']['total'] > default_size:
+                query['size'] = data['hits']['total']
+                data = self.es_search(index='rollup', doc_type='course_video_rate', body=query) 
 
-        response = self.es_search(index='rollup', doc_type='course_video_rate', body=query) 
-        data = []
+        result = []
         users_has_study = set()
-        for doc in response['hits']['hits']:
-            data.append({
-                'user_id': int(doc['_source']['uid']),
-                'study_rate': float(doc['_source']['study_rate_open'])
+        for item in data['hits']['hits']:
+            item_uid = int(item['_source']['uid'])
+            result.append({
+                'user_id': item_uid,
+                'study_rate': float(item['_source']['study_rate_open'])
             })
-            users_has_study.add(doc['_source']['uid'])
+            users_has_study.add(item_uid)
 
-        users_not_study = set(user_id).difference(users_has_study)
-        for item in users_not_study:
-            data.append({
-                'user_id': int(item),
-                'study_rate': 0.000
-            })
+        if user_id:
+            users_not_study = set(user_id).difference(users_has_study)
+            for item in users_not_study:
+                result.append({
+                    'user_id': item,
+                    'study_rate': 0.000
+                })
 
-        self.success_response({'data': data})
+        self.success_response({'data': result})

@@ -1,5 +1,5 @@
-import logging
-log = logging.getLogger("es_utils")
+#! -*- coding: utf-8 -*-
+
 
 def filter_op(op, key, value):
     return {op: {key: value}}
@@ -30,22 +30,4 @@ def get_base(filter_args = [], aggs = {}, size = 100):
 
 def filter_course(course_id):
     return filter_op("term", "course_id", course_id)
-
-
-def search(es,index,doc_type,query,search_type=None,):
-    try:
-        if search_type:
-            res = es.search(body=query,doc_type=doc_type,index=index,search_type=search_type)  
-            size = res.get("hits",{}).get("total",0)
-            return size
-        else:
-            res = es.search(body=query,doc_type=doc_type,index=index)  
-            docs = res.get("hits",{}).get("hits",[])
-            return docs
-    except Exception,e:
-        log.error(str(e))
-        if search_type:
-            return 0
-        else:
-            return []
-        
+ 
