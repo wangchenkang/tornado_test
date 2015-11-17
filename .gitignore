@@ -39,3 +39,6 @@ npm-debug.log
 app/static/js/vendor/
 **/.DS_Store
 bower_components
+
+# config file
+settings.yaml
