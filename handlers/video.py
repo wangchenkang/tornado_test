@@ -153,10 +153,19 @@ class CourseVideo(BaseHandler):
 
         response = self.es_search(index='rollup', doc_type='course_video_rate', body=query) 
         data = []
+        users_has_study = set()
         for doc in response['hits']['hits']:
             data.append({
-                'user_id': doc['_source']['uid'],
-                'study_rate': doc['_source']['study_rate_open']
+                'user_id': int(doc['_source']['uid']),
+                'study_rate': float(doc['_source']['study_rate_open'])
+            })
+            users_has_study.add(doc['_source']['uid'])
+
+        users_not_study = set(user_id).difference(users_has_study)
+        for item in users_not_study:
+            data.append({
+                'user_id': int(item),
+                'study_rate': 0.000
             })
 
         self.success_response({'data': data})
