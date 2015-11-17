@@ -5,6 +5,9 @@ from utils.routes import route
 
 @route('/problem/chapter_stat')
 class ChapterProblem(BaseHandler):
+    """
+
+    """
     def get(self):
         course_id = self.course_id
         chapter_id = self.chapter_id
@@ -175,3 +178,44 @@ class CourseProblemDetail(BaseHandler):
 
 
         self.success_response({'problems': problems})
+
+
+@route('/problem/chapter_grade_stat')
+class ChapterGradeStat(BaseHandler):
+    def get(self):
+        course_id = self.course_id
+        chapter_id = self.chapter_id
+        group_max_number = 10000
+
+        query = {
+            'query': {
+                'filtered': {
+                    'filter': {
+                        'bool': {
+                            'must': [
+                                {'term': {'course_id': course_id}},
+                                {'term': {'chapter_id': chapter_id}},
+                                {'term': {'seq_id': '-1'}}
+                            ]
+                        }
+                    }
+                }
+            },
+            'size': group_max_number
+        }
+        data = self.es_search(index='main', doc_type='grade_group_stu_num', body=query)
+
+        groups = {}
+        for item in data['hits']['hits']:
+            groups[item['_source']['group_id']] = {
+                'group_id': item['_source']['group_id'],
+                'user_num': item['_source']['user_num']
+            }
+
+        data = self.es_search(index='main', doc_type='grade_stu_num', body=query)
+        try:
+            graded_num = data['hits']['hits'][0]['_source']['user_num']
+        except (KeyError, IndexError):
+            graded_num = 0
+
+        self.success_response({'graded_student_num': graded_num, 'groups': groups})
