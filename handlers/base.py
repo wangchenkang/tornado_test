@@ -2,7 +2,7 @@
 import json
 from tornado.web import RequestHandler, Finish
 from tornado.options import options
-from tornado.escape import url_unescape
+from tornado.escape import url_unescape, json_encode
 from elasticsearch import ConnectionError, ConnectionTimeout, RequestError
 
 
