@@ -4,3 +4,4 @@ from .problem import *
 from .status import *
 from .exam import *
 from .course import *
+from .student import *

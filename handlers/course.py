@@ -18,7 +18,7 @@ class CourseActivity(BaseHandler):
         query = { 
             'query': {
                 'filtered': {
-                    'filter': {
+                    'query': {
                         'bool': {
                             'must': [
                                 {'term': {'course_id': course_id}},
@@ -45,3 +45,34 @@ class CourseActivity(BaseHandler):
             result = {}
 
         self.success_response({'data': result})
+
+
+@route('/course/enrollments')
+class CourseEnrollments(BaseHandler):
+    def get(self):
+        default_max_size = 100000
+        query = { 
+            'query': {
+                'filtered': {
+                    'query': {
+                        'bool': {
+                            'must': [
+                                {'term': {'courses': self.course_id}},
+                            ]
+                        }
+                    }
+                }
+            },
+            'size': default_max_size
+        }
+
+        students = []
+        data = self.es_search(index='main', doc_type='student', body=query)
+        if data['hits']['total'] > default_max_size:
+            query['size'] = data['hits']['total']
+            data = self.es_search(index='main', doc_type='student', body=query)
+
+        for item in data['hits']['hits']:
+            students.append(int(item['_source']['uid']))
+
+        self.success_response({'students': students})
