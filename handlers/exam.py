@@ -51,3 +51,49 @@ class StudentStat(BaseHandler):
             }
 
         self.success_response({'exam_student_num': exam_total, 'groups': groups})
+
+
+@route('/exam/content_students_stat')
+class ContentStudentStat(BaseHandler):
+    """
+    考试章内容(library content)学生统计
+    """
+    def get(self):
+        course_id = self.course_id
+        sequential_id = self.get_param('sequential_id')
+        group_max_number = 10000
+
+        query = {
+            'query': {
+                'filtered': {
+                    'query': {
+                        'bool': {
+                            'must': [
+                                {'term': {'course_id': course_id}},
+                                {'term': {'seq_id': sequential_id}},
+                            ]
+                        }
+                    },
+                    'filter': {
+                        'not': {
+                            'filter': {
+                                'term': {'librayc_id': '-1'}
+                            }
+                        }
+                    }
+                }
+            },
+            'size': group_max_number
+        }
+
+        content = {}
+        data = self.es_search(index='main', doc_type='libc_group_stu_num_exam', body=query)
+        for item in data['hits']['hits']:
+            content.setdefault(item['_source']['librayc_id'], {})
+            content[item['_source']['librayc_id']][item['_source']['group_id']] = {
+                'block_id': item['_source']['librayc_id'],
+                'group_id': item['_source']['group_id'],
+                'user_num': item['_source']['user_num']
+            }
+
+        self.success_response({'content_groups': content})

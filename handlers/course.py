@@ -35,14 +35,13 @@ class CourseActivity(BaseHandler):
 
         try:
             source = data['hits']['hits'][0]['_source']
+            result = {
+                'active_num': source['active_num'],
+                'effective_num': source['effective_student_num'],
+                'date': source['date'],
+                'percent': '{:0.4f}'.format(float(source['percent']))
+            }
         except IndexError:
-            self.error_response(101, u'无数据')
-
-        result = {
-            'active_num': source['active_num'],
-            'effective_num': source['effective_student_num'],
-            'date': source['date'],
-            'percent': '{:0.4f}'.format(float(source['percent']))
-        }
+            result = {}
 
         self.success_response({'data': result})
