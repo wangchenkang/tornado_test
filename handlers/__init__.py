@@ -5,3 +5,4 @@ from .status import *
 from .exam import *
 from .course import *
 from .student import *
+from .data import *
