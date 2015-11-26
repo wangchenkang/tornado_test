@@ -68,7 +68,8 @@ class DataBindingOrg(BaseHandler):
         ]
 
         if course_id is not None:
-            filters.append({'term': {'course_id': fix_course_id(course_id)}})
+            course_id = [fix_course_id(item.strip()) for item in course_id.split(',') if item.strip()]
+            filters.append({'terms': {'course_id': course_id}})
 
         if org is not None:
             filters.append({'term': {'binding_org': url_unescape(org)}})
