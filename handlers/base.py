@@ -4,6 +4,7 @@ from tornado.web import RequestHandler, Finish
 from tornado.options import options
 from tornado.escape import url_unescape, json_encode
 from elasticsearch import ConnectionError, ConnectionTimeout, RequestError
+from utils.tools import fix_course_id
 
 
 class BaseHandler(RequestHandler):
@@ -44,8 +45,7 @@ class BaseHandler(RequestHandler):
         course_id = self.get_argument('course_id', None)
         if course_id is None:
             self.error_response(200, u'参数错误')
-        course_id = url_unescape(course_id).replace(' ', '+')
-        return course_id
+        return fix_course_id(course_id)
 
     @property
     def chapter_id(self):

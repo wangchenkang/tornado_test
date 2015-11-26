@@ -36,8 +36,8 @@ class CourseActivity(BaseHandler):
         try:
             source = data['hits']['hits'][0]['_source']
             result = {
-                'active_num': source['active_num'],
-                'effective_num': source['effective_student_num'],
+                'active_num': int(source['active_num']),
+                'effective_num': int(source['effective_student_num']),
                 'date': source['date'],
                 'percent': '{:0.4f}'.format(float(source['percent']))
             }
