@@ -73,6 +73,7 @@ class DataBindingOrg(BaseHandler):
         if org is not None:
             filters.append({'term': {'binding_org': url_unescape(org)}})
 
+        default_size = 100000
         query = {
             'query': {
                 'filtered': {
@@ -82,10 +83,15 @@ class DataBindingOrg(BaseHandler):
                         }
                     }
                 }
-            }
+            },
+            'size': default_size
         }
 
         data = self.es_search(index='dataimport', doc_type='course_data', body=query)
+        if data['hits']['total']> default_size:
+            query['size'] = data['hits']['total']
+            data = self.es_search(index='dataimport', doc_type='course_data', body=query)
+
         courses = {}
         for item in data['hits']['hits']:
             courses.setdefault(item['_source']['data_type'], {})
@@ -134,11 +140,14 @@ class DataDownload(BaseHandler):
         sub_dir = download_file.rstrip('.tar.gz')
         for _dir in os.walk(sub_dir):
             for f in _dir[2]:
-                with codecs.open(os.path.join(sub_dir, f), 'rb', 'utf-8') as fp:
-                    _data = fp.read()
-                with codecs.open(os.path.join(sub_dir, f), 'wb', 'utf-8') as fp:
-                    fp.write(codecs.BOM_UTF8)
-                    fp.write(_data)
+                try:
+                    with codecs.open(os.path.join(sub_dir, f), 'rb', 'utf-8') as fp:
+                        _data = fp.read()
+                    with codecs.open(os.path.join(sub_dir, f), 'wb', 'utf-8') as fp:
+                        fp.write(codecs.BOM_UTF8)
+                        fp.write(_data)
+                except UnicodeDecodeError:
+                    pass
     
         # exec_cmd('rm -rf {}'.format(download_file))
         exec_cmd('mv {} {}'.format(download_file, 'old_' + download_file))
