@@ -3,6 +3,7 @@ import os
 import hashlib
 import time
 import random
+import codecs
 import unicodecsv
 import requests
 import commands
@@ -13,7 +14,9 @@ from elasticsearch import NotFoundError
 from .base import BaseHandler
 from utils.routes import route
 from utils.tools import fix_course_id
+from utils.log import Log
 
+Log.create('data')
 
 @route('/data/export')
 class DataExport(BaseHandler):
@@ -106,7 +109,7 @@ class DataBindingOrg(BaseHandler):
 @route('/data/download')
 class DataDownload(BaseHandler):
 
-    def wget_and_convert(self, data_link, encode):
+    def wget_and_convert(self, data_link, platform):
 
         def exec_cmd(cmd):
             status, out = commands.getstatusoutput(cmd)
@@ -123,7 +126,7 @@ class DataDownload(BaseHandler):
         exec_cmd('wget {}'.format(data_link))
         download_file = data_link.rsplit('/', 1)[1]
 
-        if encode == 'utf-8':
+        if platform == 'unix':
             return tar_file_dir, download_file
 
         exec_cmd('tar -zxvf {}'.format(download_file))
@@ -131,21 +134,25 @@ class DataDownload(BaseHandler):
         sub_dir = download_file.rstrip('.tar.gz')
         for _dir in os.walk(sub_dir):
             for f in _dir[2]:
-                cmd = 'iconv -f GBK -t UTF8 {} > {}'.format(sub_dir + '/' + f, sub_dir + '/utf8_' + f)
-                exec_cmd(cmd)
+                with codecs.open(os.path.join(sub_dir, f), 'rb', 'utf-8') as fp:
+                    _data = fp.read()
+                with codecs.open(os.path.join(sub_dir, f), 'wb', 'utf-8') as fp:
+                    fp.write(codecs.BOM_UTF8)
+                    fp.write(_data)
     
-        exec_cmd('rm -rf {}'.format(download_file))
+        # exec_cmd('rm -rf {}'.format(download_file))
+        exec_cmd('mv {} {}'.format(download_file, 'old_' + download_file))
         exec_cmd('tar -zcvf {} {}'.format(download_file, sub_dir))
 
         return tar_file_dir, download_file
 
     def get(self):
         data_id = self.get_param('id')
-        encode = self.get_argument('encode', 'utf-8').lower()
+        platform = self.get_argument('os', 'unix').lower()
     
-        if encode not in ['gbk', 'utf-8']:
-            encode = 'utf-8'
-    
+        if platform not in ['windows', 'unix']:
+            platform = 'unix'
+
         try:
             record = self.es.get(index='dataimport', doc_type='course_data', id=data_id)
         except NotFoundError:
@@ -161,22 +168,13 @@ class DataDownload(BaseHandler):
             self.set_header('Content-Type', 'text/csv')
             self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
 
-            try:
-                data = response.raw.readlines()
+            if platform == 'windows':
+                self.write(codecs.BOM_UTF8)
+            self.write(response.content)
 
-                f = StringIO()
-                writer = unicodecsv.writer(f, encoding=encode)
-                for line in data:
-                    writer.writerow(line.split(','))
-                self.write(f.read())
-
-            except ValueError:
-                data = response.raw.read()
-                self.write(data)
         else:
-            tmp_dir, tmp_file = self.wget_and_convert(data_url, encode)
+            tmp_dir, tmp_file = self.wget_and_convert(data_url, platform)
             self.set_header('Content-Type', 'application/x-compressed-tar')
             self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
             with open(tmp_dir + tmp_file, 'rb') as f:
                 self.write(f.read())
-
