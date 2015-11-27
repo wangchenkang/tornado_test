@@ -1,5 +1,6 @@
 #! -*- coding: utf-8 -*-
 import os
+import sys
 import hashlib
 import time
 import random
@@ -15,6 +16,9 @@ from .base import BaseHandler
 from utils.routes import route
 from utils.tools import fix_course_id
 from utils.log import Log
+
+reload(sys)
+sys.setdefaultencoding('utf-8')
 
 Log.create('data')
 
@@ -141,14 +145,11 @@ class DataDownload(BaseHandler):
         sub_dir = download_file.rstrip('.tar.gz')
         for _dir in os.walk(sub_dir):
             for f in _dir[2]:
-                try:
-                    with codecs.open(os.path.join(sub_dir, f), 'rb', 'utf-8') as fp:
-                        _data = fp.read()
-                    with codecs.open(os.path.join(sub_dir, f), 'wb', 'utf-8') as fp:
-                        fp.write(codecs.BOM_UTF8)
-                        fp.write(_data)
-                except UnicodeDecodeError:
-                    pass
+                with codecs.open(os.path.join(sub_dir, f), 'rb', 'utf-8') as fp:
+                    _data = fp.read()
+                with codecs.open(os.path.join(sub_dir, f), 'wb', 'utf-8') as fp:
+                    fp.write(codecs.BOM_UTF8)
+                    fp.write(_data)
     
         # exec_cmd('rm -rf {}'.format(download_file))
         exec_cmd('mv {} {}'.format(download_file, 'old_' + download_file))
