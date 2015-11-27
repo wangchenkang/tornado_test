@@ -47,6 +47,48 @@ class CourseActivity(BaseHandler):
         self.success_response({'data': result})
 
 
+@route('/course/grade_distribution')
+class CourseGradeDistribution(BaseHandler):
+    """ 
+    课程成绩分布统计
+    """
+    def get(self):
+        course_id = self.course_id
+        yestoday = utc_to_cst(datetime.utcnow() - timedelta(days=1))
+        date = self.get_argument('date', date_to_query(yestoday))
+    
+        query = { 
+            'query': {
+                'filtered': {
+                    'query': {
+                        'bool': {
+                            'must': [
+                                {'term': {'course_id': course_id}},
+                                {'term': {'date': date}},
+                            ]   
+                        }   
+                    }   
+                }   
+            },  
+            'size': 1
+        }   
+
+        data = self.es_search(index='api1', doc_type='course_grade_distribution', body=query)
+
+        try:
+            source = data['hits']['hits'][0]['_source']
+            result = { 
+                'distribution': source['distribution'],
+                'date': source['date'],
+                'above_average': int(source['above_average']),
+                'student_num': sum(source['distribution'])
+            }   
+        except IndexError:
+            result = {}
+
+        self.success_response({'data': result})
+
+
 @route('/course/enrollments')
 class CourseEnrollments(BaseHandler):
     def get(self):
