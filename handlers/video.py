@@ -58,6 +58,7 @@ class ChapterStudentVideo(BaseHandler):
         uid = self.get_param('user_id')
         students = [u.strip() for u in uid.split(',') if u.strip()]
 
+        default_size = 100000
         query = {
             'query': {
                 'filtered': {
@@ -74,62 +75,30 @@ class ChapterStudentVideo(BaseHandler):
                     }
                 }
             },
-            'aggs': {
-                'sequentials': {
-                    'terms': {
-                        'field': 'sequential_id',
-                        'size': 0
-                    },
-                    'aggs': {
-                        'students': {
-                            'terms': {
-                                'field': 'uid',
-                                'size': 0
-                            },
-                            'aggs': {
-                                'videos': {
-                                    'terms': {
-                                        'field': 'vid',
-                                        'size': 0
-                                    },
-                                    'aggs': {
-                                        'record': {
-                                            'top_hits': {
-                                                'size': 1
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            'size': 0
+            'size': default_size
         }
 
         data = self.es_search(index='main', doc_type='video', body=query)
+        if data['hits']['total'] > default_size:
+            query['size'] = data['hits']['total']
+            data = self.es_search(index='main', doc_type='video', body=query)
+
         chapter_student_stat = {}
-        for sequential in data['aggregations']['sequentials']['buckets']:
-            sequential_id = sequential['key']
+        for item in data['hits']['hits']:
+            sequential_id = item['_source']['sequential_id']
+            student_id = item['_source']['uid']
             chapter_student_stat.setdefault(sequential_id, {})
-            for student in sequential['students']['buckets']:
-                student_id = student['key']
-                chapter_student_stat[sequential_id].setdefault(student_id, [])
-                for video_item in student['videos']['buckets']:
-                    if video_item['doc_count'] == 0:
-                        continue
-                    student_record = video_item['record']['hits']['hits'][0]
-                    student_video_item = {
-                        'video_id': student_record['_source']['vid'],
-                        'review': student_record['_source']['review'],
-                        'review_rate': student_record['_source']['review_rate'],
-                        'watch_num': student_record['_source']['watch_num'],
-                        'duration': student_record['_source']['duration'],
-                        'study_rate': student_record['_source']['study_rate'],
-                        'la_access': student_record['_source']['la_access']
-                    }
-                    chapter_student_stat[sequential_id][student_id].append(student_video_item)
+            chapter_student_stat[sequential_id].setdefault(student_id, [])
+
+            chapter_student_stat[sequential_id][student_id].append({
+                'video_id': item['_source']['vid'],
+                'review': item['_source']['review'],
+                'review_rate': item['_source']['review_rate'],
+                'watch_num': item['_source']['watch_num'],
+                'duration': item['_source']['duration'],
+                'study_rate': item['_source']['study_rate'],
+                'la_access': item['_source']['la_access']
+            })
 
         result = {
             'total': data['hits']['total'],

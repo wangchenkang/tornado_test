@@ -58,6 +58,7 @@ class ChapterStudentProblem(BaseHandler):
         uid = self.get_param('user_id')
         students = [u.strip() for u in uid.split(',') if u.strip()]
 
+        default_size = 100000
         query = {
             'query': {
                 'filtered': {
@@ -72,44 +73,23 @@ class ChapterStudentProblem(BaseHandler):
                     }
                 }
             },
-            'aggs': {
-                'sequentials': {
-                    'terms': {
-                        'field': 'sequential_id',
-                        'size': 0
-                    },
-                    'aggs': {
-                        'students': {
-                            'terms': {
-                                'field': 'user_id',
-                                'size': 0
-                            },
-                            'aggs': {
-                                'record': {
-                                    'top_hits': {'size': 1}
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            'size': 0
+            'size': default_size
         }
 
         data = self.es_search(index='main', doc_type='student_grade', body=query)
+        if data['hits']['total'] > default_size:
+            query['size'] = data['hits']['total']
+            data = self.es_search(index='main', doc_type='student_grade', body=query)
 
         chapter_student_stat = {}
-        for sequential in data['aggregations']['sequentials']['buckets']:
-            sequential_id = sequential['key']
-            chapter_student_stat.setdefault(sequential_id, {}) 
-            for student in sequential['students']['buckets']:
-                if student['doc_count'] == 0:
-                    continue
-                student_id = student['key']
-                student_record = student['record']['hits']['hits'][0]
-                chapter_student_stat[sequential_id][student_id] = { 
-                    'grade_rate': student_record['_source']['grade_rate'],
-                }
+        for item in data['hits']['hits']:
+            sequential_id = item['_source']['sequential_id']
+            student_id = item['_source']['user_id']
+
+            chapter_student_stat.setdefault(sequential_id, {})
+            chapter_student_stat[sequential_id][student_id] = {
+                'grade_rate': item['_source']['grade_rate']
+            }
 
         result = { 
             'total': data['hits']['total'],
@@ -126,6 +106,7 @@ class CourseProblemDetail(BaseHandler):
     def get(self):
         course_id = self.course_id
 
+        default_size = 100000
         query = {
             'query': {
                 'filtered': {
@@ -138,44 +119,26 @@ class CourseProblemDetail(BaseHandler):
                     }
                 }
             },
-            'aggs': {
-                'problems': {
-                    'terms': {
-                        'field': 'problem_id',
-                        'size': 0
-                    },
-                    'aggs': {
-                        'items': {
-                            'terms': {
-                                'field': 'problem_num',
-                                'size': 0
-                            },
-                            'aggs': {
-                                'record': {
-                                    'top_hits': {'size': 1}
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            'size': 0
+            'size': default_size
         }
 
         data = self.es_search(index='course', doc_type='problem_detail', body=query)
-        problems = {}
-        for problem in data['aggregations']['problems']['buckets']:
-            problems.setdefault(problem['key'], {})
-            for item in problem['items']['buckets']:
-                item_detail = item['record']['hits']['hits'][0]
-                problems[problem['key']][item['key']] = {
-                    'detail': item_detail['_source']['detail'],
-                    'answer': item_detail['_source']['answer'],
-                    'problem_type': item_detail['_source']['problem_type'],
-                    'problem_id': item_detail['_source']['problem_id'],
-                    'problem_num': item_detail['_source']['problem_num'],
-                }
+        if data['hits']['total'] > default_size:
+            query['size'] = data['hits']['total']
+            data = self.es_search(index='course', doc_type='problem_detail', body=query)
 
+        problems = {}
+        for item in data['hits']['hits']:
+            problem_id = item['_source']['problem_id']
+            problem_num = item['_source']['problem_num']
+            problems.setdefault(problem_id, {})
+            problems[problem_id][problem_num] = {
+                'detail': item['_source']['detail'],
+                'answer': item['_source']['answer'],
+                'problem_type': item['_source']['problem_type'],
+                'problem_id': item['_source']['problem_id'],
+                'problem_num': item['_source']['problem_num'],
+            }
 
         self.success_response({'problems': problems})
 
