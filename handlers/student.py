@@ -19,8 +19,8 @@ class StudentOrg(BaseHandler):
                     'filter': {
                         'bool': {
                             'must': [
-                                {'term': {'course_id': course_id}},
-                                {'term': {'courses': org}},
+                                {'term': {'courses': course_id}},
+                                {'term': {'binding_org': org}},
                             ]   
                         }   
                     }   

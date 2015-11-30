@@ -58,7 +58,7 @@ class BaseHandler(RequestHandler):
         param = self.get_argument(key, default)
         if param is None:
             self.error_response(200, u'参数错误')
-        return param
+        return url_unescape(param)
 
     def es_search(self, **kwargs):
         try:
