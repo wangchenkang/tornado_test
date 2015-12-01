@@ -359,8 +359,8 @@ class StudentPostTopStat(BaseHandler):
     """
     def get(self):
         course_id = self.course_id
-        top = self.get_param('top', 5)
-        order = self.get_param('order', 'post')
+        top = self.get_argument('top', 5)
+        order = self.get_argument('order', 'post')
 
         order_field = 'comments_total' if order == 'comment' else 'posts_total'
 

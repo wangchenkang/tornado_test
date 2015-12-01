@@ -1,6 +1,6 @@
 #! -*- coding: utf-8 -*-
 import json
-from tornado.web import RequestHandler, Finish
+from tornado.web import RequestHandler, Finish, MissingArgumentError
 from tornado.options import options
 from tornado.escape import url_unescape, json_encode
 from elasticsearch import ConnectionError, ConnectionTimeout, RequestError
@@ -54,11 +54,16 @@ class BaseHandler(RequestHandler):
             self.error_response(200, u'参数错误')
         return chapter_id
 
-    def get_param(self, key, default=None):
-        param = self.get_argument(key, default)
-        if param is None:
+    def get_param(self, key):
+        try:
+            param = self.get_argument(key)
+        except MissingArgumentError:
             self.error_response(200, u'参数错误')
-        return url_unescape(param)
+
+        try:
+            return url_unescape(param)
+        except TypeError:
+            return param
 
     def es_search(self, **kwargs):
         try:

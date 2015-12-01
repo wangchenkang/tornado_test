@@ -11,7 +11,7 @@ class ChapterProblem(BaseHandler):
     def get(self):
         course_id = self.course_id
         chapter_id = self.chapter_id
-        grade_gte = self.get_param('grade_gte', 60)
+        grade_gte = self.get_argument('grade_gte', 60)
         query = { 
             'query': {
                 'filtered': {
