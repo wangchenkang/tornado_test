@@ -38,18 +38,17 @@ class DataExport(BaseHandler):
             data_id = hashlib.md5(course_id + item).hexdigest()
             try:
                 record = self.es.get(index='dataimport', doc_type='course_data', id=data_id)
+                data[item] = {
+                    'id': record['_id'],
+                    'course_id': record['_source']['course_id'],
+                    'data_type': record['_source']['data_type'],
+                    'name': record['_source']['name'],
+                    'data_link': record['_source']['data_link'],
+                    'update_time': record['_source']['update_time'],
+                    'zip_format': record['_source'].get('zip_format', None),
+                }
             except NotFoundError:
                 data[item] = {}
-
-            data[item] = {
-                'id': record['_id'],
-                'course_id': record['_source']['course_id'],
-                'data_type': record['_source']['data_type'],
-                'name': record['_source']['name'],
-                'data_link': record['_source']['data_link'],
-                'update_time': record['_source']['update_time'],
-                'zip_format': record['_source'].get('zip_format', None),
-            }
 
         self.success_response(data)
 
