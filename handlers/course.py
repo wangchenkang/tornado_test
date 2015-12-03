@@ -118,3 +118,31 @@ class CourseEnrollments(BaseHandler):
             students.append(int(item['_source']['uid']))
 
         self.success_response({'students': students})
+
+
+@route('/course/topic_keywords')
+class CourseTopicKeywords(BaseHandler):
+    def get(self):
+        query = {
+            'query': {
+                'filtered': {
+                    'query': {
+                        'bool': {
+                            'must': [
+                                {'term': {'course_id': self.course_id}},
+                            ]
+                        }
+                    }
+                }
+            },
+            'size': 1
+        }
+
+        data = self.es_search(index='rollup', doc_type='course_keywords', body=query)
+        try:
+            source = data['hits']['hits'][0]['_source']
+        except (IndexError, KeyError):
+            source = {}
+
+        self.success_response({'data': source})
+

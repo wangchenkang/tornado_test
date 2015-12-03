@@ -10,7 +10,7 @@ class CourseDiscussion(BaseHandler):
     """
     def get(self):
         course_id = self.course_id
-        query =  { 
+        query =  {
             'query': {
                 'filtered': {
                     'filter': {
@@ -89,7 +89,7 @@ class CourseDailyStat(BaseHandler):
         course_id = self.course_id
         start = self.get_param('start')
         end = self.get_param('end')
-        query =  { 
+        query =  {
             'query': {
                 'filtered': {
                     'filter': {
@@ -147,7 +147,7 @@ class ChapterDiscussion(BaseHandler):
     def get(self):
         course_id = self.get_argument('course_id')
         chapter_id = self.get_argument('chapter_id')
-        query = { 
+        query = {
             'query': {
                 'filtered': {
                     'filter': {
@@ -197,6 +197,7 @@ class ChapterStudentDiscussion(BaseHandler):
         uid = self.get_param('user_id')
         students = [u.strip() for u in uid.split(',') if u.strip()]
 
+        default_size = 100000
         query = {
             'query': {
                 'filtered': {
@@ -209,57 +210,31 @@ class ChapterStudentDiscussion(BaseHandler):
                             ]
                         }
                     }
-                } }, 'aggs': { 'sequentials': { 'terms': { 'field': 'sequential_id',
-                        'size': 0
-                    },
-                    'aggs': {
-                        'students': {
-                            'terms': {
-                                'field': 'uid',
-                                'size': 0
-                            },
-                            'aggs': {
-                                'discussions': {
-                                    'terms': {
-                                        'field': 'item_id',
-                                        'size': 0
-                                    },
-                                    'aggs': {
-                                        'record': {
-                                            'top_hits': {'size': 1}
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
                 }
             },
-            'size': 0
+            'size': default_size
         }
 
         data = self.es_search(index='main', doc_type='discussion', body=query)
+        if data['hits']['total'] > default_size:
+            query['size'] = data['hits']['total']
+            data = self.es_search(index='main', doc_type='discussion', body=query)
 
         chapter_student_stat = {}
-        for sequential in data['aggregations']['sequentials']['buckets']:
-            sequential_id = sequential['key']
+        for item in data['hits']['hits']:
+            sequential_id = item['_source'] ['sequential_id']
+            student_id = item['_source']['uid']
             chapter_student_stat.setdefault(sequential_id, {}) 
-            for student in sequential['students']['buckets']:
-                student_id = student['key']
-                chapter_student_stat[sequential_id].setdefault(student_id, []) 
-                for discussion_item in student['discussions']['buckets']:
-                    if discussion_item['doc_count'] == 0:
-                        continue
-                    student_record = discussion_item['record']['hits']['hits'][0]
-                    student_discussion_item = { 
-                        'item_id': student_record['_source']['item_id'],
-                        'post_num': student_record['_source']['post_num'],
-                        'reply_num': student_record['_source']['reply_num'],
-                        'time': student_record['_source']['time'],
-                    }
-                    chapter_student_stat[sequential_id][student_id].append(student_discussion_item)
+            chapter_student_stat[sequential_id].setdefault(student_id, [])
+            student_discussion_item = {
+                'item_id': item['_source']['item_id'],
+                'post_num': item['_source']['post_num'],
+                'reply_num': item['_source']['reply_num'],
+                'time': item['_source']['time'],
+            }
+            chapter_student_stat[sequential_id][student_id].append(student_discussion_item)
 
-        result = { 
+        result = {
             'total': data['hits']['total'],
             'sequentials': chapter_student_stat
         }
@@ -277,7 +252,7 @@ class CoursePostsNoCommentDaily(BaseHandler):
         start = self.get_param('start')
         end = self.get_param('end')
 
-        query = { 
+        query = {
             'query': {
                 'filtered': {
                     'filter': {
@@ -328,7 +303,7 @@ class CoursePostsNoComment(BaseHandler):
     def get(self):
         course_id = self.course_id
         
-        query = { 
+        query = {
             'query': {
                 'filtered': {
                     'filter': {
@@ -364,7 +339,7 @@ class StudentPostTopStat(BaseHandler):
 
         order_field = 'comments_total' if order == 'comment' else 'posts_total'
 
-        top_query = { 
+        top_query = {
             'query': {
                 'filtered': {
                     'filter': {
@@ -411,7 +386,8 @@ class StudentPostTopStat(BaseHandler):
                 'comments_total': int(item['comments_total']['value'])
             }
 
-        query = { 
+        default_size = 100000
+        query = {
             'query': {
                 'filtered': {
                     'filter': {
@@ -424,46 +400,24 @@ class StudentPostTopStat(BaseHandler):
                     }
                 }
             },
-            'aggs': {
-                'students': {
-                    'terms': {
-                        'field': 'user_id',
-                        'size': 0
-                    },
-                    'aggs': {
-                        'date': {
-                            'terms': {
-                                'field': 'd_day',
-                                'size': 0
-                            },
-                            'aggs': {
-                                'record': {
-                                    'top_hits': {
-                                        'size': 1
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            'size': 0
+            'size': default_size
         }
-        data = self.es_search(index='main', doc_type='user_daily', search_type='count', body=query)
-        for item in data['aggregations']['students']['buckets']:
-            for detail in item['date']['buckets']:
-                record = detail['record']['hits']['hits'][0]
-                students[item['key']].setdefault('detail', {})
-                students[item['key']]['detail'][record['_source']['d_day']] = {
-                    'post_number': record['_source']['post_number'],
-                    'comment_number': record['_source']['comment_number'],
-                    'date': record['_source']['d_day']
+        data = self.es_search(index='main', doc_type='user_daily', body=query)
+        if data['hits']['total'] > default_size:
+            query['size'] = data['hits']['data']
+            data = self.es_search(index='main', doc_type='user_daily', body=query)
+
+        for item in data['hits']['hits']:
+            students[item['_source']['user_id']].setdefault('detail', {})
+            students[item['_source']['user_id']]['detail'][item['_source']['d_day']] = {
+                    'post_number': item['_source']['post_number'],
+                    'comment_number': item['_source']['comment_number'],
+                    'date': item['_source']['d_day']
                 }
 
-            students[item['key']].update({
-                'user_name': record['_source']['user_name'],
-                'group_id': record['_source']['group_id']
-            })
+            students[item['_source']['user_id']].setdefault('user_name', item['_source']['user_name'])
+            students[item['_source']['user_id']].setdefault('group_id', item['_source']['group_id'])
+            students[item['_source']['user_id']].setdefault('user_id', int(item['_source']['group_id']))
 
         students_list = sorted(students.values(), key=lambda x: x['posts_total'], reverse=True)
 
