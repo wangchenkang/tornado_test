@@ -1,5 +1,6 @@
 pytz
 unicodecsv
+xlsxwriter
 PyYAML==3.11
 tornado==4.2.1
 requests==2.8.1

@@ -5,9 +5,9 @@ import hashlib
 import time
 import random
 import codecs
-import unicodecsv
 import requests
 import commands
+import xlsxwriter
 from cStringIO import StringIO
 from tornado.escape import url_unescape
 from tornado.web import HTTPError
@@ -159,9 +159,13 @@ class DataDownload(BaseHandler):
     def get(self):
         data_id = self.get_param('id')
         platform = self.get_argument('os', 'unix').lower()
+        file_format = self.get_argument('format', 'csv').lower()
     
         if platform not in ['windows', 'unix']:
             platform = 'unix'
+
+        if file_format != 'xlsx':
+            file_format = 'csv'
 
         try:
             record = self.es.get(index='dataimport', doc_type='course_data', id=data_id)
@@ -173,14 +177,34 @@ class DataDownload(BaseHandler):
         zip_format = record['_source'].get('zip_format', None)
         
         if zip_format != 'tar':
+            Log.error(data_url)
             response = requests.get(data_url)
+            if not response.content.strip():
+                raise HTTPError(404)
 
-            self.set_header('Content-Type', 'text/csv')
-            self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
+            if file_format == 'xlsx':
+                xlsx_file = StringIO()
+                workbook = xlsxwriter.Workbook(xlsx_file, {'in_memory': True})
+                worksheet = workbook.add_worksheet()
+                lines = response.content.strip().split('\n')
+                for row, line in enumerate(lines):
+                    for col, item in enumerate(line.split(',')):
+                        worksheet.write(row, col, item)
 
-            if platform == 'windows':
-                self.write(codecs.BOM_UTF8)
-            self.write(response.content)
+                workbook.close()
+                xlsx_file.seek(0)
+
+                filename = filename.rsplit('.', 1)[0] + '.xlsx'
+                self.set_header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
+                self.write(xlsx_file.read())
+            else:
+                self.set_header('Content-Type', 'text/csv')
+                self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
+
+                if platform == 'windows':
+                    self.write(codecs.BOM_UTF8)
+                self.write(response.content)
 
         else:
             tmp_dir, tmp_file = self.wget_and_convert(data_url, platform)
