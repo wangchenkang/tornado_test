@@ -6,6 +6,9 @@ import time
 import random
 import codecs
 import requests
+import tarfile
+import shutil
+import tempfile
 import commands
 import xlsxwriter
 from cStringIO import StringIO
@@ -156,6 +159,11 @@ class DataDownload(BaseHandler):
 
         return tar_file_dir, download_file
 
+    def get_temp_dir(self):
+        temp_dir = tempfile.mktemp(prefix='tapapi_', dir='/tmp')
+        os.makedirs(temp_dir)
+        return temp_dir
+
     def get(self):
         data_id = self.get_param('id')
         platform = self.get_argument('os', 'unix').lower()
@@ -176,12 +184,11 @@ class DataDownload(BaseHandler):
         data_url = record['_source']['data_link']
         zip_format = record['_source'].get('zip_format', None)
         
-        if zip_format != 'tar':
-            Log.error(data_url)
-            response = requests.get(data_url)
-            if not response.content.strip():
-                raise HTTPError(404)
+        response = requests.get(data_url)
+        if not response.content.strip():
+            raise HTTPError(404)
 
+        if zip_format != 'tar':
             if file_format == 'xlsx':
                 xlsx_file = StringIO()
                 workbook = xlsxwriter.Workbook(xlsx_file, {'in_memory': True})
@@ -207,8 +214,65 @@ class DataDownload(BaseHandler):
                 self.write(response.content)
 
         else:
-            tmp_dir, tmp_file = self.wget_and_convert(data_url, platform)
-            self.set_header('Content-Type', 'application/x-compressed-tar')
-            self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
-            with open(tmp_dir + tmp_file, 'rb') as f:
-                self.write(f.read())
+            temp_dir = tempfile.mktemp(prefix='tapapi_', dir='/tmp')
+            os.makedirs(temp_dir)
+            temp_tarfile = tempfile.mktemp(suffix='.tar.gz', dir=temp_dir)
+            with open(temp_tarfile, 'wb') as fp:
+                fp.write(response.content)
+
+            tar = tarfile.open(temp_tarfile, 'r:gz')
+            tar.extractall(temp_dir)
+
+            if file_format == 'xlsx':
+                xlsx_file = StringIO()
+                workbook = xlsxwriter.Workbook(xlsx_file, {'in_memory': True})
+                for item in tar:
+                    if not item.isreg():
+                        continue
+
+                    item_filename = os.path.join(temp_dir, item.name)
+                    work_sheet_name = os.path.split(item.name)[-1].rsplit('.', 1)[0]
+                    worksheet = workbook.add_worksheet(work_sheet_name)
+                    with open(item_filename, 'rb') as fp:
+                        lines = fp.read().strip().split('\n')
+                        for row, line in enumerate(lines):
+                            for col, item_content in enumerate(line.split(',')):
+                                worksheet.write(row, col, item_content)
+
+                workbook.close()
+                xlsx_file.seek(0)
+
+                filename = filename.rsplit('.', 1)[0] + '.xlsx'
+                self.set_header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
+
+                self.write(xlsx_file.read())
+            elif os == 'windows':
+                win_tmp_tarfile = tempfile.mktemp(suffix='.tar.gz', dir=temp_dir)
+                win_tarfile = tarfile.open(win_tmp_tarfile, 'w')
+                for item in tar:
+                    if not item.isreg():
+                        continue
+
+                    item_filename = os.path.join(temp_dir, item.name)
+                    with codecs.open(item_filename, 'rb', 'utf-8') as fp:
+                        item_data = fp.read()
+                    with codecs.open(item_filename, 'wb', 'utf-8') as fp:
+                        fp.write(codecs.BOM_UTF8)
+                        fp.write(item_data)
+
+                    win_tarfile.add(item_filename)
+                win_tarfile.close()
+
+                self.set_header('Content-Type', 'application/x-compressed-tar')
+                self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
+
+                with open(win_tmp_tarfile, 'rb') as fp:
+                    self.write(fp.read())
+            else:
+                self.set_header('Content-Type', 'application/x-compressed-tar')
+                self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
+
+                self.write(response.content)
+
+            shutil.rmtree(temp_dir)
