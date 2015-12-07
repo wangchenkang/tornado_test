@@ -76,8 +76,8 @@ class VideoProblemWrong(BaseHandler):
         self.success_response({'data': result})
 
 
-@route('/difficulty/difficulty_detail')
-class VideoProblemWrong(BaseHandler):
+@route('/difficulty/chapter_difficulty_detail')
+class ChapterDifficultyDetail(BaseHandler):
     def get(self):
         course_id = self.course_id
         chapter_id = self.get_param('chapter_id')
