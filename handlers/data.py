@@ -121,44 +121,9 @@ class DataBindingOrg(BaseHandler):
 
 @route('/data/download')
 class DataDownload(BaseHandler):
-
-    def wget_and_convert(self, data_link, platform):
-
-        def exec_cmd(cmd):
-            status, out = commands.getstatusoutput(cmd)
-            if status:
-                Log.error('exec %s failed: {}, out: {}'.format(cmd, out))
-            return status, out 
-
-        tar_file_dir ='/tmp/tapapi/tar_file/{}_{}/'.format(int(time.time()), random.randint(1000, 9999))
-
-        exec_cmd('rm -rf {}'.format(tar_file_dir))
-        exec_cmd('mkdir -p {}'.format(tar_file_dir))
-        os.chdir(tar_file_dir)
-    
-        exec_cmd('wget {}'.format(data_link))
-        download_file = data_link.rsplit('/', 1)[1]
-
-        if platform == 'unix':
-            return tar_file_dir, download_file
-
-        exec_cmd('tar -zxvf {}'.format(download_file))
-    
-        sub_dir = download_file.rstrip('.tar.gz')
-        for _dir in os.walk(sub_dir):
-            for f in _dir[2]:
-                with codecs.open(os.path.join(sub_dir, f), 'rb', 'utf-8') as fp:
-                    _data = fp.read()
-                with codecs.open(os.path.join(sub_dir, f), 'wb', 'utf-8') as fp:
-                    fp.write(codecs.BOM_UTF8)
-                    fp.write(_data)
-    
-        # exec_cmd('rm -rf {}'.format(download_file))
-        exec_cmd('mv {} {}'.format(download_file, 'old_' + download_file))
-        exec_cmd('tar -zcvf {} {}'.format(download_file, sub_dir))
-
-        return tar_file_dir, download_file
-
+    """
+    课程导出文件下载
+    """
     def get_temp_dir(self):
         temp_dir = tempfile.mktemp(prefix='tapapi_', dir='/tmp')
         os.makedirs(temp_dir)
@@ -214,65 +179,66 @@ class DataDownload(BaseHandler):
                 self.write(response.content)
 
         else:
-            temp_dir = tempfile.mktemp(prefix='tapapi_', dir='/tmp')
-            os.makedirs(temp_dir)
-            temp_tarfile = tempfile.mktemp(suffix='.tar.gz', dir=temp_dir)
-            with open(temp_tarfile, 'wb') as fp:
-                fp.write(response.content)
+            try:
+                temp_dir = tempfile.mktemp(prefix='tapapi_', dir='/tmp')
+                os.makedirs(temp_dir)
+                temp_tarfile = tempfile.mktemp(suffix='.tar.gz', dir=temp_dir)
+                with open(temp_tarfile, 'wb') as fp:
+                    fp.write(response.content)
 
-            tar = tarfile.open(temp_tarfile, 'r:gz')
-            tar.extractall(temp_dir)
+                tar = tarfile.open(temp_tarfile, 'r:gz')
+                tar.extractall(temp_dir)
 
-            if file_format == 'xlsx':
-                xlsx_file = StringIO()
-                workbook = xlsxwriter.Workbook(xlsx_file, {'in_memory': True})
-                for item in tar:
-                    if not item.isreg():
-                        continue
+                if file_format == 'xlsx':
+                    xlsx_file = StringIO()
+                    workbook = xlsxwriter.Workbook(xlsx_file, {'in_memory': True})
+                    for item in tar:
+                        if not item.isreg():
+                            continue
 
-                    item_filename = os.path.join(temp_dir, item.name)
-                    work_sheet_name = os.path.split(item.name)[-1].rsplit('.', 1)[0]
-                    worksheet = workbook.add_worksheet(work_sheet_name)
-                    with open(item_filename, 'rb') as fp:
-                        lines = fp.read().strip().split('\n')
-                        for row, line in enumerate(lines):
-                            for col, item_content in enumerate(line.split(',')):
-                                worksheet.write(row, col, item_content)
+                        item_filename = os.path.join(temp_dir, item.name)
+                        work_sheet_name = os.path.split(item.name)[-1].rsplit('.', 1)[0]
+                        worksheet = workbook.add_worksheet(work_sheet_name)
+                        with open(item_filename, 'rb') as fp:
+                            lines = fp.read().strip().split('\n')
+                            for row, line in enumerate(lines):
+                                for col, item_content in enumerate(line.split(',')):
+                                    worksheet.write(row, col, item_content)
 
-                workbook.close()
-                xlsx_file.seek(0)
+                    workbook.close()
+                    xlsx_file.seek(0)
 
-                filename = filename.rsplit('.', 1)[0] + '.xlsx'
-                self.set_header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-                self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
+                    filename = filename.rsplit('.', 1)[0] + '.xlsx'
+                    self.set_header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                    self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
 
-                self.write(xlsx_file.read())
-            elif os == 'windows':
-                win_tmp_tarfile = tempfile.mktemp(suffix='.tar.gz', dir=temp_dir)
-                win_tarfile = tarfile.open(win_tmp_tarfile, 'w')
-                for item in tar:
-                    if not item.isreg():
-                        continue
+                    self.write(xlsx_file.read())
+                elif os == 'windows':
+                    win_tmp_tarfile = tempfile.mktemp(suffix='.tar.gz', dir=temp_dir)
+                    win_tarfile = tarfile.open(win_tmp_tarfile, 'w')
+                    for item in tar:
+                        if not item.isreg():
+                            continue
 
-                    item_filename = os.path.join(temp_dir, item.name)
-                    with codecs.open(item_filename, 'rb', 'utf-8') as fp:
-                        item_data = fp.read()
-                    with codecs.open(item_filename, 'wb', 'utf-8') as fp:
-                        fp.write(codecs.BOM_UTF8)
-                        fp.write(item_data)
+                        item_filename = os.path.join(temp_dir, item.name)
+                        with codecs.open(item_filename, 'rb', 'utf-8') as fp:
+                            item_data = fp.read()
+                        with codecs.open(item_filename, 'wb', 'utf-8') as fp:
+                            fp.write(codecs.BOM_UTF8)
+                            fp.write(item_data)
 
-                    win_tarfile.add(item_filename)
-                win_tarfile.close()
+                        win_tarfile.add(item_filename)
+                    win_tarfile.close()
 
-                self.set_header('Content-Type', 'application/x-compressed-tar')
-                self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
+                    self.set_header('Content-Type', 'application/x-compressed-tar')
+                    self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
 
-                with open(win_tmp_tarfile, 'rb') as fp:
-                    self.write(fp.read())
-            else:
-                self.set_header('Content-Type', 'application/x-compressed-tar')
-                self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
+                    with open(win_tmp_tarfile, 'rb') as fp:
+                        self.write(fp.read())
+                else:
+                    self.set_header('Content-Type', 'application/x-compressed-tar')
+                    self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
+                    self.write(response.content)
 
-                self.write(response.content)
-
-            shutil.rmtree(temp_dir)
+            finally:
+                shutil.rmtree(temp_dir)
