@@ -7,3 +7,4 @@ from .course import *
 from .student import *
 from .data import *
 from .difficulty import *
+from .config import *
