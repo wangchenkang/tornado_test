@@ -132,10 +132,10 @@ class DataDownload(BaseHandler):
     def get(self):
         data_id = self.get_param('id')
         platform = self.get_argument('os', 'unix').lower()
-        file_format = self.get_argument('format', 'csv').lower()
+        file_format = self.get_argument('format', 'xlsx').lower()
     
         if platform not in ['windows', 'unix']:
-            platform = 'unix'
+            platform = 'windows'
 
         if file_format != 'xlsx':
             file_format = 'csv'
@@ -208,12 +208,12 @@ class DataDownload(BaseHandler):
                     workbook.close()
                     xlsx_file.seek(0)
 
-                    filename = filename.rsplit('.', 1)[0] + '.xlsx'
+                    filename = filename.split('.', 1)[0] + '.xlsx'
                     self.set_header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
                     self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
 
                     self.write(xlsx_file.read())
-                elif os == 'windows':
+                elif platform == 'windows':
                     win_tmp_tarfile = tempfile.mktemp(suffix='.tar.gz', dir=temp_dir)
                     win_tarfile = tarfile.open(win_tmp_tarfile, 'w')
                     for item in tar:
@@ -227,7 +227,7 @@ class DataDownload(BaseHandler):
                             fp.write(codecs.BOM_UTF8)
                             fp.write(item_data)
 
-                        win_tarfile.add(item_filename)
+                        win_tarfile.add(item_filename, item.name)
                     win_tarfile.close()
 
                     self.set_header('Content-Type', 'application/x-compressed-tar')
