@@ -1,7 +1,11 @@
 #! -*- coding: utf-8 -*-
+from elasticsearch_dsl import Search
 from .base import BaseHandler
 from utils.routes import route
+from utils.log import Log
 
+
+Log.create('student')
 
 @route('/student/binding_org')
 class StudentOrg(BaseHandler):
@@ -45,3 +49,24 @@ class StudentOrg(BaseHandler):
         self.success_response({'students': students})
 
 
+@route('/student/study_sutdent_list')
+class StudyStudentList(BaseHandler):
+    """
+    获取章学生列表
+    """
+    # TODO: 未完成
+    def get(self):
+        course_id = self.course_id
+        chapter_id = self.get_argument('chapter_id', None)
+
+        default_size = 100000
+
+        grade_query = Search(using=self.es, index='main', doc_type='student_grade')
+        grade_query.filter('term', course_id=course_id)
+        if chapter_id is not None:
+            grade_query.filter('term', chapter_id=chapter_id)
+        grade_result = grade_query.execute()
+
+        Log.error(grade_result)
+
+        self.success_response({'students': ''})
