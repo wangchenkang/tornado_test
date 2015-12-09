@@ -1,5 +1,6 @@
 *.py[co]
 nohup.out
+settings.yaml
 
 # Packages
 *.egg
