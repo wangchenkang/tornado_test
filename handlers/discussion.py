@@ -536,7 +536,7 @@ class CourseRankStat(BaseHandler):
                 'user_num': active_data['active_user_num']
             }
         except IndexError:
-            result['active_user'] = {
+            result['active_stat'] = {
                 'rank': 0,
                 'user_num': 0
             }
