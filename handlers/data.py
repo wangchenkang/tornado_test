@@ -161,7 +161,7 @@ class DataDownload(BaseHandler):
                 lines = response.content.strip().split('\n')
                 for row, line in enumerate(lines):
                     for col, item in enumerate(line.split(',')):
-                        worksheet.write(row, col, item)
+                        worksheet.write(row, col, item.strip('"'))
 
                 workbook.close()
                 xlsx_file.seek(0)
@@ -203,7 +203,7 @@ class DataDownload(BaseHandler):
                             lines = fp.read().strip().split('\n')
                             for row, line in enumerate(lines):
                                 for col, item_content in enumerate(line.split(',')):
-                                    worksheet.write(row, col, item_content)
+                                    worksheet.write(row, col, item_content.strip('"'))
 
                     workbook.close()
                     xlsx_file.seek(0)
