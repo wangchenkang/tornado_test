@@ -1,6 +1,10 @@
 #! -*- coding: utf-8 -*-
 from .base import BaseHandler
 from utils.routes import route
+from utils.log import Log
+from elasticsearch_dsl import Search
+
+Log.create('discussion')
 
 @route('/discussion/course_stat')
 class CourseDiscussion(BaseHandler):
@@ -504,3 +508,73 @@ class StudentRelation(BaseHandler):
             })
 
         self.success_response({'relations': relations})
+
+
+@route('/discussion/course_rank_stat')
+class CourseRankStat(BaseHandler):
+    def get(self):
+
+        result = {}
+        query = Search(using=self.es, index='rollup', doc_type='discuss_active_user_num') \
+                .filter('term', course_id=self.course_id)
+        active_data = query.execute()
+
+        query = Search(using=self.es, index='rollup', doc_type='discuss_average_active_num') \
+                .filter('term', course_id=self.course_id)
+        average_data = query.execute()
+
+        query = Search(using=self.es, index='rollup', doc_type='discuss_replied_percent') \
+                .filter('term', course_id=self.course_id)
+        reply_data = query.execute()
+
+        result['course_num'] = 0
+        try:
+            active_data = active_data[0]
+            result['course_num'] = active_data['owner_course_num']
+            result['active_stat'] = {
+                'rank': active_data['rank'],
+                'user_num': active_data['active_user_num']
+            }
+        except IndexError:
+            result['active_user'] = {
+                'rank': 0,
+                'user_num': 0
+            }
+
+        try:
+            average_data = average_data[0]
+            result['course_num'] = average_data['owner_course_num']
+            result['average_stat'] = {
+                'total_num': average_data['active_num'],
+                'post_num': average_data['post_num'],
+                'reply_num': average_data['reply_num'],
+                'rank': average_data['rank'],
+                'user_average_num': average_data['user_average_active_num']
+            }
+        except IndexError:
+            result['average_stat'] = {
+                'total_num': 0,
+                'post_num': 0,
+                'reply_num': 0,
+                'rank': 0,
+                'user_average_num': 0
+            }
+
+        try:
+            reply_data = reply_data[0]
+            result['course_num'] = reply_data['owner_course_num']
+            result['reply_stat'] = {
+                'no_reply_post_num': reply_data['no_reply_num'],
+                'reply_post_num': reply_data['replied_post_num'],
+                'reply_percent': round(reply_data['replied_percent'], 4),
+                'rank': reply_data['rank']
+            }
+        except IndexError:
+            result['reply_stat'] = {
+                'no_reply_post_num': 0,
+                'reply_post_num': 0,
+                'reply_percent': 0,
+                'rank': 0
+            }
+
+        self.success_response(result)
