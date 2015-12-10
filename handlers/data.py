@@ -132,7 +132,7 @@ class DataDownload(BaseHandler):
     def get(self):
         data_id = self.get_param('id')
         platform = self.get_argument('os', 'unix').lower()
-        file_format = self.get_argument('format', 'xlsx').lower()
+        file_format = self.get_argument('format', 'csv').lower()
     
         if platform not in ['windows', 'unix']:
             platform = 'windows'
