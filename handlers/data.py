@@ -13,7 +13,7 @@ import commands
 import xlsxwriter
 from cStringIO import StringIO
 from tornado.escape import url_unescape
-from tornado.web import HTTPError
+from tornado.web import HTTPError, Finish
 from elasticsearch import NotFoundError
 from .base import BaseHandler
 from utils.routes import route
@@ -132,13 +132,13 @@ class DataDownload(BaseHandler):
     def get(self):
         data_id = self.get_param('id')
         platform = self.get_argument('os', 'unix').lower()
-        file_format = self.get_argument('format', 'csv').lower()
+        file_format = self.get_argument('format', 'xlsx').lower()
     
         if platform not in ['windows', 'unix']:
             platform = 'windows'
 
-        if file_format != 'xlsx':
-            file_format = 'csv'
+        if file_format != 'csv':
+            file_format = 'xlsx'
 
         try:
             record = self.es.get(index='dataimport', doc_type='course_data', id=data_id)
@@ -148,6 +148,7 @@ class DataDownload(BaseHandler):
         filename = record['_source']['name']
         data_url = record['_source']['data_link']
         zip_format = record['_source'].get('zip_format', None)
+        es_file_format = record['_source'].get('file_format', None)
         
         response = requests.get(data_url)
         if not response.content.strip():
@@ -179,6 +180,13 @@ class DataDownload(BaseHandler):
                 self.write(response.content)
 
         else:
+            # 如果打包文件是xlsx则直接返回给用户
+            if es_file_format and es_file_format == 'xlsx':
+                self.set_header('Content-Type', 'application/x-compressed-tar')
+                self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
+                self.write(response.content)
+                raise Finish
+
             try:
                 temp_dir = tempfile.mktemp(prefix='tapapi_', dir='/tmp')
                 os.makedirs(temp_dir)
