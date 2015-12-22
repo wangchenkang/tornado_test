@@ -1,7 +1,9 @@
 #! -*- coding: utf-8 -*-
+from datetime import timedelta
 from .base import BaseHandler
 from utils.routes import route
 from utils.log import Log
+from utils.tools import date_from_query, date_to_query
 from elasticsearch_dsl import Search
 
 Log.create('discussion')
@@ -93,54 +95,30 @@ class CourseDailyStat(BaseHandler):
         course_id = self.course_id
         start = self.get_param('start')
         end = self.get_param('end')
-        query =  {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}},
-                                {'range': {'d_day': {'gte': start, 'lte': end}}}
-                            ]
-                        }
-                    }
-                }
-            },
-            'aggs': {
-                'date': {
-                    'terms': {
-                        'field': 'd_day',
-                        'size': 0
-                    },
-                    'aggs': {
-                        'groups': {
-                            'terms': {'field': 'group_id'},
-                            'aggs': {
-                                'record': {
-                                    'top_hits': {'size': 1}
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            'size': 0
-        }
-        data = self.es_search(index='main', doc_type='group_daily', search_type='count', body=query)
 
-        date_dict = {}
-        for item in data['aggregations']['date']['buckets']:
-            for group in item['groups']['buckets']:
-                group_detail = group['record']['hits']['hits'][0]['_source']
-                date_dict.setdefault(group_detail['d_day'], {})
-                date_dict[group_detail['d_day']][group_detail['group_id']] = {
-                    'group_id': group_detail['group_id'],
-                    'date': group_detail['d_day'],
-                    'post_number': group_detail['post_number'],
-                    'comment_number': group_detail['comment_number']
-                }
+        start = date_from_query(start)
+        end = date_from_query(end)
+        days = (end - start).days + 1
 
-        self.success_response({'date': date_dict})
+        query = Search(using=self.es, index='main', doc_type='group_daily') \
+                .filter('term', course_id=course_id) \
+                .filter('range', **{'d_day': {'gte': start, 'lte': end}})
+        default_size = 100000
+        data = query[:default_size].execute()
+        if data.hits.total > default_size:
+            data = query[:data.hits.total].execute()
+
+        date_list = [date_to_query(start + timedelta(days=d)) for d in xrange(0, days)]
+        date_result = {d: {} for d in date_list}
+        for item in data:
+            date_result[item.d_day][item.group_id] = {
+                'date': item.d_day,
+                'group_id': item.group_id,
+                'post_number': item.post_number,
+                'comment_number': item.comment_number
+            }
+
+        self.success_response({'date': date_result})
 
 
 @route('/discussion/chapter_stat')
@@ -256,47 +234,24 @@ class CoursePostsNoCommentDaily(BaseHandler):
         start = self.get_param('start')
         end = self.get_param('end')
 
-        query = {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}},
-                                {'range': {'date': {'gte': start, 'lte': end}}}
-                            ]
-                        }
-                    }
-                }
-            },
-            'aggs': {
-                'date': {
-                    'terms': {
-                        'field': 'date',
-                        'size': 0
-                    },
-                    'aggs': {
-                        'record': {
-                            'top_hits': {
-                                'size': 1
-                            }
-                        }
-                    }
-                }
-            },
-            'size': 0
-        }
+        start = date_from_query(start)
+        end = date_from_query(end)
+        size = (end - start).days + 1
 
-        data = self.es_search(index='main', doc_type='zero_comment_daily', search_type='count', body=query)
-        date_result = {}
-        for item in data['aggregations']['date']['buckets']:
-            record = item['record']['hits']['hits'][0]
-            date_result[record['_source']['date']] = {
-                'date': record['_source']['date'],
-                'daily_num': record['_source']['daily_num']
-            }
-        
-        self.success_response({'date': date_result})
+        query = Search(using=self.es, index='main', doc_type='discuss_no_reply_daily') \
+                .filter('term', course_id=course_id) \
+                .filter('range', **{'date': {'gte': start, 'lte': end}})[:size]
+        data = query.execute()
+
+        date_list = [date_to_query(start + timedelta(days=d)) for d in xrange(0, size)]
+        date_result = {d: {'date': d, 'num': 0} for d in date_list}
+        for item in data.hits:
+            date_result.update({item.date: {
+                'date': item.date,
+                'num': item.daily_num
+            }})
+
+        self.success_response({'date': sorted(date_result.values(), key=lambda x: x['date'])})
 
 
 @route('/discussion/no_comment_posts')
@@ -307,24 +262,12 @@ class CoursePostsNoComment(BaseHandler):
     def get(self):
         course_id = self.course_id
         
-        query = {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}},
-                            ]
-                        }
-                    }
-                }
-            },
-            'size': 1
-        }
+        query = Search(using=self.es, index='main', doc_type='discuss_no_reply_all') \
+                .filter('term', course_id=self.course_id)
+        data = query.execute()
 
-        data = self.es_search(index='main', doc_type='zero_comment', body=query)
         try:
-            count = data['hits']['hits'][0]['_source']['all_num']
+            count = data[0]['all_num']
         except (KeyError, IndexError):
             count = 0
 

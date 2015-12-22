@@ -13,5 +13,8 @@ def utc_to_cst(dt):
 def date_to_query(dt, time_format='%Y-%m-%d'):
     return dt.strftime(time_format)
 
+def date_from_query(dt_string, time_format='%Y-%m-%d'):
+    return datetime.strptime(dt_string, time_format)
+
 def fix_course_id(course_id):
     return url_unescape(course_id).replace(' ', '+')
