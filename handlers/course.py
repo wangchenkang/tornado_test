@@ -1,10 +1,10 @@
 #! -*- coding: utf-8 -*-
+from __future__ import division
 from datetime import datetime, timedelta
+from elasticsearch_dsl import A
 from .base import BaseHandler
 from utils.routes import route
 from utils.tools import utc_to_cst, date_to_str, datedelta
-from elasticsearch_dsl import A
-import json
 
 
 @route('/course/week_activity')
@@ -13,38 +13,53 @@ class CourseActivity(BaseHandler):
     课程7日活跃统计
     """
     def get(self):
-        course_id = self.course_id
-        yestoday = utc_to_cst(datetime.utcnow() - timedelta(days=1))
-        date = self.get_argument('date', date_to_str(yestoday))
-        
-        query = { 
-            'query': {
-                'filtered': {
-                    'query': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}},
-                                {'term': {'date': date}},
-                            ]
-                        }
-                    }
-                }
-            },
-            'size': 1
-        }
-
-        data = self.es_search(index='api1', doc_type='course_week_active', body=query)
+        query = self.search(index='rollup', doc_type='recent_active_percent') \
+                .filter('term', course_id=self.course_id)[:1]
+        data = query.execute()
 
         try:
-            source = data['hits']['hits'][0]['_source']
+            hit = data.hits[0]
             result = {
-                'active_num': int(source['active_num']),
-                'effective_num': int(source['effective_student_num']),
-                'date': source['date'],
-                'percent': '{:0.4f}'.format(float(source['percent']))
+                'active_user_num': hit.active_user_num,
+                'enroll_user_num': hit.enroll_user_num,
+                'percent': round(hit.active_user_percent, 4),
+                'owner_course_num': hit.owner_course_num,
+                'rank': hit.rank,
+                'overcome': round(hit.rank / hit.owner_course_num, 4)
             }
         except IndexError:
-            result = {}
+            result = {
+                'active_user_num': 0,
+                'enroll_user_num': 0,
+                'percent': 0,
+                'owner_course_num': 0,
+                'rank': 0,
+                'overcome': 0
+            }
+
+        self.success_response({'data': result})
+
+
+@route('/course/register_rank')
+class CourseRegisterRank(BaseHandler):
+    """
+    课程总注册人数统计及排名
+    """
+    def get(self):
+        query = self.search(index='rollup', doc_type='course_user_num_ds') \
+                .filter('term', course_id=self.course_id)
+        data = query.execute()
+        result = {}
+        try:
+            result['user_num'] = data.hits[0].user_num
+            result['owner_course_num'] = data.hits[0].owner_course_num
+            result['rank'] = data.hits[0].rank
+            result['overcome'] = round(data.hits[0].rank / data.hits[0].owner_course_num, 4)
+        except IndexError:
+            result['user_num'] = 0
+            result['owner_course_num'] = 0
+            result['rank'] = 0
+            result['overcome'] = 0
 
         self.success_response({'data': result})
 
@@ -57,23 +72,25 @@ class CourseGradeDistribution(BaseHandler):
     def get(self):
         course_id = self.course_id
         query = self.search(index="api1", doc_type="course_grade_distribution")
-        query = query.filter("term", course_id=self.course_id)\
-                .sort("-date")[:1]
+        query = query.filter("term", course_id=self.course_id).sort("-date")[:1]
         result = query.execute()
         hits = result.hits
         data = {}
         if hits:
             hit = hits[0]
-            data["grade_distribution"] = list(hit.distribution)
-            data["above_average"] = hit.above_average
-            data["total_student_num"] = sum(list(hit.distribution))
+            data["distribution"] = list(hit.distribution)
+            data["above_average"] = int(hit.above_average)
+            data["student_num"] = sum(list(hit.distribution))
+            data["date"] = hit.date
         else:
             data["grade_distribution"] = [0]*50
             data["above_average"] = 0
             data["total_student_num"] = 0
+            data["date"] = ''
         self.success_response({'data': data})
 
-@route('/course/enrollments')
+
+@route('/course/enrollments/count')
 class CourseEnrollments(BaseHandler):
     def get(self):
         is_active = self.get_argument("is_active", "")
@@ -84,12 +101,40 @@ class CourseEnrollments(BaseHandler):
             query = query.filter("term", is_active=False)
         query = query.filter("term", course_id=self.course_id)
         query = query[:0]
+
         results = query.execute()
         total = results.hits.total
-        self.success_response({"data": total})
+        self.success_response({"total": total})
+
+
+@route('/course/enrollments/users')
+class CourseEnrollments(BaseHandler):
+    def get(self):
+        is_active = self.get_argument("is_active", "")
+        query = self.search(index="main", doc_type="enrollment")
+        if is_active == "true":
+            query = query.filter("term", is_active=True)
+        elif is_active == "false":
+            query = query.filter("term", is_active=False)
+        query = query.filter("term", course_id=self.course_id)
+
+        default_max_size = 100000
+        data = query[:default_max_size].execute()
+        if data.hits.total > default_max_size:
+            data = query[:data.hits.total].execute()
+
+        students = []
+        for item in data.hits:
+            students.append(item.uid)
+
+        self.success_response({"students": students, "total": data.hits.total})
+
 
 @route('/course/enrollments_date')
 class CourseEnrollmentsDate(BaseHandler):
+    """
+    课程选课退课每日数据
+    """
     def get(self):
         query = self.search(index="main", doc_type="enrollment")
         end = self.get_param("end")

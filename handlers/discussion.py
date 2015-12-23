@@ -3,7 +3,7 @@ from datetime import timedelta
 from .base import BaseHandler
 from utils.routes import route
 from utils.log import Log
-from utils.tools import date_from_query, date_to_query
+from utils.tools import date_from_query, date_to_str
 from elasticsearch_dsl import Search
 
 Log.create('discussion')
@@ -108,7 +108,7 @@ class CourseDailyStat(BaseHandler):
         if data.hits.total > default_size:
             data = query[:data.hits.total].execute()
 
-        date_list = [date_to_query(start + timedelta(days=d)) for d in xrange(0, days)]
+        date_list = [date_to_str(start + timedelta(days=d)) for d in xrange(0, days)]
         date_result = {d: {} for d in date_list}
         for item in data:
             date_result[item.d_day][item.group_id] = {
@@ -243,7 +243,7 @@ class CoursePostsNoCommentDaily(BaseHandler):
                 .filter('range', **{'date': {'gte': start, 'lte': end}})[:size]
         data = query.execute()
 
-        date_list = [date_to_query(start + timedelta(days=d)) for d in xrange(0, size)]
+        date_list = [date_to_str(start + timedelta(days=d)) for d in xrange(0, size)]
         date_result = {d: {'date': d, 'num': 0} for d in date_list}
         for item in data.hits:
             date_result.update({item.date: {
