@@ -4,6 +4,7 @@ from tornado.web import RequestHandler, Finish, MissingArgumentError
 from tornado.options import options
 from tornado.escape import url_unescape, json_encode
 from elasticsearch import ConnectionError, ConnectionTimeout, RequestError
+from elasticsearch_dsl import Search
 from utils.tools import fix_course_id
 
 
@@ -73,4 +74,8 @@ class BaseHandler(RequestHandler):
         except RequestError, e:
             self.error_response(100, u'查询错误: {} - {}'.format(e.status_code, e.error))
 
+        return response
+
+    def search(self, **kwargs):
+        response = Search(using=self.es, **kwargs)
         return response
