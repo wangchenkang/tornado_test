@@ -176,7 +176,7 @@ class CourseEnrollmentsDate(BaseHandler):
         # 取end的数据
         query = self.search(index="main", doc_type="enrollment")
         start = self.get_param("start")
-        query = query.filter("range", **{'event_time': {'lte': start}})
+        query = query.filter("range", **{'event_time': {'lt': start}})
         query = query.filter("term", course_id=self.course_id)
         query = query[:0]
         query.aggs.bucket('value', "terms", field="is_active", size=2)
@@ -192,11 +192,12 @@ class CourseEnrollmentsDate(BaseHandler):
                 unenroll = x["doc_count"]
         data = sorted(res_dict.values(), key=lambda x: x["date"])
         for item in data:
-            item["total_enroll"] = enroll
-            item["total_unenroll"] = unenroll
-            item["enrollment"] = enroll - unenroll
             enroll += item["enroll"]
             unenroll += item["unenroll"]
+            item["total_enroll"] = enroll + unenroll
+            item["total_unenroll"] = unenroll
+            item["enrollment"] = enroll
+
         self.success_response({"data": data})
 
 
