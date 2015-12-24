@@ -83,9 +83,9 @@ class CourseGradeDistribution(BaseHandler):
             data["student_num"] = sum(list(hit.distribution))
             data["date"] = hit.date
         else:
-            data["grade_distribution"] = [0]*50
+            data["distribution"] = [0]*50
             data["above_average"] = 0
-            data["total_student_num"] = 0
+            data["student_num"] = 0
             data["date"] = ''
         self.success_response({'data': data})
 
