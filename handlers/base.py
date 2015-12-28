@@ -79,3 +79,16 @@ class BaseHandler(RequestHandler):
     def search(self, **kwargs):
         response = Search(using=self.es, **kwargs)
         return response
+
+    def es_query(self, **kwargs):
+        return Search(using=self.es, **kwargs)
+
+    def es_execute(self, query):
+        try:
+            response = query.execute()
+        except (ConnectionError, ConnectionTimeout):
+            self.error_response(100, u'Elasticsearch 连接错误')
+        except RequestError, e:
+            self.error_response(100, u'查询错误: {} - {}'.format(e.status_code, e.error))
+
+        return response
