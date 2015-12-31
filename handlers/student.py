@@ -1,5 +1,4 @@
 #! -*- coding: utf-8 -*-
-from elasticsearch_dsl import Search
 from .base import BaseHandler
 from utils.routes import route
 from utils.log import Log
@@ -61,7 +60,7 @@ class StudyStudentList(BaseHandler):
 
         default_size = 100000
 
-        grade_query = Search(using=self.es, index='main', doc_type='student_grade')
+        grade_query = self.search(index='main', doc_type='student_grade')
         grade_query.filter('term', course_id=course_id)
         if chapter_id is not None:
             grade_query.filter('term', chapter_id=chapter_id)

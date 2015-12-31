@@ -4,7 +4,6 @@ from .base import BaseHandler
 from utils.routes import route
 from utils.log import Log
 from utils.tools import date_from_query, date_to_str
-from elasticsearch_dsl import Search
 
 Log.create('discussion')
 
@@ -100,7 +99,7 @@ class CourseDailyStat(BaseHandler):
         end = date_from_query(end)
         days = (end - start).days + 1
 
-        query = Search(using=self.es, index='main', doc_type='group_daily') \
+        query = self.search(index='main', doc_type='group_daily') \
                 .filter('term', course_id=course_id) \
                 .filter('range', **{'d_day': {'gte': start, 'lte': end}})
         default_size = 100000
@@ -238,7 +237,7 @@ class CoursePostsNoCommentDaily(BaseHandler):
         end = date_from_query(end)
         size = (end - start).days + 1
 
-        query = Search(using=self.es, index='main', doc_type='discuss_no_reply_daily') \
+        query = self.search(index='main', doc_type='discuss_no_reply_daily') \
                 .filter('term', course_id=course_id) \
                 .filter('range', **{'date': {'gte': start, 'lte': end}})[:size]
         data = query.execute()
@@ -262,7 +261,7 @@ class CoursePostsNoComment(BaseHandler):
     def get(self):
         course_id = self.course_id
         
-        query = Search(using=self.es, index='main', doc_type='discuss_no_reply_all') \
+        query = self.search(index='main', doc_type='discuss_no_reply_all') \
                 .filter('term', course_id=self.course_id)
         data = query.execute()
 
@@ -458,15 +457,15 @@ class CourseRankStat(BaseHandler):
     def get(self):
 
         result = {}
-        query = Search(using=self.es, index='rollup', doc_type='discuss_active_user_num') \
+        query = self.search(index='rollup', doc_type='discuss_active_user_num') \
                 .filter('term', course_id=self.course_id)
         active_data = query.execute()
 
-        query = Search(using=self.es, index='rollup', doc_type='discuss_average_active_num') \
+        query = self.search(index='rollup', doc_type='discuss_average_active_num') \
                 .filter('term', course_id=self.course_id)
         average_data = query.execute()
 
-        query = Search(using=self.es, index='rollup', doc_type='discuss_replied_percent') \
+        query = self.search(index='rollup', doc_type='discuss_replied_percent') \
                 .filter('term', course_id=self.course_id)
         reply_data = query.execute()
 
@@ -521,3 +520,43 @@ class CourseRankStat(BaseHandler):
             }
 
         self.success_response(result)
+
+@route('/discussion/chapter_discussion_stat')
+class CourseDiscussionStat(BaseHandler):
+    def get(self):
+
+        result = {}
+        query = self.search(index='api1', doc_type='comment_problem') \
+                .filter('term', course_id=self.course_id)\
+                .filter('term', chapter_id=self.chapter_id)\
+                .sort('-date')[:1]
+        data = query.execute()
+        hit = data.hits
+        result['course_id'] = self.course_id
+        result['chapter_id'] = self.chapter_id
+        if hit:
+            result['students_num'] = int(hit[0].num)
+        else:
+            result['students_num'] = 0
+
+        self.success_response(result)
+
+@route('/discussion/chapter_discussion_detail')
+class CourseChapterDiscussionDetail(BaseHandler):
+    def get(self):
+        result = []
+        query = self.search(index='main', doc_type='discussion') \
+                .filter('term', course_id=self.course_id)\
+                .filter('term', chapter_id=self.chapter_id)[:0]
+        query.aggs.metric('value', "terms", field="item_id")
+        data = query.execute()
+        aggs = data.aggregations
+        buckets = aggs['value']['buckets']
+        for bucket in buckets:
+            d = {}
+            d["item_id"] = bucket["key"]
+            d["count"] = bucket["doc_count"]
+            result.append(d)
+        self.success_response({"data": result})
+
+

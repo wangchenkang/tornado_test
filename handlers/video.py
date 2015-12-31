@@ -164,3 +164,54 @@ class CourseVideo(BaseHandler):
                 })
 
         self.success_response({'data': result})
+
+@route('/video/chapter_video_stat')
+class ChapterVideoStat(BaseHandler):
+    def get(self):
+        result = {}
+        query = self.search(index='api1', doc_type='video_chapter_study_review') \
+                .filter('term', course_id=self.course_id)\
+                .filter('term', chapter_id=self.chapter_id)\
+                .sort('-date')[:1]
+        data = query.execute()
+        hit = data.hits
+        result['course_id'] = self.course_id
+        result['chapter_id'] = self.chapter_id
+        if hit:
+            hit = hit[0]
+            result['study_num'] = int(hit.study_num)
+            result['review_num'] = int(hit.review_num)
+        else:
+            result['study_num'] = 0
+            result['review_num'] = 0
+        self.success_response(result)
+
+@route('/video/chapter_video_detail')
+class CourseChapterVideoDetail(BaseHandler):
+    def get(self):
+        result = []
+        query = self.search(index='main', doc_type='video')\
+                .filter('term', course_id=self.course_id)\
+                .filter('term', chapter_id=self.chapter_id)\
+                .filter('exists', field='watch_num')[:0]
+        query.aggs.bucket("video_watch", "terms", field="vid", size=0)\
+                .metric('num', 'range', field="watch_num", ranges=[{"from": 1, "to": 2}, {"from": 2}])
+        results = query.execute()
+        aggs = results.aggregations
+        buckets = aggs["video_watch"]["buckets"]
+        for bucket in buckets:
+            vid = bucket["key"]
+            items = bucket["num"]["buckets"]
+            num1 = 0
+            num2 = 0
+            for item in items:
+                if item["key"] == "1.0-2.0":
+                    num1 = item["doc_count"]
+                elif item["key"] == "2.0-*":
+                    num2 = item["doc_count"]
+            result.append({
+                "vid": vid,
+                "num1": num1,
+                "num2": num2
+                })
+        self.success_response({"data": result})
