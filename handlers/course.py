@@ -259,7 +259,8 @@ class CourseVideoWatch(BaseHandler):
         query = query.filter("term", course_id=self.course_id)
         end = self.get_param("end")
         start = self.get_param("start")
-        query = query.filter("range", **{'date': {'lte': end, 'gte': start}})
+        query = query.filter("range", **{'date': {'lte': end, 'gte': start}})[:100]
+
         results = query.execute()
         hits = results.hits
         res_dict = {}
