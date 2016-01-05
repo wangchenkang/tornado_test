@@ -207,7 +207,7 @@ class CourseActive(BaseHandler):
         query = self.search(index="rollup", doc_type="course_active")
         end = self.get_param("end")
         start = self.get_param("start")
-        query = query.filter("range", **{'date': {'lte': end, 'gte': start}})
+        query = query.filter("range", **{'date': {'lt': end, 'gte': start}})
         query = query.filter("term", course_id=self.course_id)
         query = query[:100]
         results = query.execute()
@@ -216,19 +216,18 @@ class CourseActive(BaseHandler):
             res_dict[item.date] = {
                 "active": item.active,
                 "inactive": item.inactive,
-                "newinactive": item.newinactive,
+                "new_inactive": item.newinactive,
                 "revival": item.revival,
                 "date": item.date
             }
         item = start
-        end_1 = datedelta(end, 1)
-        while item != end_1:
+        while item != end:
             if not item in res_dict:
                 res_dict[item] = {
                     "date": item, 
                     "active": 0,
                     "inactive": 0,
-                    "newinactive": 0,
+                    "new_inactive": 0,
                     "revival": 0
                 }
             item = datedelta(item, 1)
@@ -307,4 +306,16 @@ class CourseTopicKeywords(BaseHandler):
             source = {}
 
         self.success_response({'data': source})
+
+@route('/course/student_from_tsinghua')
+class CourseTsinghuaStudent(BaseHandler):
+    def get(self):
+        result = 0
+        query = self.search(index='main', doc_type='student')\
+                .filter('term', courses=self.course_id)\
+                .filter('term', binding_org='tsinghua')[:0]
+        data = query.execute()
+        total = data.hits.total
+
+        self.success_response({'data': total})
 
