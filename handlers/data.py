@@ -206,7 +206,7 @@ class DataDownload(BaseHandler):
 
                         item_filename = os.path.join(temp_dir, item.name)
                         work_sheet_name = os.path.split(item.name)[-1].rsplit('.', 1)[0]
-                        worksheet = workbook.add_worksheet(work_sheet_name)
+                        worksheet = workbook.add_worksheet(work_sheet_name[:30])
                         with open(item_filename, 'rb') as fp:
                             lines = fp.read().strip().split('\n')
                             for row, line in enumerate(lines):
