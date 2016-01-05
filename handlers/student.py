@@ -48,6 +48,41 @@ class StudentOrg(BaseHandler):
         self.success_response({'students': students})
 
 
+@route('/student/course_grade')
+class StudentCourseGrade(BaseHandler):
+    """
+    获取课程学生成绩
+    """
+    def get(self):
+        course_id = self.course_id
+        user_id = self.get_argument('user_id', None)
+
+        query = self.es_query(index='main', doc_type='student_course_grade') \
+                .filter('term', course_id=course_id)
+
+        if user_id:
+            students = [u.strip() for u in user_id.split(',') if u.strip()]
+            if students:
+                query = query.filter('terms', user_id=students)
+
+        default_size = 100000
+        data = self.es_execute(query[:default_size])
+        if data.hits.total > default_size:
+            data = self.es_execute(query[:data.hits.total])
+
+        result = []
+        for item in data:
+            result.append({
+                'user_id': item.user_id,
+                'grade': item.grade
+            })
+
+        self.success_response({
+            'data': result,
+            'total': data.hits.total
+        })
+
+
 @route('/student/study_sutdent_list')
 class StudyStudentList(BaseHandler):
     """
