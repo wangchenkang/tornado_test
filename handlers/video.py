@@ -11,40 +11,25 @@ class ChapterVideo(BaseHandler):
     def get(self):
         course_id = self.course_id
         chapter_id = self.chapter_id
-        query = {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}},
-                                {'term': {'chapter_id': chapter_id}},
-                                {'range': {'study_rate': {'gte': 0}}}
-                            ]
-                        }
-                    }
-                }
-            },
-            'aggs': {
-                'sequentials': {
-                    'terms': {
-                        'field': 'sequential_id',
-                        'size': 0
-                    }
-                }
-            },
-            'size': 0
-        }
 
+        query = self.es_query(index='rollup', doc_type='video_student_num_ds') \
+                .filter('term', course_id=course_id) \
+                .filter('term', chapter_id=chapter_id) \
+                .filter('term', video_id='-1')
 
-        data = self.es_search(index='main', doc_type='video', search_type='count', body=query)
+        default_size = 100000
+        data = self.es_execute(query[:default_size])
+        if data.hits.total > default_size:
+            data = self.es_execute(query[:data.hits.total])
+
         video_stat = {
-            'total': data['hits']['total'],
+            'total': data.hits.total,
             'sequentials': {}
         }
-        for item in data['aggregations']['sequentials']['buckets']:
-            video_stat['sequentials'][item['key']] = {
-                'student_num': item['doc_count'],
+        for item in data.hits:
+            video_stat['sequentials'][item.seq_id] = {
+                'student_num': item.view_user_num,
+                'review_num': item.review_user_num
             }
 
         self.success_response(video_stat)
