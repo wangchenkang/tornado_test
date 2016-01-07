@@ -25,7 +25,7 @@ class CourseActivity(BaseHandler):
                 'percent': round(hit.active_user_percent, 4),
                 'owner_course_num': hit.owner_course_num,
                 'rank': hit.rank,
-                'overcome': round(hit.rank / hit.owner_course_num, 4)
+                'overcome': 1 - round(hit.rank / hit.owner_course_num, 4)
             }
         except IndexError:
             result = {
@@ -54,7 +54,7 @@ class CourseRegisterRank(BaseHandler):
             result['user_num'] = data.hits[0].user_num
             result['owner_course_num'] = data.hits[0].owner_course_num
             result['rank'] = data.hits[0].rank
-            result['overcome'] = round(data.hits[0].rank / data.hits[0].owner_course_num, 4)
+            result['overcome'] = 1 - round(data.hits[0].rank / data.hits[0].owner_course_num, 4)
         except IndexError:
             result['user_num'] = 0
             result['owner_course_num'] = 0
