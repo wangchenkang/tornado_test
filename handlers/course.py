@@ -209,7 +209,7 @@ class CourseActive(BaseHandler):
         start = self.get_param("start")
         query = query.filter("range", **{'date': {'lt': end, 'gte': start}})
         query = query.filter("term", course_id=self.course_id)
-        query = query[:100]
+        query = query[:100000]
         results = query.execute()
         res_dict = {}
         for item in results.hits:
