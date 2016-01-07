@@ -182,3 +182,32 @@ class ChapterGradeStat(BaseHandler):
             graded_num = 0
 
         self.success_response({'graded_student_num': graded_num, 'groups': groups})
+
+@route('/problem/chapter_problem_detail')
+class ChapterProblemDetail(BaseHandler):
+    def get(self):
+        result = []
+        query = self.search(index='problem_test', doc_type='problem_user')\
+                .filter('term', course_id=self.course_id, chapter_id=self.chapter_id)[:0]
+        query.aggs.bucket("pid_dim", "terms", field="pid", size=0)\
+                .metric("count", "terms", field="answer_right", size=0)
+        results = query.execute()
+        aggs = results.aggregations
+        buckets = aggs["pid_dim"]["buckets"]
+        for bucket in buckets:
+            pid = bucket["key"]
+            count = bucket["count"]["buckets"]
+            correct = 0
+            incorrect = 0
+            for item in count:
+                if item["key"] == "1":
+                    correct = item["doc_count"]
+                if item["key"] == "0":
+                    incorrect = item["doc_count"]
+            result.append({
+                "subproblem": pid,
+                "correct": correct,
+                "incorrect": incorrect
+                })
+        self.success_response({"data": result})
+
