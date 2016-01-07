@@ -1,6 +1,7 @@
 #! -*- coding: utf-8 -*-
 from .base import BaseHandler
 from utils.routes import route
+import json
 
 
 @route('/problem/chapter_stat')
@@ -211,3 +212,27 @@ class ChapterProblemDetail(BaseHandler):
                 })
         self.success_response({"data": result})
 
+@route('/problem/chapter_student_detail_stat')
+class ChapterProblemDetailStat(BaseHandler):
+    def get(self):
+        result = []
+        uid_str = self.get_argument('uid', "")
+        uid = uid_str.split(',')
+        query = self.search(index='problem_test', doc_type='problem_user')\
+                .filter("term", course_id=self.course_id, 
+                        chapter_id=self.chapter_id,
+                        user_id=uid 
+                        )[:100000]
+        results = query.execute()
+        result_dict = {}
+        for hit in results.hits:
+            correct = 'correct' if hit.answer_right == "1" else "uncorrect"
+            result_dict[hit.user_id] = {
+                'uid': hit.user_id,
+                'grade': float(hit.grade),
+                'pid': hit.pid,
+                'correctness': correct,
+                'value': hit.answer,
+                'last_modified': hit.answer_time
+                }
+        self.success_response({'data': result_dict.values()})
