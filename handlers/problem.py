@@ -220,19 +220,23 @@ class ChapterProblemDetailStat(BaseHandler):
         uid = uid_str.split(',')
         query = self.search(index='main', doc_type='problem_user')\
                 .filter("term", course_id=self.course_id, 
-                        chapter_id=self.chapter_id,
-                        user_id=uid 
-                        )[:100000]
+                        chapter_id=self.chapter_id
+                        )\
+                .filter("terms", user_id=uid)[:10000000]
         results = query.execute()
-        result_dict = {}
         for hit in results.hits:
             correct = 'correct' if hit.answer_right == "1" else "uncorrect"
-            result_dict[hit.user_id] = {
+            answer = hit.answer
+            try:
+                answer = eval(answer)
+            except:
+                pass
+            result.append({
                 'uid': hit.user_id,
                 'grade': float(hit.grade),
                 'pid': hit.pid,
                 'correctness': correct,
-                'value': hit.answer,
+                'value': answer,
                 'last_modified': hit.answer_time
-                }
-        self.success_response({'data': result_dict.values()})
+                })
+        self.success_response({'data': result})
