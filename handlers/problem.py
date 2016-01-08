@@ -2,6 +2,7 @@
 from .base import BaseHandler
 from utils.routes import route
 import json
+import ast
 
 
 @route('/problem/chapter_stat')
@@ -228,7 +229,7 @@ class ChapterProblemDetailStat(BaseHandler):
             correct = 'correct' if hit.answer_right == "1" else "uncorrect"
             answer = hit.answer
             try:
-                answer = eval(answer)
+                answer = ast.literal_eval(answer)
             except:
                 pass
             result.append({
