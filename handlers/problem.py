@@ -188,7 +188,7 @@ class ChapterGradeStat(BaseHandler):
 class ChapterProblemDetail(BaseHandler):
     def get(self):
         result = []
-        query = self.search(index='problem_test', doc_type='problem_user')\
+        query = self.search(index='main', doc_type='problem_user')\
                 .filter('term', course_id=self.course_id, chapter_id=self.chapter_id)[:0]
         query.aggs.bucket("pid_dim", "terms", field="pid", size=0)\
                 .metric("count", "terms", field="answer_right", size=0)
@@ -218,7 +218,7 @@ class ChapterProblemDetailStat(BaseHandler):
         result = []
         uid_str = self.get_argument('uid', "")
         uid = uid_str.split(',')
-        query = self.search(index='problem_test', doc_type='problem_user')\
+        query = self.search(index='main', doc_type='problem_user')\
                 .filter("term", course_id=self.course_id, 
                         chapter_id=self.chapter_id,
                         user_id=uid 
