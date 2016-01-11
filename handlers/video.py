@@ -133,7 +133,11 @@ class CourseVideo(BaseHandler):
         result = []
         users_has_study = set()
         for item in data['hits']['hits']:
-            item_uid = int(item['_source']['uid'])
+            # fix uid: anonymous_id-anonymous_id-e03be04b3e8a30b74b9779ace15e1b50
+            try:
+                item_uid = int(item['_source']['uid'])
+            except ValueError:
+                continue
             result.append({
                 'user_id': item_uid,
                 'study_rate': float(item['_source']['study_rate_open'])
