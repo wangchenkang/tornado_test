@@ -207,17 +207,17 @@ class CourseActive(BaseHandler):
         query = self.search(index="rollup", doc_type="course_active")
         end = self.get_param("end")
         start = self.get_param("start")
-        query = query.filter("range", **{'date': {'lt': end, 'gte': start}})
+        query = query.filter("range", **{'date': {'lte': end, 'gte': start}})
         query = query.filter("term", course_id=self.course_id)
         query = query[:100000]
         results = query.execute()
         res_dict = {}
         for item in results.hits:
             res_dict[item.date] = {
-                "active": item.active,
-                "inactive": item.inactive,
-                "new_inactive": item.newinactive,
-                "revival": item.revival,
+                "active": getattr(item, 'active', 0),
+                "inactive": getattr(item, 'inactive', 0),
+                "new_inactive": getattr(item, 'newinactive', 0),
+                "revival": getattr(item, 'revival', 0),
                 "date": item.date
             }
         item = start
