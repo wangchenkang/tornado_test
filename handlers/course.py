@@ -118,7 +118,7 @@ class CourseEnrollments(BaseHandler):
             query = query.filter("term", is_active=False)
         query = query.filter("term", course_id=self.course_id)
 
-        default_max_size = 100000
+        default_max_size = 0
         data = query[:default_max_size].execute()
         if data.hits.total > default_max_size:
             data = query[:data.hits.total].execute()
@@ -204,12 +204,18 @@ class CourseEnrollmentsDate(BaseHandler):
 @route('/course/active_num')
 class CourseActive(BaseHandler):
     def get(self):
-        query = self.search(index="rollup", doc_type="course_active")
         end = self.get_param("end")
         start = self.get_param("start")
-        query = query.filter("range", **{'date': {'lte': end, 'gte': start}})
-        query = query.filter("term", course_id=self.course_id)
-        query = query[:100000]
+        query = self.search(index="rollup", doc_type="course_active")\
+                .filter("range", **{'date': {'lte': end, 'gte': start}})\
+                .filter("term", course_id=self.course_id)
+        query = query[:0]
+        results = query.execute()
+        total = results.hits.total
+        query = self.search(index="rollup", doc_type="course_active")\
+                .filter("range", **{'date': {'lte': end, 'gte': start}})\
+                .filter("term", course_id=self.course_id)
+        query = query[:total]
         results = query.execute()
         res_dict = {}
         for item in results.hits:

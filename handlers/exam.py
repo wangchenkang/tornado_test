@@ -49,7 +49,7 @@ class StudentStat(BaseHandler):
     def get(self):
         course_id = self.course_id
         sequential_id = self.get_param('sequential_id')
-        group_max_number = 10000
+        group_max_number = 0
 
         query = {
             'query': {
@@ -99,7 +99,7 @@ class ContentStudentStat(BaseHandler):
     def get(self):
         course_id = self.course_id
         sequential_id = self.get_param('sequential_id')
-        group_max_number = 10000
+        group_max_number = 0
 
         query = {
             'query': {
@@ -161,7 +161,7 @@ class StudentGrade(BaseHandler):
         sequential_id = self.get_param('sequential_id')
         user_id = self.get_argument('user_id', None)
 
-        defautl_max_size = 100000
+        defautl_max_size = 0
         query = {
             'query': {
                 'filtered': {
@@ -208,7 +208,7 @@ class StudentGradeDetail(BaseHandler):
         sequential_id = self.get_param('sequential_id')
         user_id = self.get_argument('user_id', None)
 
-        defautl_max_size = 100000
+        defautl_max_size = 0
         query = {
             'query': {
                 'filtered': {

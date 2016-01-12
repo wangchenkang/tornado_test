@@ -12,7 +12,7 @@ class ChapterReviewDetail(BaseHandler):
     def get(self):
         course_id = self.course_id
         chapter_id = self.get_param('chapter_id')
-        default_size = 100000
+        default_size = 0
         query = {
             'query': {
                 'filtered': {
@@ -47,7 +47,7 @@ class VideoProblemWrong(BaseHandler):
         course_id = self.course_id
         chapter_id = self.get_param('chapter_id')
 
-        default_size = 100000
+        default_size = 0
         query = {
             'query': {
                 'filtered': {
@@ -82,7 +82,7 @@ class ChapterDifficultyDetail(BaseHandler):
         course_id = self.course_id
         chapter_id = self.get_param('chapter_id')
 
-        default_size = 100000
+        default_size = 0
         query = {
             'query': {
                 'filtered': {
@@ -116,7 +116,7 @@ class ChapterVideoDurationStat(BaseHandler):
     def get(self):
         course_id = self.course_id
 
-        default_size = 100000
+        default_size = 0
         query = {
             'query': {
                 'filtered': {
@@ -153,7 +153,7 @@ class ChapterReviewDurationStat(BaseHandler):
     def get(self):
         course_id = self.course_id
 
-        default_size = 100000
+        default_size = 0
         query = {
             'query': {
                 'filtered': {
@@ -190,7 +190,7 @@ class ChapterProblemStat(BaseHandler):
     def get(self):
         course_id = self.course_id
 
-        default_size = 100000
+        default_size = 0
         query = {
             'query': {
                 'filtered': {

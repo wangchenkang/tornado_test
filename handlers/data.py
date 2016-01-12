@@ -80,7 +80,7 @@ class DataBindingOrg(BaseHandler):
         if org is not None:
             filters.append({'term': {'binding_org': url_unescape(org)}})
 
-        default_size = 100000
+        default_size = 0
         query = {
             'query': {
                 'filtered': {

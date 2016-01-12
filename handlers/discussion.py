@@ -102,7 +102,7 @@ class CourseDailyStat(BaseHandler):
         query = self.search(index='main', doc_type='group_daily') \
                 .filter('term', course_id=course_id) \
                 .filter('range', **{'d_day': {'gte': start, 'lte': end}})
-        default_size = 100000
+        default_size = 0
         data = query[:default_size].execute()
         if data.hits.total > default_size:
             data = query[:data.hits.total].execute()
@@ -178,7 +178,7 @@ class ChapterStudentDiscussion(BaseHandler):
         uid = self.get_param('user_id')
         students = [u.strip() for u in uid.split(',') if u.strip()]
 
-        default_size = 100000
+        default_size = 0
         query = {
             'query': {
                 'filtered': {
@@ -332,7 +332,7 @@ class StudentPostTopStat(BaseHandler):
                 'comments_total': int(item['comments_total']['value'])
             }
 
-        default_size = 100000
+        default_size = 0
         query = {
             'query': {
                 'filtered': {
@@ -350,7 +350,7 @@ class StudentPostTopStat(BaseHandler):
         }
         data = self.es_search(index='main', doc_type='user_daily', body=query)
         if data['hits']['total'] > default_size:
-            query['size'] = data['hits']['data']
+            query['size'] = data['hits']['total']
             data = self.es_search(index='main', doc_type='user_daily', body=query)
 
         for item in data['hits']['hits']:

@@ -15,7 +15,7 @@ class StudentOrg(BaseHandler):
         course_id = self.course_id
         org = self.get_param('org')
     
-        default_size = 100000
+        default_size = 0
         query = { 
             'query': {
                 'filtered': {
@@ -65,7 +65,7 @@ class StudentCourseGrade(BaseHandler):
             if students:
                 query = query.filter('terms', user_id=students)
 
-        default_size = 100000
+        default_size = 0
         data = self.es_execute(query[:default_size])
         if data.hits.total > default_size:
             data = self.es_execute(query[:data.hits.total])
@@ -93,7 +93,7 @@ class StudyStudentList(BaseHandler):
         course_id = self.course_id
         chapter_id = self.get_argument('chapter_id', None)
 
-        default_size = 100000
+        default_size = 0
 
         grade_query = self.search(index='main', doc_type='student_grade')
         grade_query.filter('term', course_id=course_id)
@@ -188,14 +188,13 @@ class StudentCourses(BaseHandler):
         enrollment_query = self.es_query(index='main', doc_type='enrollment') \
                 .filter('term', uid=user_id).filter('term', is_active=True)[:10000]
         enrollment_data = self.es_execute(enrollment_query)
-
         video_rate_query = self.es_query(index='rollup', doc_type='course_video_rate') \
                 .filter('term', uid=user_id)[:10000]
         video_rate_data = self.es_execute(video_rate_query)
 
         video_query = self.es_query(index='main', doc_type='video') \
                 .filter('term', uid=user_id)
-        default_size = 100000
+        default_size = 0
         video_data = self.es_execute(video_query[:default_size])
         if video_data.hits.total > default_size:
             video_data = self.es_execute(video_query[:video_data.hits.total])

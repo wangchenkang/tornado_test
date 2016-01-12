@@ -17,7 +17,7 @@ class ChapterVideo(BaseHandler):
                 .filter('term', chapter_id=chapter_id) \
                 .filter('term', video_id='-1')
 
-        default_size = 100000
+        default_size = 0
         data = self.es_execute(query[:default_size])
         if data.hits.total > default_size:
             data = self.es_execute(query[:data.hits.total])
@@ -43,7 +43,7 @@ class ChapterStudentVideo(BaseHandler):
         uid = self.get_param('user_id')
         students = [u.strip() for u in uid.split(',') if u.strip()]
 
-        default_size = 100000
+        default_size = 0
         query = {
             'query': {
                 'filtered': {
@@ -123,7 +123,7 @@ class CourseVideo(BaseHandler):
             query['size'] = max_length
             data = self.es_search(index='rollup', doc_type='course_video_rate', body=query) 
         else:
-            default_size = 100000
+            default_size = 0
             query['size'] = default_size
             data = self.es_search(index='rollup', doc_type='course_video_rate', body=query) 
             if data['hits']['total'] > default_size:

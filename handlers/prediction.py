@@ -22,7 +22,7 @@ class CertificatePrediction(BaseHandler):
         except IndexError:
             update_date = None
 
-        default_max_size = 100000
+        default_max_size = 0
         data_query = query.filter('term', update=update_date)[:0]
         data_query.aggs.metric('prob_total', 'sum', field='probability')
 
@@ -50,7 +50,7 @@ class DropoutPrediction(BaseHandler):
         except IndexError:
             update_date = None
 
-        default_max_size = 100000
+        default_max_size = 0
         data_query = query.filter('term', update=update_date)[:0]
         data_query.aggs.metric('prob_total', 'sum', field='probability')
 
