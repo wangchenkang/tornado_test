@@ -3,7 +3,7 @@ from .base import BaseHandler
 from utils.routes import route
 from utils.log import Log
 from utils.tools import date_to_str
-
+from elasticsearch_dsl import F
 Log.create('student')
 
 @route('/student/binding_org')
@@ -83,27 +83,32 @@ class StudentCourseGrade(BaseHandler):
         })
 
 
-@route('/student/study_sutdent_list')
+@route('/student/study_student_list')
 class StudyStudentList(BaseHandler):
     """
     获取章学生列表
     """
     # TODO: 未完成
     def get(self):
-        course_id = self.course_id
-        chapter_id = self.get_argument('chapter_id', None)
-
-        default_size = 0
-
-        grade_query = self.search(index='main', doc_type='student_grade')
-        grade_query.filter('term', course_id=course_id)
-        if chapter_id is not None:
-            grade_query.filter('term', chapter_id=chapter_id)
-        grade_result = grade_query.execute()
-
-        Log.error(grade_result)
-
-        self.success_response({'students': ''})
+        chapter_id = self.get_param('chapter_id')
+        query = self.search(index='main', doc_type='problem_user')\
+                .filter('term', course_id=self.course_id)\
+                .filter('term', chapter_id=chapter_id)[:0]
+        query.aggs.metric('student', 'terms', field='user_id', size=0)
+        results = query.execute()
+        buckets = results.aggregations.student.buckets
+        uids = map(lambda x: x["key"], buckets)
+        query = self.search(index='main', doc_type='enrollment')\
+                .filter('term', course_id=self.course_id)\
+                .filter('term', is_active=True)\
+                .filter(~F('terms', uid=uids))
+        results = query[:0].execute()
+        total = results.hits.total
+        results = query[:total].execute()
+        hits = results.hits
+        _uids = map(lambda x: x.uid, hits)
+        uids.extend(_uids)
+        self.success_response({'data': uids})
 
 
 @route('/student/study_period')
