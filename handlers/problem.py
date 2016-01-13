@@ -221,16 +221,14 @@ class ChapterProblemDetailStat(BaseHandler):
         uid_str = self.get_argument('uid', "")
         uid = uid_str.split(',')
         query = self.search(index='main', doc_type='problem_user')\
-                .filter("term", course_id=self.course_id,
-                        chapter_id=self.chapter_id
-                        )\
+                .filter("term", course_id=self.course_id)\
+                .filter("term", chapter_id=self.chapter_id)\
                 .filter("terms", user_id=uid)[:0]
         results = query.execute()
         total = results.hits.total
         query = self.search(index='main', doc_type='problem_user')\
-                .filter("term", course_id=self.course_id, 
-                        chapter_id=self.chapter_id
-                        )\
+                .filter("term", course_id=self.course_id)\
+                .filter("term", chapter_id=self.chapter_id)\
                 .filter("terms", user_id=uid)[:total]
         results = query.execute()
         for hit in results.hits:
