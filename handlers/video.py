@@ -158,21 +158,24 @@ class CourseVideo(BaseHandler):
 class ChapterVideoStat(BaseHandler):
     def get(self):
         result = {}
-        query = self.search(index='api1', doc_type='video_chapter_study_review') \
-                .filter('term', course_id=self.course_id)\
-                .filter('term', chapter_id=self.chapter_id)\
-                .sort('-date')[:1]
+        query = self.search(index='rollup', doc_type='video_student_num_ds') \
+                .filter('term', course_id=self.course_id) \
+                .filter('term', chapter_id=self.chapter_id) \
+                .filter('term', seq_id='-1') \
+                .filter('term', video_id='-1')
+
         data = query.execute()
         hit = data.hits
         result['course_id'] = self.course_id
         result['chapter_id'] = self.chapter_id
         if hit:
             hit = hit[0]
-            result['study_num'] = int(hit.study_num)
-            result['review_num'] = int(hit.review_num)
+            result['study_num'] = int(hit.view_user_num)
+            result['review_num'] = int(hit.review_user_num)
         else:
             result['study_num'] = 0
             result['review_num'] = 0
+
         self.success_response(result)
 
 @route('/video/chapter_video_detail')

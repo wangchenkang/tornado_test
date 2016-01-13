@@ -190,9 +190,10 @@ class ChapterProblemDetail(BaseHandler):
     def get(self):
         result = []
         query = self.search(index='main', doc_type='problem_user')\
-                .filter('term', course_id=self.course_id, chapter_id=self.chapter_id)[:0]
+                .filter('term', course_id=self.course_id)\
+                .filter('term', chapter_id=self.chapter_id)[:0]
         query.aggs.bucket("pid_dim", "terms", field="pid", size=0)\
-                .metric("count", "terms", field="answer_right", size=0)
+                .bucket("count", "terms", field="answer_right", size=0)
         results = query.execute()
         aggs = results.aggregations
         buckets = aggs["pid_dim"]["buckets"]
