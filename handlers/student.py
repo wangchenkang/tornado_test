@@ -172,14 +172,38 @@ class StudentInformation(BaseHandler):
         enrollment_query = self.es_query(index='main', doc_type='enrollment') \
                 .filter('term', uid=user_id).filter('term', is_active=True)[:10000]
         enrollment_data = self.es_execute(enrollment_query)
+
+        comment_len_query = self.es_query(index='rollup', doc_type='user_average_comment_length') \
+                .filter('term', user_id=user_id)[:1]
+        comment_len_data = self.es_execute(comment_len_query)
+        try:
+            comment_avg_length = comment_len_data.hits[0].comment_average_length
+        except IndexError:
+            comment_avg_length = 0
+
+        first_course_query = self.es_query(index='rollup', doc_type='user_first_course') \
+                .filter('term', user_id=user_id)[:1]
+        first_course_data = self.es_execute(first_course_query)
+        try:
+            first_course = {
+                'course_id': first_course_data.hits[0].first_course_id,
+                'course_name': first_course_data.hits[0].first_course_name,
+                'time_delta': first_course_data.hits[0].first_course_time_delta
+            }
+        except IndexError:
+            first_course = {}
+
         courses = []
         for item in enrollment_data.hits:
             courses.append(item.course_id)
 
         self.success_response({
+            'user_id': user_id,
             'post_total': post_total,
             'comment_total': comment_total,
-            'courses': courses
+            'comment_avg_length': comment_avg_length,
+            'courses': courses,
+            'first_course': first_course
         })
 
 
@@ -203,21 +227,22 @@ class StudentCourses(BaseHandler):
                 .filter('term', uid=user_id)[:10000]
         video_rate_data = self.es_execute(video_rate_query)
 
-        video_query = self.es_query(index='main', doc_type='video') \
+        video_query = self.es_query(index='rollup', doc_type='course_video_study_length') \
                 .filter('term', uid=user_id)
-        default_size = 0
-        video_data = self.es_execute(video_query[:default_size])
-        if video_data.hits.total > default_size:
-            video_data = self.es_execute(video_query[:video_data.hits.total])
+        video_data = self.es_execute(video_query[:0])
+        video_data = self.es_execute(video_query[:video_data.hits.total])
 
         courses = {}
         for item in enrollment_data.hits:
             courses[item.course_id] = {
+                'user_id': user_id,
                 'course_id': item.course_id,
                 'time': item.event_time,
                 'post_total': 0,
                 'comment_total': 0,
-                'video_rate': 0
+                'video_rate': 0,
+                'video_count': 0,
+                'video_length': 0
             }
 
         for item in data.aggregations.course.buckets:
@@ -238,11 +263,31 @@ class StudentCourses(BaseHandler):
         for item in video_data.hits:
             if item.course_id not in courses:
                 continue
-            courses[item.course_id].setdefault('video_count', 0)
-            courses[item.course_id].setdefault('video_length', 0)
-            item_study_length = int(int(item.duration) * float(item.study_rate))
-            if item_study_length > 0:
-                courses[item.course_id]['video_count'] += 1
-                courses[item.course_id]['video_length'] += item_study_length
+            courses[item.course_id]['video_count'] = item.video_count
+            courses[item.course_id]['video_length'] = item.study_length
 
         self.success_response({'courses': courses.values()})
+
+
+@route('/staff/information')
+class StaffInformation(BaseHandler):
+    def get(self):
+        user_id = self.get_param('user_id')
+
+        staff_query = self.es_query(index='rollup', doc_type='user_staff_statistics') \
+                .filter('term', user_id=user_id)[:1]
+        staff_data = self.es_execute(staff_query)
+
+        try:
+            staff = staff_data.hits[0]
+            self.success_response({
+                'is_staff': True,
+                'students_num': staff.staff_student_num,
+                'pass_students_num': staff.staff_pass_students_num,
+                'user_id': staff.user_id,
+                'comment_num': staff.staff_comment_num,
+                'comment_avg_length': staff.staff_pass_students_num,
+                'days': staff.staff_days,
+            })
+        except IndexError:
+            self.success_response({'is_staff': False})
