@@ -101,15 +101,21 @@ class StudyStudentList(BaseHandler):
         query = self.search(index='main', doc_type='enrollment')\
                 .filter('term', course_id=self.course_id)\
                 .filter('term', is_active=True)\
+                .filter('terms', uid=uids)[:len(uids)]
+        results = query.execute()
+        hits = results.hits
+        uid_list = map(lambda x: x.uid, hits)
+        query = self.search(index='main', doc_type='enrollment')\
+                .filter('term', course_id=self.course_id)\
+                .filter('term', is_active=True)\
                 .filter(~F('terms', uid=uids))
         results = query[:0].execute()
         total = results.hits.total
         results = query[:total].execute()
         hits = results.hits
         _uids = map(lambda x: x.uid, hits)
-        uids.extend(_uids)
-        self.success_response({'data': uids})
-
+        uid_list.extend(_uids)
+        self.success_response({'data': uid_list})
 
 @route('/student/study_period')
 class StudyPeriod(BaseHandler):
