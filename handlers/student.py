@@ -202,13 +202,21 @@ class StudentInformation(BaseHandler):
         for item in enrollment_data.hits:
             courses.append(item.course_id)
 
+
+        # if staff
+        staff_query = self.es_query(index='rollup', doc_type='user_staff_statistics') \
+                .filter('term', user_id=user_id)[:0]
+        staff_data = self.es_execute(staff_query)
+        is_staff = True if staff_data.hits.total else False
+
         self.success_response({
             'user_id': user_id,
             'post_total': post_total,
             'comment_total': comment_total,
             'comment_avg_length': comment_avg_length,
             'courses': courses,
-            'first_course': first_course
+            'first_course': first_course,
+            'is_staff': is_staff
         })
 
 
