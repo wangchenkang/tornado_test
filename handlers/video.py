@@ -95,6 +95,9 @@ class ChapterStudentVideo(BaseHandler):
 
 @route('/video/course_study_rate')
 class CourseVideo(BaseHandler):
+    """
+    spoc 接口需求：获取课程用户视频观看覆盖率
+    """
     def get(self):
         course_id = self.course_id
         user_id = self.get_argument('user_id', None)
@@ -153,6 +156,47 @@ class CourseVideo(BaseHandler):
                 })
 
         self.success_response({'data': result})
+
+
+@route('/video/course_study_detail')
+class CourseStudyDetail(BaseHandler):
+    """
+    spoc 接口需求：课程视频观看详情
+    """
+    def get(self):
+        course_id = self.course_id
+        user_id = self.get_argument('user_id', None)
+
+        query = self.es_query(index='main', doc_type='video') \
+                .filter('term', course_id=course_id) \
+                .filter('exists', field='duration')
+        max_length = 1000
+        if user_id is not None:
+            user_id = [u.strip() for u in user_id.split(',') if u.strip()][0:max_length]
+            query = query.filter('terms', uid=user_id)
+
+        data = self.es_execute(query[:0])
+        data = self.es_execute(query[:data.hits.total])
+
+        results = []
+        for item in data.hits:
+            try:
+                item_uid = int(item.uid)
+            except ValueError:
+                continue
+            results.append({
+                'user_id': item_uid,
+                'chapter_id': item.chapter_id,
+                'sequential_id': item.sequential_id,
+                'vertical_id': item.vertical_id,
+                'video_id': item.vid,
+                'watch_num': item.watch_num,
+                'video_length': item.duration,
+                'study_rate': float(item.study_rate)
+            })
+
+        self.success_response({'total': data.hits.total, 'data': results})
+
 
 @route('/video/chapter_video_stat')
 class ChapterVideoStat(BaseHandler):
