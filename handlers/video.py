@@ -43,51 +43,47 @@ class ChapterStudentVideo(BaseHandler):
         uid = self.get_param('user_id')
         students = [u.strip() for u in uid.split(',') if u.strip()]
 
-        default_size = 0
-        query = {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}},
-                                {'term': {'chapter_id': chapter_id}},
-                                {'terms': {'uid': students}},
-                                {'exists': {'field': 'duration'}},
-                                {'exists': {'field': 'study_rate'}}
-                            ]
-                        }
-                    }
-                }
-            },
-            'size': default_size
-        }
+        video_query = self.es_query(index='main', doc_type='video') \
+                .filter('term', course_id=course_id) \
+                .filter('term', chapter_id=chapter_id) \
+                .filter('exists', field='duration') \
+                .filter('exists', field='study_rate') \
+                .filter('terms', uid=students)
 
-        data = self.es_search(index='main', doc_type='video', body=query)
-        if data['hits']['total'] > default_size:
-            query['size'] = data['hits']['total']
-            data = self.es_search(index='main', doc_type='video', body=query)
+        video_data = self.es_execute(video_query[:0])
+        video_data = self.es_execute(video_query[:video_data.hits.total])
 
         chapter_student_stat = {}
-        for item in data['hits']['hits']:
-            sequential_id = item['_source']['sequential_id']
-            student_id = item['_source']['uid']
+        for item in video_data.hits:
+            sequential_id = item.sequential_id
+            student_id = item.uid
             chapter_student_stat.setdefault(sequential_id, {})
             chapter_student_stat[sequential_id].setdefault(student_id, [])
 
-            chapter_student_stat[sequential_id][student_id].append({
-                'video_id': item['_source']['vid'],
-                'review': item['_source']['review'],
-                'review_rate': item['_source']['review_rate'],
-                'watch_num': item['_source']['watch_num'],
-                'duration': item['_source']['duration'],
-                'study_rate': item['_source']['study_rate'],
-                'la_access': item['_source']['la_access']
+            chapter_student_stat[sequential_id][str(student_id)].append({
+                'video_id': item.vid,
+                'review': item.review,
+                'review_rate': item.review_rate,
+                'watch_num': item.watch_num,
+                'duration': item.duration,
+                'study_rate': item.study_rate,
+                'la_access': item.la_access
             })
 
+        student_query = self.es_query(index='rollup', doc_type='video_user_avg_percent_ds') \
+                .filter('term', course_id=course_id) \
+                .filter('term', chapter_id=chapter_id) \
+                .filter('terms', user_id=students)
+        student_data = self.es_execute(student_query[:video_data.hits.total])
+        students_rate = {}
+        for item in student_data.hits:
+            students_rate.setdefault(item.seq_id, {})
+            students_rate[item.seq_id][str(item.user_id)] = item.avg_watch_percent
+
         result = {
-            'total': data['hits']['total'],
-            'sequentials': chapter_student_stat
+            'total': video_data.hits.total,
+            'sequentials': chapter_student_stat,
+            'students_rate': students_rate
         }
 
         self.success_response(result)
