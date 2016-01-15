@@ -295,6 +295,14 @@ class StaffInformation(BaseHandler):
             for item in video_data.hits:
                 total_study_length += item.study_length
 
+            comment_query = self.es_query(index='rollup', doc_type='staff_avg_comment_num_per_day') \
+                    .filter('term', user_id=user_id)[:1]
+            comment_data = self.es_execute(comment_query)
+            try:
+                staff_comments_per_day = comment_data.hits[0].staff_avg_comment_num_per_day
+            except IndexError:
+                staff_comments_per_day = 0
+
             self.success_response({
                 'is_staff': True,
                 'students_num': staff.staff_student_num,
@@ -304,7 +312,8 @@ class StaffInformation(BaseHandler):
                 'comment_avg_length': staff.staff_pass_students_num,
                 'days': staff.staff_days,
                 'courses': courses,
-                'students_study_length': total_study_length
+                'students_study_length': total_study_length,
+                'staff_comments_per_day': staff_comments_per_day
             })
         except IndexError:
             self.success_response({'is_staff': False})
