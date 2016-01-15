@@ -117,15 +117,20 @@ class StudyStudentList(BaseHandler):
         uid_list.extend(_uids)
         self.success_response({'data': uid_list})
 
-@route('/student/study_period')
+
+@route('/(student|staff)/periods')
 class StudyPeriod(BaseHandler):
     """
     查询学生学习时段
     """
-    def get(self):
+    def get(self, role):
         user_id = self.get_param('user_id')
 
-        query = self.es_query(index='rollup', doc_type='user_study_period') \
+        if role == 'staff':
+            query = self.es_query(index='rollup', doc_type='user_staff_period') \
+                .filter('term', user_id=user_id)
+        else:
+            query = self.es_query(index='rollup', doc_type='user_study_period') \
                 .filter('term', user_id=user_id)
 
         periods = {
