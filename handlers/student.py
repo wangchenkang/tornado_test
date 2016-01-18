@@ -241,7 +241,7 @@ class StudentCourses(BaseHandler):
         video_rate_data = self.es_execute(video_rate_query)
 
         video_query = self.es_query(index='rollup', doc_type='course_video_study_length') \
-                .filter('term', uid=user_id)
+                .filter('term', user_id=user_id)
         video_data = self.es_execute(video_query[:0])
         video_data = self.es_execute(video_query[:video_data.hits.total])
 
