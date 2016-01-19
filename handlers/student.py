@@ -1,4 +1,5 @@
 #! -*- coding: utf-8 -*-
+from __future__ import division
 from .base import BaseHandler
 from utils.routes import route
 from utils.log import Log
@@ -209,6 +210,15 @@ class StudentInformation(BaseHandler):
         staff_data = self.es_execute(staff_query)
         is_staff = True if staff_data.hits.total else False
 
+        # video length per online days
+        video_avg_query = self.es_query(index='rollup', doc_type='user_avg_video_time_per_day') \
+                .filter('term', user_id=user_id)[:1]
+        video_avg_data = self.es_execute(video_avg_query)
+        try:
+            study_time_per_day = video_avg_data[0].user_avg_video_time_per_day
+        except IndexError:
+            study_time_per_day = 0
+
         self.success_response({
             'user_id': user_id,
             'post_total': post_total,
@@ -216,7 +226,8 @@ class StudentInformation(BaseHandler):
             'comment_avg_length': comment_avg_length,
             'courses': courses,
             'first_course': first_course,
-            'is_staff': is_staff
+            'is_staff': is_staff,
+            'study_time_per_day': study_time_per_day
         })
 
 
@@ -321,7 +332,35 @@ class StaffInformation(BaseHandler):
                 'days': staff.staff_days,
                 'courses': courses,
                 'students_study_length': total_study_length,
-                'staff_comments_per_day': staff_comments_per_day
+                'staff_comments_per_day': staff_comments_per_day,
+                'forum_total_length': staff.staff_all_courses_comments_len
             })
         except IndexError:
             self.success_response({'is_staff': False})
+
+
+@route('/user/average')
+class UserAverage(BaseHandler):
+    def get(self):
+        staff_query = self.es_query(index='rollup', doc_type='user_staff_statistics')
+        staff_data = self.es_execute(staff_query[:0])
+        staff_data = self.es_execute(staff_query[:staff_data.hits.total])
+        staff_comments_num = 0
+        for item in staff_data.hits:
+            staff_comments_num += item.staff_comment_num
+
+        staff_avg_comments_num = staff_comments_num / staff_data.hits.total
+
+        enrollments_query = self.es_query(index='main', doc_type='enrollment') \
+                .filter('term', is_active=True)[:0]
+        enrollments_data = self.es_execute(enrollments_query)
+        students_query = self.es_query(index='main',doc_type='student') \
+                .filter('exists', field='courses')[:0]
+        students_data = self.es_execute(students_query)
+
+        students_avg_enrollent = enrollments_data.hits.total / students_data.hits.total
+
+        self.success_response({
+            'staff_avg_comments_num': staff_avg_comments_num,
+            'students_avg_enrollent': students_avg_enrollent
+        })
