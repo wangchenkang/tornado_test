@@ -9,6 +9,10 @@ from utils.tools import fix_course_id
 
 
 class BaseHandler(RequestHandler):
+    def write_error(self, status_code, **kwargs):
+        error_msg = '{}:{}'.format(status_code, self._reason)
+        self.set_status(200)
+        self.error_response(100, error_msg)
     
     @property
     def es(self):
