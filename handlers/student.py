@@ -89,34 +89,68 @@ class StudyStudentList(BaseHandler):
     """
     获取章学生列表
     """
-    # TODO: 未完成
     def get(self):
         chapter_id = self.get_param('chapter_id')
-        query = self.search(index='main', doc_type='problem_user')\
-                .filter('term', course_id=self.course_id)\
+        start = self.get_argument('start', 0)
+        size = self.get_argument('size', 20)
+
+        students = []
+        problem_students = set()
+        problem_query = self.es_query(index='main', doc_type='problem_user') \
+                .filter('term', course_id=self.course_id) \
                 .filter('term', chapter_id=chapter_id)[:0]
-        query.aggs.metric('student', 'terms', field='user_id', size=0)
-        results = query.execute()
-        buckets = results.aggregations.student.buckets
-        uids = map(lambda x: x["key"], buckets)
-        query = self.search(index='main', doc_type='enrollment')\
-                .filter('term', course_id=self.course_id)\
-                .filter('term', is_active=True)\
-                .filter('terms', uid=uids)[:len(uids)]
-        results = query.execute()
-        hits = results.hits
-        uid_list = map(lambda x: x.uid, hits)
-        query = self.search(index='main', doc_type='enrollment')\
-                .filter('term', course_id=self.course_id)\
-                .filter('term', is_active=True)\
-                .filter(~F('terms', uid=uids))
-        results = query[:0].execute()
-        total = results.hits.total
-        results = query[:total].execute()
-        hits = results.hits
-        _uids = map(lambda x: x.uid, hits)
-        uid_list.extend(_uids)
-        self.success_response({'data': uid_list})
+        problem_query.aggs.bucket('users', 'terms', field='user_id', size=0)
+        problem_data = self.es_execute(problem_query)
+        for item in problem_data.aggregations.users.buckets:
+            try:
+                user_id = int(item.key)
+            except ValueError:
+                continue
+            problem_students.add(user_id)
+        students.extend(sorted(list(problem_students)))
+
+        if len(students) >= start + size:
+            self.success_response({'data': students})
+
+        video_students = set()
+        video_query = self.es_query(index='rollup', doc_type='video_user_avg_percent_ds') \
+                .filter('term', course_id=self.course_id) \
+                .filter('term', chpater_id=self.chapter_id) \
+                .filter('term', seq_id='-1') \
+                .filter('term', is_active=True) \
+                .filter(~F('terms', user_id=students)) \
+                .extra(_source='user_id')
+        video_data = self.es_execute(video_query[:0])
+        if video_data.hits.total > 0:
+            video_data = self.es_execute(video_query[:video_data.hits.total])
+        for item in video_data:
+            try:
+                user_id = int(item.user_id)
+            except ValueError:
+                continue
+            video_students.add(user_id)
+        students.extend(sorted(list(video_students)))
+
+        if len(students) >= start + size:
+            self.success_response({'data': students})
+
+        enroll_students = set()
+        enroll_query = self.es_query(index='main', doc_type='enrollment') \
+                .filter('term', course_id=self.course_id) \
+                .filter('term', is_active=True) \
+                .filter(~F('terms', uid=students)) \
+                .extra(_source='uid')
+        enroll_data = self.es_execute(enroll_query[:0])
+        enroll_data = self.es_execute(enroll_query[:enroll_data.hits.total])
+        for item in enroll_data:
+            try:
+                user_id = int(item.uid)
+            except ValueError:
+                continue
+            enroll_students.add(user_id)
+        students.extend(sorted(list(enroll_students)))
+
+        self.success_response({'data': students})
 
 
 @route('/(student|staff)/periods')
