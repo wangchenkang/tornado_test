@@ -1,9 +1,9 @@
 #! -*- coding: utf-8 -*-
-from datetime import timedelta
+from datetime import datetime,  timedelta
 from .base import BaseHandler
 from utils.routes import route
 from utils.log import Log
-from utils.tools import date_from_query, date_to_str
+from utils.tools import date_from_query, date_to_str, utc_to_cst
 
 Log.create('discussion')
 
@@ -521,6 +521,7 @@ class CourseRankStat(BaseHandler):
 
         self.success_response(result)
 
+
 @route('/discussion/chapter_discussion_stat')
 class CourseDiscussionStat(BaseHandler):
     def get(self):
@@ -541,6 +542,7 @@ class CourseDiscussionStat(BaseHandler):
 
         self.success_response(result)
 
+
 @route('/discussion/chapter_discussion_detail')
 class CourseChapterDiscussionDetail(BaseHandler):
     def get(self):
@@ -559,4 +561,29 @@ class CourseChapterDiscussionDetail(BaseHandler):
             result.append(d)
         self.success_response({"data": result})
 
+
+@route('/discussion/assistant_activity')
+class CourseAssistantActivity(BaseHandler):
+    def get(self):
+        default_date = date_to_str(utc_to_cst(datetime.utcnow() - timedelta(days=1)))
+        start = self.get_argument('start', default_date)
+        end = self.get_argument('end', default_date)
+
+        query = self.es_query(index='api1', doc_type='ta_result') \
+                .filter('term', course_id=self.course_id) \
+                .filter('range', **{'date': {'gte': start, 'lte': end}})
+
+        data = self.es_execute(query[:1000])
+        result = []
+        for item in data.hits:
+            result.append({
+                'course_id': item.course_id,
+                'date': item.date,
+                'assistant_id': item.author_id,
+                'assistant_type': item.user_type,
+                'reply_num': item.day,
+                'total_reply_num': item.total
+            })
+
+        self.success_response({'result': sorted(result, key=lambda x: x['date'])})
 
