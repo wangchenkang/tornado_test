@@ -72,7 +72,7 @@ class ChapterVideoDurationStat(BaseHandler):
 
         result = {}
         for item in data.hits:
-            result[item.chpater_id] = {
+            result[item.chapter_id] = {
                 'chapter_id': item.chapter_id,
                 'duration': item.total_video_len,
                 'count': item.total_stu_num

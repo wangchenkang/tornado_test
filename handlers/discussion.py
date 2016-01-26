@@ -224,7 +224,7 @@ class StudentPostTopStat(BaseHandler):
 
         query = self.es_query(index='main', doc_type='user_daily') \
                 .filter('term', course_id=self.course_id) \
-                .fitler('terms', user_id=students.keys())
+                .filter('terms', user_id=students.keys())
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total])
 
@@ -254,7 +254,7 @@ class StudentDetail(BaseHandler):
 
         query = self.es_query(index='main', doc_type='user_sum') \
                 .filter('term', course_id=self.course_id) \
-                .filter(Q('range', **{'post_number': {'gt': 0}}) | Q('range', **{'comment_number': {'gt': 0}}))
+                .query(Q('range', **{'post_number': {'gt': 0}}) | Q('range', **{'comment_number': {'gt': 0}}))
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total])
 
@@ -279,7 +279,7 @@ class StudentRelation(BaseHandler):
         query = self.es_query(index='main', doc_type='comment_num') \
                 .filter('term', course_id=self.course_id)
         data = self.es_execute(query[:0])
-        data = self.es_execute(query[:data.his.total])
+        data = self.es_execute(query[:data.hits.total])
 
         relations = []
         for item in data.hits:

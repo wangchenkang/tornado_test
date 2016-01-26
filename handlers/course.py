@@ -312,14 +312,7 @@ class CourseTopicKeywords(BaseHandler):
 
         data = self.es_execute(query)
         try:
-            hit = data.hits[0]
-            source = {
-                'seg_id': hit.seg_id,
-                'num': hit.num,
-                'wid': hit.wid,
-                'chapter_id': hit.chapter_id,
-                'word': hit.word
-            }
+            source = data.hits[0].to_dict()
         except (IndexError, KeyError):
             source = {}
 

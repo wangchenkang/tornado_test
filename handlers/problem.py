@@ -1,8 +1,11 @@
 #! -*- coding: utf-8 -*-
 from .base import BaseHandler
 from utils.routes import route
+from utils.log import Log
 import ast
 
+
+Log.create('problem')
 
 @route('/problem/chapter_stat')
 class ChapterProblem(BaseHandler):
@@ -14,7 +17,7 @@ class ChapterProblem(BaseHandler):
                 .filter('term', course_id=self.course_id) \
                 .filter('term', chapter_id=chapter_id) \
                 .filter('range', **{'grade_rate': {'gte': grade_gte}})[:0]
-        query.aggs.metric('sequentials', 'terms', size=0)
+        query.aggs.bucket('sequentials', 'terms', field='sequential_id', size=0)
         data = self.es_execute(query)
         problem_stat = {
             'total': data.hits.total,
@@ -78,7 +81,7 @@ class CourseProblemDetail(BaseHandler):
             problems.setdefault(problem_id, {})
             problems[problem_id][problem_num] = {
                 'detail': item.detail,
-                'answer': item.answer,
+                'answer': item.answer.to_dict(),
                 'problem_type': item.problem_type,
                 'problem_id': item.problem_id,
                 'problem_num': item.problem_num,
