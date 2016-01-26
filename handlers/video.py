@@ -2,7 +2,6 @@
 from .base import BaseHandler
 from utils.routes import route
 from utils.log import Log
-from utils import es_utils
 
 Log.create('video')
 
@@ -95,51 +94,31 @@ class CourseVideo(BaseHandler):
     spoc 接口需求：获取课程用户视频观看覆盖率
     """
     def get(self):
-        course_id = self.course_id
         user_id = self.get_argument('user_id', None)
 
-        query = {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}},
-                            ]
-                        }
-                    }
-                }
-            },
-            'size': 0
-        }
+        query = self.es_query(index='rollup', doc_type='course_video_rate') \
+                .filter('term', course_id=self.course_id)
 
         if user_id is not None:
             max_length = 1000
             user_id = [int(u.strip()) for u in user_id.split(',') if u.strip()][0:max_length]
-            query['query']['filtered']['filter']['bool']['must'].append({
-                'terms': {'uid': user_id}
-            })
-            query['size'] = max_length
-            data = self.es_search(index='rollup', doc_type='course_video_rate', body=query) 
+            query = query.filter('terms', uid=user_id)
+            data = self.es_execute(query[:max_length])
         else:
-            default_size = 0
-            query['size'] = default_size
-            data = self.es_search(index='rollup', doc_type='course_video_rate', body=query) 
-            if data['hits']['total'] > default_size:
-                query['size'] = data['hits']['total']
-                data = self.es_search(index='rollup', doc_type='course_video_rate', body=query) 
+            data = self.es_execute(query[:0])
+            data = self.es_execute(query[:data.hits.total])
 
         result = []
         users_has_study = set()
-        for item in data['hits']['hits']:
+        for item in data.hits:
             # fix uid: anonymous_id-anonymous_id-e03be04b3e8a30b74b9779ace15e1b50
             try:
-                item_uid = int(item['_source']['uid'])
+                item_uid = int(item.uid)
             except ValueError:
                 continue
             result.append({
                 'user_id': item_uid,
-                'study_rate': float(item['_source']['study_rate_open'])
+                'study_rate': float(item.study_rate_open)
             })
             users_has_study.add(item_uid)
 
@@ -198,13 +177,13 @@ class CourseStudyDetail(BaseHandler):
 class ChapterVideoStat(BaseHandler):
     def get(self):
         result = {}
-        query = self.search(index='rollup', doc_type='video_student_num_ds') \
+        query = self.es_query(index='rollup', doc_type='video_student_num_ds') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', chapter_id=self.chapter_id) \
                 .filter('term', seq_id='-1') \
                 .filter('term', video_id='-1')
 
-        data = query.execute()
+        data = self.es_execute(query)
         hit = data.hits
         result['course_id'] = self.course_id
         result['chapter_id'] = self.chapter_id
@@ -222,13 +201,13 @@ class ChapterVideoStat(BaseHandler):
 class CourseChapterVideoDetail(BaseHandler):
     def get(self):
         result = []
-        query = self.search(index='main', doc_type='video')\
+        query = self.es_query(index='main', doc_type='video')\
                 .filter('term', course_id=self.course_id)\
                 .filter('term', chapter_id=self.chapter_id)\
                 .filter('exists', field='watch_num')[:0]
         query.aggs.bucket("video_watch", "terms", field="vid", size=0)\
                 .metric('num', 'range', field="watch_num", ranges=[{"from": 1, "to": 2}, {"from": 2}])
-        results = query.execute()
+        results = self.es_execute(query)
         aggs = results.aggregations
         buckets = aggs["video_watch"]["buckets"]
         for bucket in buckets:

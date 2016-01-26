@@ -1,5 +1,6 @@
 #! -*- coding: utf-8 -*-
-from datetime import datetime,  timedelta
+from datetime import datetime, timedelta
+from elasticsearch_dsl import Q
 from .base import BaseHandler
 from utils.routes import route
 from utils.log import Log
@@ -14,63 +15,27 @@ class CourseDiscussion(BaseHandler):
     包括总体和各group的发帖和回复数统计
     """
     def get(self):
-        course_id = self.course_id
-        query =  {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}},
-                            ]
-                        }
-                    }
-                }
-            },
-            'aggs': {
-                'groups': {
-                    'terms': {
-                        'field': 'group_id',
-                        'size': 0
-                    },
-                    'aggs': {
-                        'posts_total': {
-                            'sum': {
-                                'field': 'post_number'
-                            }
-                        },
-                        'comments_total': {
-                            'sum': {
-                                'field': 'comment_number'
-                            }
-                        },
-                        'group_num': {
-                            'terms': {
-                                'field': 'group_member_num',
-                                'size': 1,
-                                'order': {
-                                    '_term': 'desc'
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-            'size': 0
-        }
 
-        data = self.es_search(index='main', doc_type='group_daily', search_type='count', body=query)
+        query = self.es_query(index='main', doc_type='group_daily') \
+                .filter('term', course_id=self.course_id)[:0]
+        query.aggs.bucket('groups', 'terms', field='group_id', size=0) \
+                .metric('posts_total', 'sum', field='post_number') \
+                .metric('comments_total', 'sum', field='comment_number') \
+                .metric('group_num', 'terms', field='group_member_num', size=1, order={'_term': 'desc'})
+
+        data = self.es_execute(query)
         posts_total = 0
         comments_total = 0
         group_dict = {}
-        for group in data['aggregations']['groups']['buckets']:
+        for group in data.aggregations.groups.buckets:
             try:
-                member_count = int(group['group_num']['buckets'][0]['key'])
-                group_posts_total = int(group['posts_total']['value'])
-                group_comments_total = int(group['comments_total']['value'])
-            except (KeyError, IndexError):
+                member_count = int(group.group_num.buckets[0].key)
+            except (KeyError, IndexError, AttributeError):
                 member_count = 0
-            group_dict[group['key']] = {
+            group_posts_total = int(group.posts_total.value)
+            group_comments_total = int(group.comments_total.value)
+
+            group_dict[group.key] = {
                 'posts_total': group_posts_total,
                 'comments_total': group_comments_total,
                 'members_total': member_count
@@ -79,7 +44,7 @@ class CourseDiscussion(BaseHandler):
             comments_total += group_comments_total
 
         result = {
-            'total': data['hits']['total'],
+            'total': data.hits.total,
             'posts_total': posts_total,
             'comments_total': comments_total,
             'groups': group_dict
@@ -91,7 +56,6 @@ class CourseDiscussion(BaseHandler):
 @route('/discussion/course_daily_stat')
 class CourseDailyStat(BaseHandler):
     def get(self):
-        course_id = self.course_id
         start = self.get_param('start')
         end = self.get_param('end')
 
@@ -99,13 +63,11 @@ class CourseDailyStat(BaseHandler):
         end = date_from_query(end)
         days = (end - start).days + 1
 
-        query = self.search(index='main', doc_type='group_daily') \
-                .filter('term', course_id=course_id) \
+        query = self.es_query(index='main', doc_type='group_daily') \
+                .filter('term', course_id=self.course_id) \
                 .filter('range', **{'d_day': {'gte': start, 'lte': end}})
-        default_size = 0
-        data = query[:default_size].execute()
-        if data.hits.total > default_size:
-            data = query[:data.hits.total].execute()
+        data = self.es_execute(query[:0])
+        data = self.es_execute(query[:data.hits.total])
 
         date_list = [date_to_str(start + timedelta(days=d)) for d in xrange(0, days)]
         date_result = {d: {} for d in date_list}
@@ -126,42 +88,22 @@ class ChapterDiscussion(BaseHandler):
     获取给定章的讨论信息统计
     """
     def get(self):
-        course_id = self.get_argument('course_id')
         chapter_id = self.get_argument('chapter_id')
-        query = {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}},
-                                {'term': {'chapter_id': chapter_id}},
-                                {'exists': {'field': 'uid'}}
-                            ]
-                        }
-                    }
-                }
-            },
-            'aggs': {
-                'sequentials': {
-                    'terms': {
-                        'field': 'sequential_id',
-                        'size': 0
-                    }
-                }
-            },
-            'size': 0
-        }
 
-        data = self.es_search(index='main', doc_type='discussion', search_type='count', body=query)
+        query = self.es_query(index='main', doc_type='discussion') \
+                .filter('term', course_id=self.course_id) \
+                .filter('term', chapter_id=chapter_id) \
+                .filter('exists', field='uid')[:0]
+        query.aggs.metric('sequentials', 'terms', field='sequential_id', size=0)
+
+        data = self.es_execute(query)
         discussion_stat = {
-            'total': data['hits']['total'],
+            'total': data.hits.total,
             'sequentials': {}
         }
-        
-        for item in data['aggregations']['sequentials']['buckets']:
-            discussion_stat['sequentials'][item['key']] = {
-                'student_num': item['doc_count']
+        for item in data.aggregations.sequentials.buckets:
+            discussion_stat['sequentials'][item.key] = {
+                'student_num': item.doc_count
             }
 
         self.success_response(discussion_stat)
@@ -173,50 +115,33 @@ class ChapterStudentDiscussion(BaseHandler):
     获取给定章的课程讨论统计(所有学生)
     """
     def get(self):
-        course_id = self.course_id
         chapter_id = self.chapter_id
         uid = self.get_param('user_id')
         students = [u.strip() for u in uid.split(',') if u.strip()]
 
-        default_size = 0
-        query = {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}},
-                                {'term': {'chapter_id': chapter_id}},
-                                {'terms': {'uid': students}},
-                            ]
-                        }
-                    }
-                }
-            },
-            'size': default_size
-        }
-
-        data = self.es_search(index='main', doc_type='discussion', body=query)
-        if data['hits']['total'] > default_size:
-            query['size'] = data['hits']['total']
-            data = self.es_search(index='main', doc_type='discussion', body=query)
+        query = self.es_query(index='main', doc_type='discussion') \
+                .filter('term', course_id=self.course_id) \
+                .filter('term', chapter_id=chapter_id) \
+                .filter('terms', uid=students)
+        data = self.es_execute(query[:0])
+        data = self.es_execute(query[:data.hits.total])
 
         chapter_student_stat = {}
-        for item in data['hits']['hits']:
-            sequential_id = item['_source'] ['sequential_id']
-            student_id = item['_source']['uid']
-            chapter_student_stat.setdefault(sequential_id, {}) 
+        for item in data.hits:
+            sequential_id = item.sequential_id
+            student_id = item.uid
+            chapter_student_stat.setdefault(sequential_id, {})
             chapter_student_stat[sequential_id].setdefault(student_id, [])
             student_discussion_item = {
-                'item_id': item['_source']['item_id'],
-                'post_num': item['_source']['post_num'],
-                'reply_num': item['_source']['reply_num'],
-                'time': item['_source']['time'],
+                'item_id': item.item_id,
+                'post_num': item.post_num,
+                'reply_num': item.reply_num,
+                'time': item.time
             }
             chapter_student_stat[sequential_id][student_id].append(student_discussion_item)
 
         result = {
-            'total': data['hits']['total'],
+            'total': data.hits.total,
             'sequentials': chapter_student_stat
         }
 
@@ -229,7 +154,6 @@ class CoursePostsNoCommentDaily(BaseHandler):
     获取给定date范围的无评论帖子数
     """
     def get(self):
-        course_id = self.course_id
         start = self.get_param('start')
         end = self.get_param('end')
 
@@ -237,10 +161,10 @@ class CoursePostsNoCommentDaily(BaseHandler):
         end = date_from_query(end)
         size = (end - start).days + 1
 
-        query = self.search(index='main', doc_type='discuss_no_reply_daily') \
-                .filter('term', course_id=course_id) \
+        query = self.es_query(index='main', doc_type='discuss_no_reply_daily') \
+                .filter('term', course_id=self.course_id) \
                 .filter('range', **{'date': {'gte': start, 'lte': end}})[:size]
-        data = query.execute()
+        data = self.es_execute(query)
 
         date_list = [date_to_str(start + timedelta(days=d)) for d in xrange(0, size)]
         date_result = {d: {'date': d, 'num': 0} for d in date_list}
@@ -259,11 +183,10 @@ class CoursePostsNoComment(BaseHandler):
     获取没有评论的总帖子数
     """
     def get(self):
-        course_id = self.course_id
-        
-        query = self.search(index='main', doc_type='discuss_no_reply_all') \
+
+        query = self.es_query(index='main', doc_type='discuss_no_reply_all') \
                 .filter('term', course_id=self.course_id)
-        data = query.execute()
+        data = self.es_execute(query)
 
         try:
             count = data[0]['all_num']
@@ -279,91 +202,43 @@ class StudentPostTopStat(BaseHandler):
     获取学生发帖TOP-N统计
     """
     def get(self):
-        course_id = self.course_id
         top = self.get_argument('top', 5)
         order = self.get_argument('order', 'post')
 
         order_field = 'comments_total' if order == 'comment' else 'posts_total'
 
-        top_query = {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}},
-                            ]
-                        }
-                    }
-                }
-            },
-            'aggs': {
-                'students': {
-                    'terms': {
-                        'field': 'user_id',
-                        'size': top,
-                        'order': {
-                            order_field: 'desc'
-                        }
-                    },
-                    'aggs': {
-                        'posts_total': {
-                            'sum': {
-                                'field': 'post_number'
-                            }
-                        },
-                        'comments_total': {
-                            'sum': {
-                                'field': 'comment_number'
-                            }
-                        }
-                    }
-                }
-            },
-            'size': 0
-        }
-        data = self.es_search(index='main', doc_type='user_daily', search_type='count', body=top_query)
+        query = self.es_query(index='main', doc_type='user_daily') \
+                .filter('term', course_id=self.course_id)[:0]
+        query.aggs.bucket('students', 'terms', field='user_id', size=top, order={order_field: 'desc'}) \
+                .metric('posts_total', 'sum', field='post_number') \
+                .metric('comments_total', 'sum', field='comment_number')
+        data = self.es_execute(query)
 
         students = {}
-        for item in data['aggregations']['students']['buckets']:
-            students[item['key']] = {
-                'user_id': int(item['key']),
-                'posts_total': int(item['posts_total']['value']),
-                'comments_total': int(item['comments_total']['value'])
+        for item in data.aggregations.students.buckets:
+            students[item.key] = {
+                'user_id': int(item.key),
+                'posts_total': int(item.posts_total.value),
+                'comments_total': int(item.comments_total.value)
             }
 
-        default_size = 0
-        query = {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}},
-                                {'terms': {'user_id': students.keys()}}
-                            ]
-                        }
-                    }
-                }
-            },
-            'size': default_size
-        }
-        data = self.es_search(index='main', doc_type='user_daily', body=query)
-        if data['hits']['total'] > default_size:
-            query['size'] = data['hits']['total']
-            data = self.es_search(index='main', doc_type='user_daily', body=query)
+        query = self.es_query(index='main', doc_type='user_daily') \
+                .filter('term', course_id=self.course_id) \
+                .fitler('terms', user_id=students.keys())
+        data = self.es_execute(query[:0])
+        data = self.es_execute(query[:data.hits.total])
 
-        for item in data['hits']['hits']:
-            students[item['_source']['user_id']].setdefault('detail', {})
-            students[item['_source']['user_id']]['detail'][item['_source']['d_day']] = {
-                    'post_number': item['_source']['post_number'],
-                    'comment_number': item['_source']['comment_number'],
-                    'date': item['_source']['d_day']
+        for item in data.hits:
+            students[item.user_id].setdefault('detail', {})
+            students[item.user_id]['detail'][item.d_day] = {
+                    'post_number': item.post_number,
+                    'comment_number': item.comment_number,
+                    'date': item.d_day
                 }
 
-            students[item['_source']['user_id']].setdefault('user_name', item['_source']['user_name'])
-            students[item['_source']['user_id']].setdefault('group_id', item['_source']['group_id'])
-            students[item['_source']['user_id']].setdefault('user_id', int(item['_source']['group_id']))
+            students[item.user_id].setdefault('user_name', item.user_name)
+            students[item.user_id].setdefault('group_id', item.group_id)
+            students[item.user_id].setdefault('user_id', int(item.group_id))
 
         students_list = sorted(students.values(), key=lambda x: x['posts_total'], reverse=True)
 
@@ -376,41 +251,22 @@ class StudentDetail(BaseHandler):
     获取所有参与讨论学生统计
     """
     def get(self):
-        course_id = self.course_id
-        query = {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}}
-                            ],
-                            'should': [
-                                {'range': {'post_number': {'gt': 0}}},
-                                {'range': {'comment_number': {'gt': 0}}}
-                            ]
-                        }
-                    }
-                }
-            },
-            'size': 0
-        }
 
-        data = self.es_search(index='main', doc_type='user_sum', search_type='count', body=query)
-        total = data['hits']['total']
-
-        query['size'] = total
-        data = self.es_search(index='main', doc_type='user_sum', body=query)
+        query = self.es_query(index='main', doc_type='user_sum') \
+                .filter('term', course_id=self.course_id) \
+                .filter(Q('range', **{'post_number': {'gt': 0}}) | Q('range', **{'comment_number': {'gt': 0}}))
+        data = self.es_execute(query[:0])
+        data = self.es_execute(query[:data.hits.total])
 
         students_detail = {}
-        for item in data['hits']['hits']:
-            students_detail[item['_source']['user_id']] = {
-                'user_id': int(item['_source']['user_id']),
-                'post_number': item['_source']['post_number'],
-                'comment_number': item['_source']['comment_number'],
-                'grade_percent': item['_source']['grade_percent'],
-                'group_id': item['_source']['group_id'],
-                'user_name': item['_source']['user_name']
+        for item in data.hits:
+            students_detail[item.user_id] = {
+                'user_id': int(item.user_id),
+                'post_number': item.post_number,
+                'comment_number': item.comment_number,
+                'grade_percent': item.grade_percent,
+                'group_id': item.group_id,
+                'user_name': item.user_name
             }
 
         self.success_response({'students': students_detail})
@@ -419,34 +275,18 @@ class StudentDetail(BaseHandler):
 @route('/discussion/students_relation')
 class StudentRelation(BaseHandler):
     def get(self):
-        course_id = self.course_id
-        query = {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}}
-                            ]
-                        }
-                    }
-                }
-            },
-            'size': 0
-        }
 
-        data = self.es_search(index='main', doc_type='comment_num', search_type='count', body=query)
-        total = data['hits']['total']
-
-        query['size'] = total
-        data = self.es_search(index='main', doc_type='comment_num', body=query)
+        query = self.es_query(index='main', doc_type='comment_num') \
+                .filter('term', course_id=self.course_id)
+        data = self.es_execute(query[:0])
+        data = self.es_execute(query[:data.his.total])
 
         relations = []
-        for item in data['hits']['hits']:
+        for item in data.hits:
             relations.append({
-                'user_id1': item['_source']['user_id1'],
-                'user_id2': item['_source']['user_id2'],
-                'num': item['_source']['num']
+                'user_id1': item.user_id1,
+                'user_id2': item.user_id2,
+                'num': item.num
             })
 
         self.success_response({'relations': relations})
@@ -457,17 +297,17 @@ class CourseRankStat(BaseHandler):
     def get(self):
 
         result = {}
-        query = self.search(index='rollup', doc_type='discuss_active_user_num') \
+        query = self.es_query(index='rollup', doc_type='discuss_active_user_num') \
                 .filter('term', course_id=self.course_id)
-        active_data = query.execute()
+        active_data = self.es_execute(query)
 
-        query = self.search(index='rollup', doc_type='discuss_average_active_num') \
+        query = self.es_query(index='rollup', doc_type='discuss_average_active_num') \
                 .filter('term', course_id=self.course_id)
-        average_data = query.execute()
+        average_data = self.es_execute(query)
 
-        query = self.search(index='rollup', doc_type='discuss_replied_percent') \
+        query = self.es_query(index='rollup', doc_type='discuss_replied_percent') \
                 .filter('term', course_id=self.course_id)
-        reply_data = query.execute()
+        reply_data = self.es_execute(query)
 
         result['course_num'] = 0
         try:
@@ -527,11 +367,11 @@ class CourseDiscussionStat(BaseHandler):
     def get(self):
 
         result = {}
-        query = self.search(index='api1', doc_type='comment_problem') \
-                .filter('term', course_id=self.course_id)\
-                .filter('term', chapter_id=self.chapter_id)\
+        query = self.es_query(index='api1', doc_type='comment_problem') \
+                .filter('term', course_id=self.course_id) \
+                .filter('term', chapter_id=self.chapter_id) \
                 .sort('-date')[:1]
-        data = query.execute()
+        data = self.es_execute(query)
         hit = data.hits
         result['course_id'] = self.course_id
         result['chapter_id'] = self.chapter_id
@@ -546,19 +386,20 @@ class CourseDiscussionStat(BaseHandler):
 @route('/discussion/chapter_discussion_detail')
 class CourseChapterDiscussionDetail(BaseHandler):
     def get(self):
-        result = []
-        query = self.search(index='main', doc_type='discussion') \
-                .filter('term', course_id=self.course_id)\
+        query = self.es_query(index='main', doc_type='discussion') \
+                .filter('term', course_id=self.course_id) \
                 .filter('term', chapter_id=self.chapter_id)[:0]
         query.aggs.metric('value', "terms", field="item_id")
-        data = query.execute()
+        data = self.es_execute(query)
         aggs = data.aggregations
         buckets = aggs['value']['buckets']
+        result = []
         for bucket in buckets:
             d = {}
             d["item_id"] = bucket["key"]
             d["count"] = bucket["doc_count"]
             result.append(d)
+
         self.success_response({"data": result})
 
 
@@ -586,4 +427,3 @@ class CourseAssistantActivity(BaseHandler):
             })
 
         self.success_response({'result': sorted(result, key=lambda x: x['date'])})
-

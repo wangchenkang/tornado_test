@@ -2,14 +2,11 @@
 import os
 import sys
 import hashlib
-import time
-import random
 import codecs
 import requests
 import tarfile
 import shutil
 import tempfile
-import commands
 import xlsxwriter
 from cStringIO import StringIO
 from tornado.escape import url_unescape
@@ -27,13 +24,13 @@ Log.create('data')
 
 @route('/data/export')
 class DataExport(BaseHandler):
-    """ 
+    """
     获取导出文件记录
     """
     def get(self):
         course_id = self.course_id
         data_type = self.get_param('data_type')
-        
+
         data_type = [item.strip() for item in data_type.split(',') if item.strip()]
 
         data = {}
@@ -67,7 +64,7 @@ class DataBindingOrg(BaseHandler):
         data_type = self.get_param('data_type')
 
         data_type = [item.strip() for item in data_type.split(',') if item.strip()]
-        
+
         filters = [
             {'exists': {'field': 'binding_org'}},
             {'terms': {'data_type': data_type}},
@@ -95,7 +92,7 @@ class DataBindingOrg(BaseHandler):
         }
 
         data = self.es_search(index='dataimport', doc_type='course_data', body=query)
-        if data['hits']['total']> default_size:
+        if data['hits']['total'] > default_size:
             query['size'] = data['hits']['total']
             data = self.es_search(index='dataimport', doc_type='course_data', body=query)
 
@@ -133,7 +130,7 @@ class DataDownload(BaseHandler):
         data_id = self.get_param('id')
         platform = self.get_argument('os', 'unix').lower()
         file_format = self.get_argument('format', 'xlsx').lower()
-    
+
         if platform not in ['windows', 'unix']:
             platform = 'windows'
 
@@ -149,7 +146,7 @@ class DataDownload(BaseHandler):
         data_url = record['_source']['data_link']
         zip_format = record['_source'].get('zip_format', None)
         es_file_format = record['_source'].get('file_format', None)
-        
+
         response = requests.get(data_url)
         if not response.content.strip():
             raise HTTPError(404)

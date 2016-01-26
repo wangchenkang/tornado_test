@@ -1,104 +1,63 @@
 #! -*- coding: utf-8 -*-
 from .base import BaseHandler
 from utils.routes import route
-import json
 import ast
 
 
 @route('/problem/chapter_stat')
 class ChapterProblem(BaseHandler):
-    """
-
-    """
     def get(self):
-        course_id = self.course_id
         chapter_id = self.chapter_id
         grade_gte = self.get_argument('grade_gte', 60)
-        query = { 
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}},
-                                {'term': {'chapter_id': chapter_id}},
-                                {'range': {'grade_rate': {'gte': grade_gte}}}
-                            ]
-                        }
-                    }
-                }
-            },
-            'aggs': {
-                'sequentials': {
-                    'terms': {
-                        'field': 'sequential_id',
-                        'size': 0
-                    }
-                }
-            },
-            'size': 0
-        }
 
-        data = self.es_search(index='main', doc_type='student_grade', search_type='count', body=query)
+        query = self.es_query(index='main', doc_type='student_grade') \
+                .filter('term', course_id=self.course_id) \
+                .filter('term', chapter_id=chapter_id) \
+                .filter('range', **{'grade_rate': {'gte': grade_gte}})[:0]
+        query.aggs.metric('sequentials', 'terms', size=0)
+        data = self.es_execute(query)
         problem_stat = {
-            'total': data['hits']['total'],
+            'total': data.hits.total,
             'sequentials': {}
         }
-        
-        for item in data['aggregations']['sequentials']['buckets']:
-            problem_stat['sequentials'][item['key']] = {
-                'student_num': item['doc_count']
+        for item in data.aggregations.sequentials.buckets:
+            problem_stat['sequentials'][item.key] = {
+                'student_num': item.doc_count
             }
 
         self.success_response(problem_stat)
 
+
 @route('/problem/chapter_student_stat')
 class ChapterStudentProblem(BaseHandler):
     def get(self):
-        course_id = self.course_id
         chapter_id = self.chapter_id
         uid = self.get_param('user_id')
         students = [u.strip() for u in uid.split(',') if u.strip()]
 
-        default_size = 0
-        query = {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}},
-                                {'term': {'chapter_id': chapter_id}},
-                                {'terms': {'user_id': students}},
-                            ]
-                        }
-                    }
-                }
-            },
-            'size': default_size
-        }
-
-        data = self.es_search(index='main', doc_type='student_grade', body=query)
-        if data['hits']['total'] > default_size:
-            query['size'] = data['hits']['total']
-            data = self.es_search(index='main', doc_type='student_grade', body=query)
+        query = self.es_query(index='main', doc_type='student_grade') \
+                .filter('term', course_id=self.course_id) \
+                .filter('term', chapter_id=chapter_id) \
+                .filter('terms', user_id=students)
+        data = self.es_execute(query[:0])
+        data = self.es_execute(query[:data.hits.total])
 
         chapter_student_stat = {}
-        for item in data['hits']['hits']:
-            sequential_id = item['_source']['sequential_id']
-            student_id = item['_source']['user_id']
+        for item in data.hits:
+            sequential_id = item.sequential_id
+            student_id = item.user_id
 
             chapter_student_stat.setdefault(sequential_id, {})
             chapter_student_stat[sequential_id][student_id] = {
-                'grade_rate': item['_source']['grade_rate']
+                'grade_rate': item.grade_rate
             }
-
-        result = { 
-            'total': data['hits']['total'],
+        result = {
+            'total': data.hits.total,
             'sequentials': chapter_student_stat
         }
 
         self.success_response(result)
+
 
 @route('/problem/detail')
 class CourseProblemDetail(BaseHandler):
@@ -106,40 +65,23 @@ class CourseProblemDetail(BaseHandler):
     获取课程解析后的习题
     """
     def get(self):
-        course_id = self.course_id
 
-        default_size = 0
-        query = {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}},
-                            ]
-                        }
-                    }
-                }
-            },
-            'size': default_size
-        }
-
-        data = self.es_search(index='course', doc_type='problem_detail', body=query)
-        if data['hits']['total'] > default_size:
-            query['size'] = data['hits']['total']
-            data = self.es_search(index='course', doc_type='problem_detail', body=query)
+        query = self.es_query(index='course', doc_type='problem_detail') \
+                .filter('term', course_id=self.course_id)
+        data = self.es_execute(query[:0])
+        data = self.es_execute(query[:data.hits.total])
 
         problems = {}
-        for item in data['hits']['hits']:
-            problem_id = item['_source']['problem_id']
-            problem_num = item['_source']['problem_num']
+        for item in data.hits:
+            problem_id = item.problem_id
+            problem_num = item.problem_num
             problems.setdefault(problem_id, {})
             problems[problem_id][problem_num] = {
-                'detail': item['_source']['detail'],
-                'answer': item['_source']['answer'],
-                'problem_type': item['_source']['problem_type'],
-                'problem_id': item['_source']['problem_id'],
-                'problem_num': item['_source']['problem_num'],
+                'detail': item.detail,
+                'answer': item.answer,
+                'problem_type': item.problem_type,
+                'problem_id': item.problem_id,
+                'problem_num': item.problem_num,
             }
 
         self.success_response({'problems': problems})
@@ -148,53 +90,45 @@ class CourseProblemDetail(BaseHandler):
 @route('/problem/chapter_grade_stat')
 class ChapterGradeStat(BaseHandler):
     def get(self):
-        course_id = self.course_id
         chapter_id = self.chapter_id
-        group_max_number = 10000
 
-        query = {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}},
-                                {'term': {'chapter_id': chapter_id}},
-                                {'term': {'seq_id': '-1'}}
-                            ]
-                        }
-                    }
-                }
-            },
-            'size': group_max_number
-        }
-        data = self.es_search(index='main', doc_type='grade_group_stu_num', body=query)
+        query = self.es_query(index='main', doc_type='grade_group_stu_num') \
+                .filter('term', course_id=self.course_id) \
+                .filter('term', chapter_id=chapter_id) \
+                .filter('term', seq_id='-1')
+        data = self.es_execute(query[:0])
+        data = self.es_execute(query[:data.hits.total])
 
         groups = {}
-        for item in data['hits']['hits']:
-            groups[item['_source']['group_id']] = {
-                'group_id': item['_source']['group_id'],
-                'user_num': item['_source']['user_num']
+        for item in data.hits:
+            groups[item.group_id] = {
+                'group_id': item.group_id,
+                'user_num': item.user_num
             }
 
-        data = self.es_search(index='main', doc_type='grade_stu_num', body=query)
+        query = self.es_query(index='main', doc_type='grade_stu_num') \
+                .filter('term', course_id=self.course_id) \
+                .filter('term', chapter_id=chapter_id) \
+                .filter('term', seq_id='-1')
+        data = self.es_execute(query[:1])
         try:
-            graded_num = data['hits']['hits'][0]['_source']['user_num']
-        except (KeyError, IndexError):
+            graded_num = data.hits[0].user_num
+        except (KeyError, IndexError, AttributeError):
             graded_num = 0
 
         self.success_response({'graded_student_num': graded_num, 'groups': groups})
+
 
 @route('/problem/chapter_problem_detail')
 class ChapterProblemDetail(BaseHandler):
     def get(self):
         result = []
-        query = self.search(index='main', doc_type='problem_user')\
+        query = self.es_query(index='main', doc_type='problem_user')\
                 .filter('term', course_id=self.course_id)\
                 .filter('term', chapter_id=self.chapter_id)[:0]
         query.aggs.bucket("pid_dim", "terms", field="pid", size=0)\
                 .bucket("count", "terms", field="answer_right", size=0)
-        results = query.execute()
+        results = self.es_execute(query)
         aggs = results.aggregations
         buckets = aggs["pid_dim"]["buckets"]
         for bucket in buckets:
@@ -214,23 +148,24 @@ class ChapterProblemDetail(BaseHandler):
                 })
         self.success_response({"data": result})
 
+
 @route('/problem/chapter_student_detail_stat')
 class ChapterProblemDetailStat(BaseHandler):
     def get(self):
         result = []
         uid_str = self.get_argument('uid', "")
         uid = uid_str.split(',')
-        query = self.search(index='main', doc_type='problem_user')\
+        query = self.es_query(index='main', doc_type='problem_user')\
                 .filter("term", course_id=self.course_id)\
                 .filter("term", chapter_id=self.chapter_id)\
                 .filter("terms", user_id=uid)[:0]
-        results = query.execute()
+        results = self.es_execute(query)
         total = results.hits.total
-        query = self.search(index='main', doc_type='problem_user')\
+        query = self.es_query(index='main', doc_type='problem_user')\
                 .filter("term", course_id=self.course_id)\
                 .filter("term", chapter_id=self.chapter_id)\
                 .filter("terms", user_id=uid)[:total]
-        results = query.execute()
+        results = self.es_execute(query)
         for hit in results.hits:
             correct = 'correct' if hit.answer_right == "1" else "uncorrect"
             answer = hit.answer

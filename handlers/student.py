@@ -3,47 +3,30 @@ from __future__ import division
 from .base import BaseHandler
 from utils.routes import route
 from utils.log import Log
-from utils.tools import date_to_str
 from elasticsearch_dsl import F
+
 Log.create('student')
 
 @route('/student/binding_org')
 class StudentOrg(BaseHandler):
-    """ 
+    """
     获取学堂选修课学生列表
     """
     def get(self):
-        course_id = self.course_id
         org = self.get_param('org')
-    
-        default_size = 0
-        query = { 
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'courses': course_id}},
-                                {'term': {'binding_org': org}},
-                            ]   
-                        }   
-                    }   
-                }   
-            },  
-            'size': default_size
-        }   
 
-        data = self.es_search(index='main', doc_type='student', body=query)
-        if data['hits']['total'] > default_size:
-            query['size'] = data['hits']['total']
-            data = self.es_search(index='main', doc_type='student', body=query)
+        query = self.es_query(index='main', doc_type='student') \
+                .filter('term', courses=self.course_id) \
+                .filter('term', binding_org=org)
+        data = self.es_execute(query[:0])
+        data = self.es_execute(query[:data.hits.total])
 
         students = []
-        for item in data['hits']['hits']:
+        for item in data.hits:
             students.append({
-                'user_id': int(item['_source']['uid']),
-                'binding_id': item['_source'].get('binding_uid', None),
-                'binding_org': item['_source'].get('binding_org', None),
+                'user_id': int(item.uid),
+                'binding_id': getattr(item, 'binding_uid', None),
+                'binding_org': getattr(item, 'binding_org', None)
             })
 
         self.success_response({'students': students})
@@ -392,9 +375,9 @@ class UserAverage(BaseHandler):
                 .filter('exists', field='courses')[:0]
         students_data = self.es_execute(students_query)
 
-        students_avg_enrollent = enrollments_data.hits.total / students_data.hits.total
+        students_avg_enrollment = enrollments_data.hits.total / students_data.hits.total
 
         self.success_response({
             'staff_avg_comments_num': staff_avg_comments_num,
-            'students_avg_enrollent': students_avg_enrollent
+            'students_avg_enrollment': students_avg_enrollment
         })

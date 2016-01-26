@@ -6,7 +6,7 @@ from utils.routes import route
 
 @route('/prediction/certificate')
 class CertificatePrediction(BaseHandler):
-    """ 
+    """
     证书预测
     """
     def get(self):
@@ -22,7 +22,6 @@ class CertificatePrediction(BaseHandler):
         except IndexError:
             update_date = None
 
-        default_max_size = 0
         data_query = query.filter('term', update=update_date)[:0]
         data_query.aggs.metric('prob_total', 'sum', field='probability')
 
@@ -34,7 +33,7 @@ class CertificatePrediction(BaseHandler):
 
 @route('/prediction/dropout')
 class DropoutPrediction(BaseHandler):
-    """ 
+    """
     流失预测
     """
     def get(self):
@@ -50,7 +49,6 @@ class DropoutPrediction(BaseHandler):
         except IndexError:
             update_date = None
 
-        default_max_size = 0
         data_query = query.filter('term', update=update_date)[:0]
         data_query.aggs.metric('prob_total', 'sum', field='probability')
 
@@ -58,4 +56,3 @@ class DropoutPrediction(BaseHandler):
         prob_avg = round(data.aggregations.prob_total.value / data.hits.total, 4)
 
         self.success_response({'probability': prob_avg, 'students': data.hits.total})
-

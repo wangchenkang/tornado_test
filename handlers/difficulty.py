@@ -2,7 +2,6 @@
 from .base import BaseHandler
 from utils.routes import route
 from utils.log import Log
-from utils import es_utils
 
 Log.create('difficulty')
 
@@ -10,33 +9,18 @@ Log.create('difficulty')
 @route('/video/chapter_review_detail')
 class ChapterReviewDetail(BaseHandler):
     def get(self):
-        course_id = self.course_id
         chapter_id = self.get_param('chapter_id')
-        default_size = 0
-        query = {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}},
-                                {'term': {'chapter_id': chapter_id}},
-                            ]
-                        }
-                    }
-                }
-            },
-            'size': default_size
-        }
 
-        data = self.es_search(index='rollup', doc_type='video_review', body=query)
-        if data['hits']['total'] > default_size:
-            query['size'] = data['hits']['total']
-            data = self.es_search(index='rollup', doc_type='video_review', body=query)
+        query = self.es_query(index='rollup', doc_type='video_review') \
+                .filter('term', course_id=self.course_id) \
+                .filter('term', chapter_id=chapter_id)
+
+        data = self.es_execute(query[:0])
+        data = self.es_execute(query[:data.hits.total])
 
         result = {}
-        for item in data['hits']['hits']:
-            result[item['_source']['video_id']] = item['_source']
+        for item in data.hits:
+            result[item.video_id] = item.to_dict()
 
         self.success_response({'data': result})
 
@@ -44,34 +28,17 @@ class ChapterReviewDetail(BaseHandler):
 @route('/difficulty/video_problem_wrong')
 class VideoProblemWrong(BaseHandler):
     def get(self):
-        course_id = self.course_id
         chapter_id = self.get_param('chapter_id')
 
-        default_size = 0
-        query = {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}},
-                                {'term': {'chapter_id': chapter_id}},
-                            ]
-                        }
-                    }
-                }
-            },
-            'size': default_size
-        }
-
-        data = self.es_search(index='rollup', doc_type='video_problem_wrong', body=query)
-        if data['hits']['total'] > default_size:
-            query['size'] = data['hits']['total']
-            data = self.es_search(index='rollup', doc_type='video_problem_wrong', body=query)
+        query = self.es_query(index='rollup', doc_type='video_problem_wrong') \
+                .filter('term', course_id=self.course_id) \
+                .filter('term', chapter_id=chapter_id)
+        data = self.es_execute(query[:0])
+        data = self.es_execute(query[:data.hits.total])
 
         result = {}
-        for item in data['hits']['hits']:
-            result[item['_source']['video_id']] = item['_source']
+        for item in data.hits:
+            result[item.video_id] = item.to_dict()
 
         self.success_response({'data': result})
 
@@ -79,34 +46,17 @@ class VideoProblemWrong(BaseHandler):
 @route('/difficulty/chapter_difficulty_detail')
 class ChapterDifficultyDetail(BaseHandler):
     def get(self):
-        course_id = self.course_id
         chapter_id = self.get_param('chapter_id')
 
-        default_size = 0
-        query = {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}},
-                                {'term': {'chapter_id': chapter_id}},
-                            ]
-                        }
-                    }
-                }
-            },
-            'size': default_size
-        }
-
-        data = self.es_search(index='rollup', doc_type='difficulty_detail', body=query)
-        if data['hits']['total'] > default_size:
-            query['size'] = data['hits']['total']
-            data = self.es_search(index='rollup', doc_type='difficulty_detail', body=query)
+        query = self.es_query(index='rollup', doc_type='difficulty_detail') \
+                .filter('term', course_id=self.course_id) \
+                .filter('term', chapter_id=chapter_id)
+        data = self.es_execute(query[:0])
+        data = self.es_execute(query[:data.hits.total])
 
         result = {}
-        for item in data['hits']['hits']:
-            result.setdefault(item['_source']['video_id'], []).append(item['_source'])
+        for item in data.hits:
+            result.setdefault(item.video_id, []).append(item.to_dict())
 
         self.success_response({'data': result})
 
@@ -114,36 +64,19 @@ class ChapterDifficultyDetail(BaseHandler):
 @route('/difficulty/chapter_video_duration_stat')
 class ChapterVideoDurationStat(BaseHandler):
     def get(self):
-        course_id = self.course_id
 
-        default_size = 0
-        query = {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}}
-                            ]
-                        }
-                    }
-                }
-            },
-            'size': default_size
-        }
-
-        data = self.es_search(index='rollup', doc_type='difficulty_detail_aggs', body=query)
-        if data['hits']['total'] > default_size:
-            query['size'] = data['hits']['total']
-            data = self.es_search(index='rollup', doc_type='difficulty_detail_aggs', body=query)
+        query = self.es_query(index='rollup', doc_type='difficulty_detail_aggs') \
+                .filter('term', course_id=self.course_id)
+        data = self.es_execute(query[:0])
+        data = self.es_execute(query[:data.hits.total])
 
         result = {}
-        for item in data['hits']['hits']:
-            result.setdefault(item['_source']['chapter_id'], {
-                'chapter_id': item['_source']['chapter_id'],
-                'duration': item['_source']['total_video_len'],
-                'count': item['_source']['total_stu_num']
-            })
+        for item in data.hits:
+            result[item.chpater_id] = {
+                'chapter_id': item.chapter_id,
+                'duration': item.total_video_len,
+                'count': item.total_stu_num
+            }
 
         self.success_response({'data': result})
 
@@ -151,36 +84,19 @@ class ChapterVideoDurationStat(BaseHandler):
 @route('/difficulty/chapter_review_duration_stat')
 class ChapterReviewDurationStat(BaseHandler):
     def get(self):
-        course_id = self.course_id
 
-        default_size = 0
-        query = {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}}
-                            ]
-                        }
-                    }
-                }
-            },
-            'size': default_size
-        }
-
-        data = self.es_search(index='rollup', doc_type='video_review_aggs', body=query)
-        if data['hits']['total'] > default_size:
-            query['size'] = data['hits']['total']
-            data = self.es_search(index='rollup', doc_type='video_review_aggs', body=query)
+        query = self.es_query(index='rollup', doc_type='video_review_aggs') \
+                .filter('term', course_id=self.course_id)
+        data = self.es_execute(query[:0])
+        data = self.es_execute(query[:data.hits.total])
 
         result = {}
-        for item in data['hits']['hits']:
-            result.setdefault(item['_source']['chapter_id'], {
-                'chapter_id': item['_source']['chapter_id'],
-                'total': item['_source']['total'],
-                'avg': item['_source']['avg']
-            })
+        for item in data.hits:
+            result[item.chapter_id] = {
+                'chapter_id': item.chapter_id,
+                'total': item.total,
+                'avg': item.avg
+            }
 
         self.success_response({'data': result})
 
@@ -188,36 +104,18 @@ class ChapterReviewDurationStat(BaseHandler):
 @route('/difficulty/chapter_problem_stat')
 class ChapterProblemStat(BaseHandler):
     def get(self):
-        course_id = self.course_id
 
-        default_size = 0
-        query = {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'bool': {
-                            'must': [
-                                {'term': {'course_id': course_id}}
-                            ]
-                        }
-                    }
-                }
-            },
-            'size': default_size
-        }
-
-        data = self.es_search(index='rollup', doc_type='video_problem_stats', body=query)
-        if data['hits']['total'] > default_size:
-            query['size'] = data['hits']['total']
-            data = self.es_search(index='rollup', doc_type='video_problem_stats', body=query)
+        query = self.es_query(index='rollup', doc_type='video_problem_stats') \
+                .filter('term', course_id=self.course_id)
+        data = self.es_execute(query[:0])
+        data = self.es_execute(query[:data.hits.total])
 
         result = {}
-        for item in data['hits']['hits']:
-            result.setdefault(item['_source']['chapter_id'], {
-                'chapter_id': item['_source']['chapter_id'],
-                'total': item['_source']['total'],
-                'avg': item['_source']['avg']
-            })
+        for item in data.hits:
+            result[item.chapter_id] = {
+                'chapter_id': item.chapter_id,
+                'total': item.total,
+                'avg': item.avg
+            }
 
         self.success_response({'data': result})
-

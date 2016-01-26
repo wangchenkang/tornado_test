@@ -13,7 +13,7 @@ class BaseHandler(RequestHandler):
         error_msg = '{}:{}'.format(status_code, self._reason)
         self.set_status(200)
         self.error_response(100, error_msg)
-    
+
     @property
     def es(self):
         return self.application.es
@@ -78,10 +78,6 @@ class BaseHandler(RequestHandler):
         except RequestError, e:
             self.error_response(100, u'查询错误: {} - {}'.format(e.status_code, e.error))
 
-        return response
-
-    def search(self, **kwargs):
-        response = Search(using=self.es, **kwargs)
         return response
 
     def es_query(self, **kwargs):
