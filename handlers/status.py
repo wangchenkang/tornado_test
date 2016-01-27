@@ -7,3 +7,8 @@ from utils.routes import route
 class ServiceStatus(BaseHandler):
     def get(self):
         self.success_response({'status': 'ok'})
+
+
+class NotFoundHandler(BaseHandler):
+    def get(self):
+        self.error_response(100, 'Not Found')
