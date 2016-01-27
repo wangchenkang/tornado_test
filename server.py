@@ -27,6 +27,10 @@ class Application(tornado.web.Application):
         }
 
         routed_handlers = route.get_routes()
+        routed_handlers.append(
+            (r'.*', NotFoundHandler)
+        )
+
         if options.debug:
             routed_handlers.append(
                 tornado.web.url(r'/static/(.*)', tornado.web.StaticFileHandler, {'path': app_settings['static_path']}))

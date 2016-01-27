@@ -74,7 +74,7 @@ class ContentStudentStat(BaseHandler):
         query = self.es_query(index='main', doc_type='libc_stu_num_exam') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', seq_id=sequential_id) \
-                .filter(~Q('term', librayc_id='-1'))
+                .query(~Q('term', librayc_id='-1'))
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total])
 
@@ -87,7 +87,7 @@ class ContentStudentStat(BaseHandler):
         query = self.es_query(index='main', doc_type='libc_group_stu_num_exam') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', seq_id=sequential_id) \
-                .filter(~Q('term', librayc_id='-1'))
+                .query(~Q('term', librayc_id='-1'))
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total])
         for item in data.hits:

@@ -75,7 +75,7 @@ class BaseHandler(RequestHandler):
             response = self.es.search(**kwargs)
         except (ConnectionError, ConnectionTimeout):
             self.error_response(100, u'Elasticsearch 连接错误')
-        except RequestError, e:
+        except RequestError as e:
             self.error_response(100, u'查询错误: {} - {}'.format(e.status_code, e.error))
 
         return response
@@ -88,7 +88,7 @@ class BaseHandler(RequestHandler):
             response = query.execute()
         except (ConnectionError, ConnectionTimeout):
             self.error_response(100, u'Elasticsearch 连接错误')
-        except RequestError, e:
+        except RequestError as e:
             self.error_response(100, u'查询错误: {} - {}'.format(e.status_code, e.error))
 
         return response
