@@ -22,6 +22,33 @@ sys.setdefaultencoding('utf-8')
 
 Log.create('data')
 
+download_data_type = { 
+    'study_progress': u'学习进度数据',
+    'video_study_export': u'视频观看记录',
+    'problem_info': u'单习题得分情况',
+    'unenroll_info': u'退课记录',
+    'user_answer_history': u'单习题单次简答题情况',
+    'comments_info': u'单次帖子发帖回帖情况',
+    'pdf_view': u'教材浏览记录',
+    'learn_info': u'课程访问记录',
+    'html_view': u'其它页面浏览记录',
+    'enrollment_export': u'选课记录',
+    'learn_cnt_info': u'课程访问次数',
+    'about_enroll': u'特别关注数据',
+    'learn_active_export': u'学习习惯',
+    'grade_distribution_export': u'得分分布',
+    'course_active_export': u'学习活跃数据',
+    'ta_activity_export': u'助教考核数据',
+    'comment_active_export': u'讨论活跃数据',
+    'grade': u'个人总成绩',
+}
+
+
+@route('/data/types')
+class DataTypes(BaseHandler):
+    def get(self):
+        self.success_response({'data_type': download_data_type})
+
 @route('/data/export')
 class DataExport(BaseHandler):
     """
