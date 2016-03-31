@@ -73,7 +73,8 @@ class ChapterStudentVideo(BaseHandler):
                 .filter('term', course_id=course_id) \
                 .filter('term', chapter_id=chapter_id) \
                 .filter('terms', user_id=students)
-        student_data = self.es_execute(student_query[:video_data.hits.total])
+        total = self.es_execute(student_query[:0]).hits.total
+        student_data = self.es_execute(student_query[:total])
         students_rate = {}
         for item in student_data.hits:
             students_rate.setdefault(item.seq_id, {})
