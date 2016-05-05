@@ -27,7 +27,7 @@ download_data_type = {
     'video_study_export': u'视频观看记录',
     'problem_info': u'单习题得分情况',
     'unenroll_info': u'退课记录',
-    'user_answer_history': u'单习题单次简答题情况',
+    'sort_info': u'单习题单次简答题情况',
     'comments_info': u'单次帖子发帖回帖情况',
     'pdf_view': u'教材浏览记录',
     'learn_info': u'课程访问记录',
