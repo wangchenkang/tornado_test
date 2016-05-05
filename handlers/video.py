@@ -168,7 +168,8 @@ class CourseStudyDetail(BaseHandler):
                 'video_id': item.vid,
                 'watch_num': item.watch_num,
                 'video_length': item.duration,
-                'study_rate': float(item.study_rate)
+                'study_rate': float(item.study_rate),
+                'la_access': item.la_access
             })
 
         self.success_response({'total': data.hits.total, 'data': results})
