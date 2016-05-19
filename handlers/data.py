@@ -2,6 +2,7 @@
 import os
 import sys
 import hashlib
+import json
 import codecs
 import requests
 import tarfile
@@ -34,7 +35,7 @@ download_data_type = {
     'html_view': u'其它页面浏览记录',
     'enrollment_export': u'选课记录',
     'learn_cnt_info': u'课程访问次数',
-    'about_enroll': u'特别关注数据',
+    'about_enroll': u'选课名单',
     'learn_active_export': u'学习习惯',
     'grade_distribution_export': u'得分分布',
     'course_active_export': u'学习活跃数据',
@@ -92,55 +93,86 @@ class DataBindingOrg(BaseHandler):
 
         data_type = [item.strip() for item in data_type.split(',') if item.strip()]
 
-        filters = [
-            {'exists': {'field': 'binding_org'}},
-            {'terms': {'data_type': data_type}},
-        ]
-
+        default_size = 0
+        query = self.es_query(index='dataimport', doc_type='course_data')\
+                .filter('exists', field='binding_org')\
+                .filter('terms', data_type=data_type)
+        
         if course_id is not None:
             course_id = [fix_course_id(item.strip()) for item in course_id.split(',') if item.strip()]
-            filters.append({'terms': {'course_id': course_id}})
+            query = query.filter('terms', course_id=course_id)
 
         if org is not None:
-            filters.append({'term': {'binding_org': url_unescape(org)}})
-
-        default_size = 0
-        query = {
-            'query': {
-                'filtered': {
-                    'filter': {
-                        'and': {
-                            'filters': filters
-                        }
-                    }
-                }
-            },
-            'size': default_size
-        }
-
-        data = self.es_search(index='dataimport', doc_type='course_data', body=query)
-        if data['hits']['total'] > default_size:
-            query['size'] = data['hits']['total']
-            data = self.es_search(index='dataimport', doc_type='course_data', body=query)
+            query = query.filter('term', binding_org=url_unescape(org))
+        
+        data = self.es_execute(query[:0])
+        size = data.hits.total
+        data = self.es_execute(query[:size])
 
         courses = {}
-        for item in data['hits']['hits']:
-            courses.setdefault(item['_source']['data_type'], {})
-            courses[item['_source']['data_type']].setdefault(item['_source']['course_id'], []).append({
-                'id': item['_id'],
-                'name': item['_source']['name'],
-                'data_type': item['_source']['data_type'],
-                'data_link': item['_source']['data_link'],
-                'course_id': item['_source']['course_id'],
-                'update_time': item['_source']['update_time'],
-                'binding_org': item['_source'].get('binding_org', None),
-                'zip_format': item['_source'].get('zip_format', None),
+        for item in data.hits:
+            courses.setdefault(item.data_type, {})
+            courses[item['data_type']].setdefault(item['course_id'], []).append({
+                'id': item.meta.id,
+                'name': item['name'],
+                'data_type': item['data_type'],
+                'data_link': item['data_link'],
+                'course_id': item['course_id'],
+                'update_time': item['update_time'],
+                'binding_org': getattr(item, 'binding_org', None),
+                'zip_format': getattr(item, 'zip_format', None),
             })
 
         result = dict.fromkeys(data_type, {})
         result.update(courses)
 
         self.success_response(result)
+
+@route('/data/weekly_report')
+class DataWeeklyReport(BaseHandler):
+    """
+    获取学堂选修课教学周报
+    API: http://confluence.xuetangx.com/pages/viewpage.action?pageId=9869181
+    """
+    def get(self):
+        org = self.get_argument('org_name', None)
+        plan = self.get_argument('plan_name', None)
+        pn = int(self.get_argument('page', 1))
+        num = int(self.get_argument('psize', 10))
+        data_type = "weekly_report"
+
+        query = self.es_query(index='dataimport', doc_type='org_data')\
+                .filter('term', data_type=data_type)
+        if org:
+            query = query.filter('term', binding_org=org)
+        else:
+            query = query.filter('exists', field="binding_org")
+        if plan:
+            query = query.filter('term', plan=plan)
+        else:
+            query = query.filter('exists', field="plan")
+        size = query[:0].execute().hits.total
+        data = query[:size].execute().hits
+        data.sort(key=lambda x: x.plan, reverse=True)
+        data = data[(pn-1)*num: pn*num]
+        pages = {
+                "recordsPerPage": num,
+                "totalPage": (size - 1) / num + 1,
+                "page": pn,
+                "totalRecord": size
+                }
+        results = []
+        for hit in data:
+            results.append({
+                "org_name": hit.binding_org,
+                "plan_name": hit.plan,
+                "course_list": list(hit.course_name),
+                "update_time": hit.update_time,
+                "pdf_url": hit.pdf_url,
+                "zip_url": hit.zip_url
+                })
+
+        self.success_response({"pages": pages, "results": results})
 
 
 @route('/data/download')
