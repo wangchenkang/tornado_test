@@ -153,6 +153,16 @@ class DataWeeklyReport(BaseHandler):
             query = query.filter('exists', field="plan")
         size = query[:0].execute().hits.total
         data = query[:size].execute().hits
+        date_dic = {}
+        for item in data:
+            key = hashlib.md5(item.binding_org+item.plan).hexdigest()
+            if key in date_dic:
+                if item.update_time > date_dic[key].update_time:
+                    date_dic[key] = item
+            else:
+                date_dic[key] = item
+        data = date_dic.values()
+        size = len(data)
         data.sort(key=lambda x: x.plan, reverse=True)
         data = data[(pn-1)*num: pn*num]
         pages = {
