@@ -9,6 +9,7 @@ import tarfile
 import shutil
 import tempfile
 import xlsxwriter
+import csv
 from cStringIO import StringIO
 from tornado.escape import url_unescape
 from tornado.web import HTTPError, Finish
@@ -225,14 +226,14 @@ class DataDownload(BaseHandler):
                 xlsx_file = StringIO()
                 workbook = xlsxwriter.Workbook(xlsx_file, {'in_memory': True})
                 worksheet = workbook.add_worksheet()
-                lines = response.content.strip().split('\n')
-                for row, line in enumerate(lines):
-                    for col, item in enumerate(line.split(',')):
-                        worksheet.write(row, col, item.strip('"'))
-
+                lines = csv.reader(response.content.strip().split('\n'), dialect=csv.excel)
+                row = 0
+                for line in lines:
+                    for col, item in enumerate(line):
+                        worksheet.write(row, col, item)
+                    row += 1
                 workbook.close()
                 xlsx_file.seek(0)
-
                 filename = filename.rsplit('.', 1)[0] + '.xlsx'
                 self.set_header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
                 self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
