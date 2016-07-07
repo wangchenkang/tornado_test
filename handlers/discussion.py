@@ -1,11 +1,11 @@
 #! -*- coding: utf-8 -*-
 from datetime import datetime, timedelta
-from elasticsearch_dsl import Q
+from elasticsearch_dsl import Q, F
 from .base import BaseHandler
 from utils.routes import route
 from utils.log import Log
 from utils.tools import date_from_query, date_to_str, utc_to_cst
-
+from collections import defaultdict
 Log.create('discussion')
 
 @route('/discussion/course_stat')
@@ -295,70 +295,95 @@ class StudentRelation(BaseHandler):
 @route('/discussion/course_rank_stat')
 class CourseRankStat(BaseHandler):
     def get(self):
-
+        # 获得course_list的elective
         result = {}
-        query = self.es_query(index='rollup', doc_type='discuss_active_user_num') \
-                .filter('term', course_id=self.course_id)
-        active_data = self.es_execute(query)
-
-        query = self.es_query(index='rollup', doc_type='discuss_average_active_num') \
-                .filter('term', course_id=self.course_id)
-        average_data = self.es_execute(query)
-
-        query = self.es_query(index='rollup', doc_type='discuss_replied_percent') \
-                .filter('term', course_id=self.course_id)
-        reply_data = self.es_execute(query)
-
-        result['course_num'] = 0
-        try:
-            active_data = active_data[0]
-            result['course_num'] = active_data['owner_course_num']
-            result['active_stat'] = {
-                'rank': active_data['rank'],
-                'user_num': active_data['active_user_num']
-            }
-        except IndexError:
-            result['active_stat'] = {
-                'rank': 0,
-                'user_num': 0
-            }
-
-        try:
-            average_data = average_data[0]
-            result['course_num'] = average_data['owner_course_num']
-            result['average_stat'] = {
-                'total_num': average_data['active_num'],
-                'post_num': average_data['post_num'],
-                'reply_num': average_data['reply_num'],
-                'rank': average_data['rank'],
-                'user_average_num': average_data['user_average_active_num']
-            }
-        except IndexError:
-            result['average_stat'] = {
-                'total_num': 0,
-                'post_num': 0,
-                'reply_num': 0,
-                'rank': 0,
-                'user_average_num': 0
-            }
-
-        try:
-            reply_data = reply_data[0]
-            result['course_num'] = reply_data['owner_course_num']
-            result['reply_stat'] = {
-                'no_reply_post_num': reply_data['no_reply_num'],
-                'reply_post_num': reply_data['replied_post_num'],
-                'reply_percent': round(reply_data['replied_percent'], 4),
-                'rank': reply_data['rank']
-            }
-        except IndexError:
-            result['reply_stat'] = {
-                'no_reply_post_num': 0,
-                'reply_post_num': 0,
-                'reply_percent': 0,
-                'rank': 0
-            }
-
+        query = self.es_query(doc_type='course')\
+                .filter('range', status={'gte': 0})
+        if self.elective:
+            query = query.filter('term', elective=self.elective)
+        else:
+            query = query.filter(~F('exists', field='elective'))
+        hits = self.es_execute(query[:1000]).hits
+        if hits.total > 1000:
+            hits = self.es_execute(query[:hits.total]).hits
+        course_list = [hit.course_id for hit in hits]
+        # 获得course_list下的所有数据
+        query = self.es_query(doc_type='discussion_aggs')\
+                .filter('terms', course_id=course_list)
+        hits = self.es_execute(query[:0]).hits
+        hits = self.es_execute(query[:hits.total]).hits
+        # 获得发帖回复率数据
+        # 发帖回复率=(帖子总数-零回复总数)/帖子总数
+        # 帖子总数=所有人发帖数之和
+        def default_func():
+            return [0, 0]
+        reply_dict = defaultdict(default_func)
+        # 第一个是帖子数，第二个是零回复数
+        for hit in hits:
+            reply_dict[hit.course_id][0] += int(hit.post_num)
+            reply_dict[hit.course_id][1] += int(hit.no_reply_num)
+        sorted_dict = sorted(reply_dict.items(), 
+                key=lambda x: (x[1][0]-x[1][1])/float(x[1][0]),
+                reverse=True)
+        reply_index = len(sorted_dict)
+        reply_ratio = 0
+        no_reply_num = 0
+        for i, item in enumerate(sorted_dict):
+            if item[0] == self.course_id:
+                reply_index = i
+                reply_ratio = (item[1][0] - item[1][1]) / float(item[1][0])
+                no_reply_num = item[1][1]
+                break
+        if reply_ratio == 1:
+            reply_overcome = 1 - 1 / float(len(course_list))
+        elif reply_ratio == 0:
+            reply_overcome = 0
+        else:
+            reply_overcome = 1 - (reply_index+1)/float(len(course_list))
+        result["reply_ratio"] = reply_ratio
+        result["no_reply_num"] = no_reply_num
+        result["reply_overcome"] = reply_overcome
+        # 讨论区人均互动次数
+        # 人均互动次数=(发帖数+回帖数)/总人数
+        enroll_dict = self.get_enroll(elective=self.elective)
+        total_comment = defaultdict(float)
+        for hit in hits:
+            total_comment[hit.course_id] += int(hit.post_num) / float(enroll_dict[hit.course_id])
+            total_comment[hit.course_id] += int(hit.reply_num) / float(enroll_dict[hit.course_id])
+        sorted_dict = sorted(total_comment.items(),
+                key=lambda x: x[1],
+                reverse=True)
+        for i, item in enumerate(sorted_dict):
+            if item[0] == self.course_id:
+                discussion_index = i
+                discussion_avg = item[1]
+                break
+        if discussion_avg == 0:
+            discussion_overcome = 0
+        else:
+            discussion_overcome = 1 - (discussion_index+1)/float(len(course_list))
+        result["discussion_avg"] = discussion_avg
+        result["discussion_overcome"] = discussion_overcome
+        # 参与规模
+        # 讨论区参与规模只计人数，不计每人发回帖数
+        discussion_student_list = defaultdict(list)
+        for hit in hits:
+            if hit.user_id not in discussion_student_list[hit.course_id]:
+                discussion_student_list[hit.course_id].append(hit.user_id)
+        sorted_dict = sorted(discussion_student_list.items(),
+                key=lambda x: len(x[1]),
+                reverse=True)
+        for i, item in enumerate(sorted_dict):
+            if item[0] == self.course_id:
+                discussion_num_index = i
+                discussion_num = item[1]
+                break
+        if discussion_num == 0:
+            discussion_num_overcome = 0
+        else:
+            discussion_num_overcome = 1 - (discussion_num_index+1)/float(len(course_list))
+        result["discussion_num"] = discussion_num
+        result["discussion_num_overcome"] = discussion_num_overcome
         self.success_response(result)
 
 

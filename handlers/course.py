@@ -1,6 +1,6 @@
 #! -*- coding: utf-8 -*-
 from __future__ import division
-from elasticsearch_dsl import A
+from elasticsearch_dsl import A, F
 from .base import BaseHandler
 from utils.routes import route
 from utils.tools import datedelta
@@ -12,30 +12,42 @@ class CourseActivity(BaseHandler):
     课程7日活跃统计
     """
     def get(self):
-        query = self.es_query(index='rollup', doc_type='recent_active_percent') \
-                .filter('term', course_id=self.course_id)[:1]
-        data = self.es_execute(query)
-
-        try:
-            hit = data.hits[0]
-            result = {
-                'active_user_num': hit.active_user_num,
-                'enroll_user_num': hit.enroll_user_num,
-                'percent': round(hit.active_user_percent, 4),
-                'owner_course_num': hit.owner_course_num,
-                'rank': hit.rank,
-                'overcome': 1 - round(hit.rank / hit.owner_course_num, 4)
+        # 获得全部记录
+        query = self.es_query(doc_type = 'active')\
+                .filter('term', date=self.get_argument('date'))
+        if self.elective:
+            query = query.filter('term', elective=self.elective)
+        else:
+            query = query.filter(~F('exists', field='elective'))
+        hits = self.es_execute(query[:1000]).hits
+        if hits.size > 1000:
+            hits = self.es_execute(query[:hits.size]).hits
+        course_list = []
+        for hit in hits:
+            if hit.enroll_num == 0:
+                course_list.append((hit.course_id, (0, 0)))
+            else:
+                course_list.append((hit.course_id, (hit.weekly_active/float(hit.enroll_num), hit.enroll_num)))
+        course_list.sort(key=lambda x: x[1][0], reverse=True)
+        total = len(course_list)
+        index = total
+        value = 0
+        percent = 0
+        for i, course in enumerate(course_list):
+            if course[0] == self.course_id:
+                index = i
+                percent = course[0][0]
+                value = course[0][1]
+                break
+        if percent == 0:
+            overcome = 0
+        else:
+            overcome = 1 - (1+index)/float(total)
+        result = {
+            "active_user_num": value,
+            "percent": percent,
+            "overcome": overcome
             }
-        except IndexError:
-            result = {
-                'active_user_num': 0,
-                'enroll_user_num': 0,
-                'percent': 0,
-                'owner_course_num': 0,
-                'rank': 0,
-                'overcome': 0
-            }
-
         self.success_response({'data': result})
 
 
@@ -45,21 +57,35 @@ class CourseRegisterRank(BaseHandler):
     课程总注册人数统计及排名
     """
     def get(self):
-        query = self.es_query(index='rollup', doc_type='course_user_num_ds') \
-                .filter('term', course_id=self.course_id)
-        data = self.es_execute(query)
-        result = {}
-        try:
-            result['user_num'] = data.hits[0].user_num
-            result['owner_course_num'] = data.hits[0].owner_course_num
-            result['rank'] = data.hits[0].rank
-            result['overcome'] = 1 - round(data.hits[0].rank / data.hits[0].owner_course_num, 4)
-        except IndexError:
-            result['user_num'] = 0
-            result['owner_course_num'] = 0
-            result['rank'] = 0
-            result['overcome'] = 0
-
+        query = self.es_query(doc_type = 'course')
+        if self.elective:
+            query = query.filter('term', elective=self.elective)
+        else:
+            query = query.filter(~F('exists', field='elective'))
+        hits = self.es_execute(query[:1000]).hits
+        if hits.size > 1000:
+            hits = self.es_execute(query[:hits.size]).hits
+        course_list = []
+        for hit in hits:
+            course_list.append((hit.course_id, hit.enroll_num))
+        course_list.sort(key=lambda x: x[1], reverse=True)
+        total = len(course_list)
+        index = total
+        value = 0
+        for i, course in enumerate(course_list):
+            if course[0] == self.course_id:
+                index = i
+                value = course[1]
+                break
+        if value == 0:
+            overcome = 0
+        else:
+            overcome = 1 - (1+index)/float(total)
+        result = {
+                "user_num": value,
+                "overcome": overcome
+                }
+        
         self.success_response({'data': result})
 
 
@@ -94,18 +120,7 @@ class CourseEnrollmentsCount(BaseHandler):
     获取课程当前总选课人数
     """
     def get(self):
-        is_active = self.get_argument("is_active", "")
-        query = self.es_query(index="main", doc_type="enrollment")
-        if is_active == "true":
-            query = query.filter("term", is_active=True)
-        elif is_active == "false":
-            query = query.filter("term", is_active=False)
-        query = query.filter("term", course_id=self.course_id)
-        query = query[:0]
-
-        results = self.es_execute(query)
-        total = results.hits.total
-        self.success_response({"total": total})
+        self.success_response({"total": self.get_enroll(elective, course_id)})
 
 
 @route('/course/enrollments/users')
@@ -139,67 +154,63 @@ class CourseEnrollmentsDate(BaseHandler):
     def get(self):
         start = self.get_param("start")
         end = self.get_param("end")
-
-        query = self.es_query(index="main", doc_type="enrollment")
-        query = query.filter("range", **{'event_time': {'lte': end, 'gte': start}}) \
-                .filter("term", course_id=self.course_id)[:0]
-        query.aggs.bucket('value', A("date_histogram", field="event_time", interval="day")) \
-                .metric('count', "terms", field="is_active", size=2)
-        results = self.es_execute(query)
-        aggs = results.aggregations
-        buckets = aggs['value']['buckets']
-        res_dict = {}
-        for x in buckets:
-            date = str(x["key_as_string"][:10])
-            data = {}
-            aggs_buckets = x["count"]["buckets"]
-            for aggs_bucket in aggs_buckets:
-                if str(aggs_bucket["key"]) == 'T':
-                    data['enroll'] = aggs_bucket["doc_count"]
-                elif str(aggs_bucket['key']) == 'F':
-                    data['unenroll'] = aggs_bucket["doc_count"]
-            data["date"] = date
-            res_dict[date] = data
-        item = start
-        end_1 = datedelta(end, 1)
-        while item != end_1:
-            if item in res_dict:
-                if not "enroll" in res_dict[item]:
-                    res_dict[item]["enroll"] = 0
-                if not "unenroll" in res_dict[item]:
-                    res_dict[item]["unenroll"] = 0
-            else:
-                res_dict[item] = {
-                    "date": item,
-                    "enroll": 0,
-                    "unenroll": 0
+        query = self.es_query(index="tap", doc_type="student")\
+                .filter("term", course_id=self.course_id)
+        if self.elective:
+            query = query.filter("term", elective=self.elective)
+        
+        size = self.es_execute(query[:0]).hits.total
+        hits = self.es_execute(query[:size]).hits
+        ret = {}
+        def default(date):
+            return {
+                "enroll": 0,    # 当天选课量
+                "unenroll": 0,  # 当天退课量
+                "date_enrollment": 0, # 当天净选课量
+                "total_enroll": 0, # 截止当天总选课量
+                "total_unenroll": 0, # 截止当天总退课量
+                "enrollment": 0,     # 截止当天正在选课量
+                "date": date
                 }
-            item = datedelta(item, 1)
-        # 取end的数据
-        query = self.es_query(index="main", doc_type="enrollment")
-        query = query.filter("range", **{'event_time': {'lt': start}})
-        query = query.filter("term", course_id=self.course_id)
-        query = query[:0]
-        query.aggs.bucket('value', "terms", field="is_active", size=2)
-        results = self.es_execute(query)
-        aggs = results.aggregations
-        buckets = aggs['value']['buckets']
-        enroll = 0
-        unenroll = 0
-        for x in buckets:
-            if str(x["key"]) == 'T':
-                enroll = x["doc_count"]
-            elif str(x['key']) == 'F':
-                unenroll = x["doc_count"]
-        data = sorted(res_dict.values(), key=lambda x: x["date"])
-        for item in data:
-            enroll += item["enroll"]
-            unenroll += item["unenroll"]
-            item["total_enroll"] = enroll + unenroll
-            item["total_unenroll"] = unenroll
-            item["enrollment"] = enroll
+        total_enroll, total_unenroll = 0, 0
+        for hit in hits:
+            total_enroll += 1
+            if not hit.is_active:
+                total_unenroll += 1
+            enroll_time = hit.enroll_time[:10]
+            if hit.unenroll_time:
+                unenroll_time = hit.unenroll_time[:10]
+            else:
+                unenroll_time = None
+            if enroll_time >= start and enroll_time <= end:
+                if enroll_time not in ret:
+                    ret[enroll_time] = default(enroll_time)
+                ret[enroll_time]["enroll"] += 1
+            if unenroll_time and unenroll_time >= start and unenroll_time <= end:
+                if unenroll_time not in ret:
+                    ret[unenroll_time] = default(unenroll_time)
+                ret[unenroll_time]["unenroll"] += 1
+        if end not in ret:
+            ret[end] = default(end)
 
-        self.success_response({"data": data})
+        ret[end]["total_enroll"] = total_enroll
+        ret[end]["total_unenroll"] = total_unenroll
+        ret[end]["enrollment"] = total_enroll - total_unenroll
+        ret[end]["date_enrollment"] = ret[end]["enroll"] - ret[end]["unenroll"]
+        prev = datedelta(end, -1)
+        curr = end
+        yesterday = datedelta(start, -1)
+        while prev != yesterday:
+            if prev not in ret:
+                ret[prev] = default(prev)
+            ret[prev]["total_enroll"] = ret[curr]["total_enroll"] - ret[curr]["enroll"]
+            ret[prev]["total_unenroll"] = ret[curr]["total_unenroll"] - ret[curr]["unenroll"]
+            ret[prev]["enrollment"] = ret[prev]["total_enroll"] - ret[prev]["total_unenroll"]
+            ret[prev]["date_enrollment"] = ret[prev]["enroll"] - ret[prev]["unenroll"]
+            curr = prev
+            prev = datedelta(prev, -1)
+
+        self.success_response({"data": sorted(ret.values(), key=lambda x: x["date"])})
 
 
 @route('/course/active_num')
@@ -211,18 +222,15 @@ class CourseActive(BaseHandler):
         end = self.get_param("end")
         start = self.get_param("start")
 
-        query = self.es_query(index="rollup", doc_type="course_active") \
+        query = self.es_query(index="tap", doc_type="active") \
                 .filter("range", **{'date': {'lte': end, 'gte': start}}) \
                 .filter("term", course_id=self.course_id)
-        query = query[:0]
-        results = self.es_execute(query)
-        total = results.hits.total
-
-        query = self.es_query(index="rollup", doc_type="course_active") \
-                .filter("range", **{'date': {'lte': end, 'gte': start}}) \
-                .filter("term", course_id=self.course_id)
-        query = query[:total]
-        results = self.es_execute(query)
+        if self.elective:
+            query = query.filter("term", elective=self.elective)
+        else:
+            query = query.filter(~F("exists", field="elective"))
+        total = self.es_execute(query[:0]).hits.total
+        results = self.es_execute(query[:total])
         res_dict = {}
         for item in results.hits:
             res_dict[item.date] = {
@@ -252,7 +260,9 @@ class CourseDistribution(BaseHandler):
     获取用户省份统计
     """
     def get(self):
-        query = self.es_query(index="main", doc_type="student")
+        query = self.es_query(index="tap", doc_type="student")
+        if self.elective:
+            query = query.filter("term", elective=self.elective)
         top = int(self.get_argument("top", 10))
         query = query.filter("term", courses=self.course_id)\
                 .filter("term", country='中国')[:0]
@@ -275,19 +285,20 @@ class CourseVideoWatch(BaseHandler):
     def get(self):
         start = self.get_param("start")
         end = self.get_param("end")
+        # get student
+        users = self.get_users()
+        query = self.es_query(index="tap", doc_type="video_daily")\
+                .filter("term", course_id=self.course_id)\
+                .filter("range", **{'date': {'lte': end, 'gte': start}})\
+                .filter("terms", user_id=users)
 
-        query = self.es_query(index="api1", doc_type="video_course_active_learning")
-        query = query.filter("term", course_id=self.course_id)
-        query = query.filter("range", **{'date': {'lte': end, 'gte': start}})[:100]
-
-        results = self.es_execute(query)
-        hits = results.hits
+        size = self.es_execute(query[:0]).hits.total
+        hits = self.es_execute(query[:size]).hits
         res_dict = {}
         for hit in hits:
-            res_dict[hit.date] = {
-                "date": hit.date,
-                "hour_watch_num": list(hit.watch_num_list)
-            }
+            if hit.date in res_dict:
+                res_dict[hit.date] += list(hit.watch_list)
+            res_dict[hit.date] = list(hit.watch_num_list)
         item = start
         end_1 = datedelta(end, 1)
         while item != end_1:
@@ -328,5 +339,7 @@ class CourseTsinghuaStudent(BaseHandler):
         query = self.es_query(index='main', doc_type='student') \
                 .filter('term', courses=self.course_id) \
                 .filter('term', binding_org='tsinghua')[:0]
+        if self.elective:
+            query = query.filter('term', elective=self.elective)
         data = self.es_execute(query)
         self.success_response({'data': data.hits.total})

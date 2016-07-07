@@ -4,7 +4,7 @@ from tornado.web import RequestHandler, Finish, MissingArgumentError
 from tornado.options import options
 from tornado.escape import url_unescape, json_encode
 from elasticsearch import ConnectionError, ConnectionTimeout, RequestError
-from elasticsearch_dsl import Search
+from elasticsearch_dsl import Search, F
 from utils.tools import fix_course_id
 
 
@@ -59,6 +59,12 @@ class BaseHandler(RequestHandler):
             self.error_response(200, u'参数错误')
         return chapter_id
 
+    @property
+    def elective(self):
+        elective = self.get_argument('elective', None)
+        return elective
+
+
     def get_param(self, key):
         try:
             param = self.get_argument(key)
@@ -81,6 +87,8 @@ class BaseHandler(RequestHandler):
         return response
 
     def es_query(self, **kwargs):
+        if 'index' not in kwargs:
+            kwargs['index'] = 'tap'
         return Search(using=self.es, **kwargs)
 
     def es_execute(self, query):
@@ -92,3 +100,32 @@ class BaseHandler(RequestHandler):
             self.error_response(100, u'查询错误: {} - {}'.format(e.status_code, e.error))
 
         return response
+ 
+    def get_enroll(self, elective=None, course_id=None):
+        query = self.es_query(doc_type='course')
+        if elective:
+            query = query.filter('term', elective=elective)
+        else:
+            query = query.filter(~F('exists', field='elective'))
+        if course_id:
+            query = query.filter('term', course_id=course_id)
+        hits = self.es_execute(query[:100]).hits
+        if hits.total > 100:
+            hits = self.es_execute(query[:hits.total]).hits
+        if course_id:
+            return hits[0].enroll_num
+        else:
+            return dict([(hit.course_id, int(hit.enroll_num)) for hit in hits])
+    
+    def get_users(self):
+        query = self.es_query(doc_type='student')
+        if self.elective:
+            query = query.filter('term', elective=elective)
+        else:
+            query = query.filter(~F('exists', field='elective'))
+        if self.course_id:
+            query = query.filter('term', course_id=course_id)
+        size = self.es_execute(query[:0]).hits.total
+        hits = self.es_execute(query[:size]).hits
+        return [hit.user_id for hit in hits]
+        
