@@ -129,3 +129,6 @@ class BaseHandler(RequestHandler):
         hits = self.es_execute(query[:size]).hits
         return [hit.user_id for hit in hits]
         
+    def search(self, **kwargs):
+        response = Search(using=self.es, **kwargs)
+        return response

@@ -353,6 +353,7 @@ class CourseRankStat(BaseHandler):
         sorted_dict = sorted(total_comment.items(),
                 key=lambda x: x[1],
                 reverse=True)
+        discussion_avg = 0
         for i, item in enumerate(sorted_dict):
             if item[0] == self.course_id:
                 discussion_index = i
@@ -373,10 +374,11 @@ class CourseRankStat(BaseHandler):
         sorted_dict = sorted(discussion_student_list.items(),
                 key=lambda x: len(x[1]),
                 reverse=True)
+        discussion_num = 0
         for i, item in enumerate(sorted_dict):
             if item[0] == self.course_id:
                 discussion_num_index = i
-                discussion_num = item[1]
+                discussion_num = len(item[1])
                 break
         if discussion_num == 0:
             discussion_num_overcome = 0

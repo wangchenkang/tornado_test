@@ -3,7 +3,9 @@ from __future__ import division
 from elasticsearch_dsl import A, F
 from .base import BaseHandler
 from utils.routes import route
-from utils.tools import datedelta
+from utils.tools import utc_to_cst, date_to_str, datedelta
+from elasticsearch_dsl import A
+import json
 
 
 @route('/course/week_activity')
@@ -20,14 +22,16 @@ class CourseActivity(BaseHandler):
         else:
             query = query.filter(~F('exists', field='elective'))
         hits = self.es_execute(query[:1000]).hits
-        if hits.size > 1000:
-            hits = self.es_execute(query[:hits.size]).hits
+        if hits.total > 1000:
+            hits = self.es_execute(query[:hits.total]).hits
         course_list = []
+        enroll_dic = self.get_enroll(elective=self.elective)
         for hit in hits:
-            if hit.enroll_num == 0:
+            enroll_num = enroll_dic.get(hit.course_id, 0)
+            if enroll_num == 0:
                 course_list.append((hit.course_id, (0, 0)))
             else:
-                course_list.append((hit.course_id, (hit.weekly_active/float(hit.enroll_num), hit.enroll_num)))
+                course_list.append((hit.course_id, (hit.weekly_active/enroll_num, enroll_num)))
         course_list.sort(key=lambda x: x[1][0], reverse=True)
         total = len(course_list)
         index = total
@@ -36,8 +40,8 @@ class CourseActivity(BaseHandler):
         for i, course in enumerate(course_list):
             if course[0] == self.course_id:
                 index = i
-                percent = course[0][0]
-                value = course[0][1]
+                percent = course[1][0]
+                value = course[1][1]
                 break
         if percent == 0:
             overcome = 0
@@ -63,8 +67,8 @@ class CourseRegisterRank(BaseHandler):
         else:
             query = query.filter(~F('exists', field='elective'))
         hits = self.es_execute(query[:1000]).hits
-        if hits.size > 1000:
-            hits = self.es_execute(query[:hits.size]).hits
+        if hits.total > 1000:
+            hits = self.es_execute(query[:hits.total]).hits
         course_list = []
         for hit in hits:
             course_list.append((hit.course_id, hit.enroll_num))
@@ -120,8 +124,7 @@ class CourseEnrollmentsCount(BaseHandler):
     获取课程当前总选课人数
     """
     def get(self):
-        self.success_response({"total": self.get_enroll(elective, course_id)})
-
+        self.success_response({"total": self.get_enroll(self.elective, self.course_id)})
 
 @route('/course/enrollments/users')
 class CourseEnrollments(BaseHandler):
@@ -130,7 +133,7 @@ class CourseEnrollments(BaseHandler):
     """
     def get(self):
         is_active = self.get_argument("is_active", "")
-        query = self.es_query(index="main", doc_type="enrollment")
+        query = self.search(index="main", doc_type="enrollment")
         if is_active == "true":
             query = query.filter("term", is_active=True)
         elif is_active == "false":
@@ -212,7 +215,6 @@ class CourseEnrollmentsDate(BaseHandler):
 
         self.success_response({"data": sorted(ret.values(), key=lambda x: x["date"])})
 
-
 @route('/course/active_num')
 class CourseActive(BaseHandler):
     """
@@ -264,7 +266,7 @@ class CourseDistribution(BaseHandler):
         if self.elective:
             query = query.filter("term", elective=self.elective)
         top = int(self.get_argument("top", 10))
-        query = query.filter("term", courses=self.course_id)\
+        query = query.filter("term", course_id=self.course_id)\
                 .filter("term", country='中国')[:0]
         query.aggs.bucket("area", "terms", field="prov", size=top)
         results = self.es_execute(query)
@@ -311,6 +313,34 @@ class CourseVideoWatch(BaseHandler):
         data = sorted(res_dict.values(), key=lambda x: x["date"])
         self.success_response({'data': data})
 
+@route('/course/watch_num')
+class CourseVideoWatch(BaseHandler):
+    def get(self):
+        query = self.search(index="api1", doc_type="video_course_active_learning")
+        query = query.filter("term", course_id=self.course_id)
+        end = self.get_param("end")
+        start = self.get_param("start")
+        query = query.filter("range", **{'date': {'lte': end, 'gte': start}})
+        results = query.execute()
+        hits = results.hits
+        res_dict = {}
+        for hit in hits:
+            res_dict[hit.date] = {
+                "date": hit.date,
+                "hour_watch_num": list(hit.watch_num_list)
+            }
+        item = start
+        end_1 = datedelta(end, 1)
+        while item != end_1:
+            if not item in res_dict:
+                res_dict[item] = {
+                    "date": item, 
+                    "hour_watch_num": [0]*24
+                }
+            item = datedelta(item, 1)
+        data = sorted(res_dict.values(), key=lambda x: x["date"])
+        self.success_response({'data': data})
+            
 
 @route('/course/topic_keywords')
 class CourseTopicKeywords(BaseHandler):
