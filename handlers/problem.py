@@ -3,6 +3,7 @@ from .base import BaseHandler
 from utils.routes import route
 from utils.log import Log
 import ast
+from collections import defaultdict
 
 
 Log.create('problem')
@@ -94,32 +95,36 @@ class CourseProblemDetail(BaseHandler):
 class ChapterGradeStat(BaseHandler):
     def get(self):
         chapter_id = self.chapter_id
+        users = self.get_problem_users()
+        query = self.search(doc_type="seq_problem")\
+                .filter('term', course_id=self.course_id)\
+                .filter('term', chapter_id=chapter_id)\
+                .filter('terms', user_id=users)
+        hits = self.es_execute(query[:0]).hits
+        if hits.total == 0:
+            self.success_response({'graded_student_num': 0, 'groups': {
+                '1':0,
+                '2':0,
+                '3':0, 
+                '4':0,
+                '5':0,
+                '6':0
+                }})
 
-        query = self.es_query(index='main', doc_type='grade_group_stu_num') \
-                .filter('term', course_id=self.course_id) \
-                .filter('term', chapter_id=chapter_id) \
-                .filter('term', seq_id='-1')
-        data = self.es_execute(query[:0])
-        data = self.es_execute(query[:data.hits.total])
+        hits = self.es_execute(query[:hits.total]).hits
+        user_dic = defaultdict(list)
+        max_len = 0
+        for hit in hits:
+            user_dic[hit.user_id].append(int(hit.grade_ratio))
+            if max_len < len(user_dic[hit.user_id]):
+                max_len = len(user_dic[hit.user_id])
+        user_group = [sum(item)/float(max_len) for item in user_dic.values()]
+        groups = defaultdict(int)
+        for item in user_group:
+            group_id = int(item) / 20 + 1
+            groups[str(group_id)] += 1
 
-        groups = {}
-        for item in data.hits:
-            groups[item.group_id] = {
-                'group_id': item.group_id,
-                'user_num': item.user_num
-            }
-
-        query = self.es_query(index='main', doc_type='grade_stu_num') \
-                .filter('term', course_id=self.course_id) \
-                .filter('term', chapter_id=chapter_id) \
-                .filter('term', seq_id='-1')
-        data = self.es_execute(query[:1])
-        try:
-            graded_num = data.hits[0].user_num
-        except (KeyError, IndexError, AttributeError):
-            graded_num = 0
-
-        self.success_response({'graded_student_num': graded_num, 'groups': groups})
+        self.success_response({'graded_student_num': len(user_group), 'groups': groups})
 
 
 @route('/problem/chapter_problem_detail')

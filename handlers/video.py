@@ -179,25 +179,25 @@ class CourseStudyDetail(BaseHandler):
 class ChapterVideoStat(BaseHandler):
     def get(self):
         result = {}
-        query = self.es_query(index='rollup', doc_type='video_student_num_ds') \
+        users = self.get_users()
+        query = self.search(doc_type='video') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', chapter_id=self.chapter_id) \
-                .filter('term', seq_id='-1') \
-                .filter('term', video_id='-1')
+                .filter('terms', user_id=users)
 
-        data = self.es_execute(query)
-        hit = data.hits
-        result['course_id'] = self.course_id
-        result['chapter_id'] = self.chapter_id
-        if hit:
-            hit = hit[0]
-            result['study_num'] = int(hit.view_user_num)
-            result['review_num'] = int(hit.review_user_num)
-        else:
-            result['study_num'] = 0
-            result['review_num'] = 0
+        hits = self.es_execute(query[:0]).hits
+        hits = self.es_execute(query[:hits.total]).hits
+        for hit in hits:
+            if hit.user_id in result:
+                if result[hit.user_id] < int(hit.review_num):
+                    result[hit.user_id] = int(hit.review_num)
+            else:
+                result[hit.user_id] = int(hit.review_num)
+        data = {}
+        data["study_num"] = len(result)
+        data["review_num"] = len([item for item in result.values() if item > 1])
 
-        self.success_response(result)
+        self.success_response(data)
 
 @route('/video/chapter_video_detail')
 class CourseChapterVideoDetail(BaseHandler):
