@@ -99,22 +99,26 @@ class CourseGradeDistribution(BaseHandler):
     课程成绩分布统计
     """
     def get(self):
-        query = self.es_query(index="api1", doc_type="course_grade_distribution")
-        query = query.filter("term", course_id=self.course_id).sort("-date")[:1]
+        users = self.get_problem_users()
+        query = self.es_query(index="tap", doc_type="problem_course")\
+                .filter("term", course_id=self.course_id)\
+                .filter("terms", user_id=users)
         result = self.es_execute(query)
         hits = result.hits
-        data = {}
-        if hits:
-            hit = hits[0]
-            data["distribution"] = list(hit.distribution)
-            data["above_average"] = int(hit.above_average)
-            data["student_num"] = sum(list(hit.distribution))
-            data["date"] = hit.date
-        else:
-            data["distribution"] = [0]*50
-            data["above_average"] = 0
-            data["student_num"] = 0
-            data["date"] = ''
+        data = {
+                "distribution":[0]*50,
+                "student_num": 0}
+        avg = 0
+        for hit in hits:
+            index = int(hit.grade_ratio/2)
+            if index == 50:
+                index = 49
+            data["distribution"][index] += 1
+            data["student_num"] += 1
+            avg += index
+        avg /= data["student_num"]
+        above_avg = sum(data["distribution"][int(avg+1):])
+        data["above_average"] = above_avg
         self.success_response({'data': data})
 
 
@@ -238,12 +242,12 @@ class CourseActive(BaseHandler):
             res_dict[item.date] = {
                 "active": getattr(item, 'active', 0),
                 "inactive": getattr(item, 'inactive', 0),
-                "new_inactive": getattr(item, 'newinactive', 0),
+                "new_inactive": getattr(item, 'new_inactive', 0),
                 "revival": getattr(item, 'revival', 0),
                 "date": item.date
             }
         item = start
-        while item != end:
+        while item <= end:
             if not item in res_dict:
                 res_dict[item] = {
                     "date": item,
@@ -299,8 +303,11 @@ class CourseVideoWatch(BaseHandler):
         res_dict = {}
         for hit in hits:
             if hit.date in res_dict:
-                res_dict[hit.date] += list(hit.watch_list)
-            res_dict[hit.date] = list(hit.watch_num_list)
+                wl = list(hit.watch_list)
+                for i in range(24):
+                    res_dict[hit.date]["hour_watch_num"][i] += int(hit.watch_list[i])
+            else:
+                res_dict[hit.date] = {"date": hit.date, "hour_watch_num": list(hit.watch_list)}
         item = start
         end_1 = datedelta(end, 1)
         while item != end_1:
@@ -310,37 +317,9 @@ class CourseVideoWatch(BaseHandler):
                     "hour_watch_num": [0]*24
                 }
             item = datedelta(item, 1)
-        data = sorted(res_dict.values(), key=lambda x: x["date"])
+        data = res_dict.values()
+        data.sort(key=lambda x: x["date"])
         self.success_response({'data': data})
-
-@route('/course/watch_num')
-class CourseVideoWatch(BaseHandler):
-    def get(self):
-        query = self.search(index="api1", doc_type="video_course_active_learning")
-        query = query.filter("term", course_id=self.course_id)
-        end = self.get_param("end")
-        start = self.get_param("start")
-        query = query.filter("range", **{'date': {'lte': end, 'gte': start}})
-        results = query.execute()
-        hits = results.hits
-        res_dict = {}
-        for hit in hits:
-            res_dict[hit.date] = {
-                "date": hit.date,
-                "hour_watch_num": list(hit.watch_num_list)
-            }
-        item = start
-        end_1 = datedelta(end, 1)
-        while item != end_1:
-            if not item in res_dict:
-                res_dict[item] = {
-                    "date": item, 
-                    "hour_watch_num": [0]*24
-                }
-            item = datedelta(item, 1)
-        data = sorted(res_dict.values(), key=lambda x: x["date"])
-        self.success_response({'data': data})
-            
 
 @route('/course/topic_keywords')
 class CourseTopicKeywords(BaseHandler):

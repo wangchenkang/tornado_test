@@ -120,15 +120,23 @@ class BaseHandler(RequestHandler):
     def get_users(self):
         query = self.es_query(doc_type='student')
         if self.elective:
-            query = query.filter('term', elective=elective)
+            query = query.filter('term', elective=self.elective)
         else:
             query = query.filter(~F('exists', field='elective'))
         if self.course_id:
-            query = query.filter('term', course_id=course_id)
+            query = query.filter('term', course_id=self.course_id)
         size = self.es_execute(query[:0]).hits.total
         hits = self.es_execute(query[:size]).hits
         return [hit.user_id for hit in hits]
-        
+    def get_problem_users(self):
+        users = self.get_users()
+        query = self.es_query(doc_type='problem')\
+                .filter("terms", user_id=users)
+        query.aggs.bucket("p", "terms", field="user_id", size=0)
+        results = self.es_execute(query[:0])
+        aggs = results.aggregations["p"]["buckets"]
+        return [item["key"] for item in aggs]
+
     def search(self, **kwargs):
         response = Search(using=self.es, **kwargs)
         return response
