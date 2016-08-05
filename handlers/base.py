@@ -1,5 +1,6 @@
 #! -*- coding: utf-8 -*-
 import json
+import hashlib
 from tornado.web import RequestHandler, Finish, MissingArgumentError
 from tornado.options import options
 from tornado.escape import url_unescape, json_encode
@@ -17,6 +18,10 @@ class BaseHandler(RequestHandler):
     @property
     def es(self):
         return self.application.es
+
+    @property
+    def memcache(self):
+        return self.application.memcache
 
     def write_json(self, data):
         self.set_header("Content-Type", "application/json; charset=utf-8")
@@ -118,19 +123,41 @@ class BaseHandler(RequestHandler):
             return dict([(hit.course_id, int(hit.enroll_num)) for hit in hits])
     
     def get_users(self):
-        query = self.es_query(doc_type='student')
+        hashstr = "student" + self.course_id + (self.elective or "")
+        hashcode = hashlib.md5(hashstr).hexdigest()
+        users = self.memcache.get(hashcode)
+        if users:
+            return users
+        query = self.es_query(doc_type='student')\
+                .fields(fields="user_id")
         if self.elective:
             query = query.filter('term', elective=self.elective)
         else:
             query = query.filter(~F('exists', field='elective'))
+
         if self.course_id:
             query = query.filter('term', course_id=self.course_id)
         size = self.es_execute(query[:0]).hits.total
+        size = 10000
         hits = self.es_execute(query[:size]).hits
-        return [hit.user_id for hit in hits]
+        users = [hit.user_id[0] for hit in hits]
+        self.memcache.set(hashcode, users, 60*60)
+        return users
+
     def get_problem_users(self):
         users = self.get_users()
         query = self.es_query(doc_type='problem')\
+                .filter("term", course_id=self.course_id)\
+                .filter("terms", user_id=users)
+        query.aggs.bucket("p", "terms", field="user_id", size=0)
+        results = self.es_execute(query[:0])
+        aggs = results.aggregations["p"]["buckets"]
+        return [item["key"] for item in aggs]
+    
+    def get_video_users(self):
+        users = self.get_users()
+        query = self.es_query(doc_type='video')\
+                .filter("term", course_id=self.course_id)\
                 .filter("terms", user_id=users)
         query.aggs.bucket("p", "terms", field="user_id", size=0)
         results = self.es_execute(query[:0])

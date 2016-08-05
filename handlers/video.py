@@ -203,9 +203,18 @@ class ChapterVideoStat(BaseHandler):
 class CourseChapterVideoDetail(BaseHandler):
     def get(self):
         result = []
+        users = self.get_users()
+        # TODO
+        # 将main该为tap，uid改为user_id
+        #query = self.es_query(index='tap', doc_type='video')\
+        #        .filter('term', course_id=self.course_id)\
+        #        .filter('term', chapter_id=self.chapter_id)\
+        #        .filter('terms', user_id=users)\
+        #        .filter('exists', field='watch_num')[:0]
         query = self.es_query(index='main', doc_type='video')\
                 .filter('term', course_id=self.course_id)\
                 .filter('term', chapter_id=self.chapter_id)\
+                .filter('terms', uid=users)\
                 .filter('exists', field='watch_num')[:0]
         query.aggs.bucket("video_watch", "terms", field="vid", size=0)\
                 .metric('num', 'range', field="watch_num", ranges=[{"from": 1, "to": 2}, {"from": 2}])
