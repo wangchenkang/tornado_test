@@ -10,6 +10,7 @@ import settings
 from utils.routes import route
 from utils.log import Log
 from handlers import *
+import memcache
 
 define('port', default=8001, help='run port', type=int)
 define('debug', default=True, help='debug', type=bool)
@@ -36,7 +37,7 @@ class Application(tornado.web.Application):
                 tornado.web.url(r'/static/(.*)', tornado.web.StaticFileHandler, {'path': app_settings['static_path']}))
 
         self.es = Elasticsearch(settings.es_cluster)
-
+        self.memcache = memcache.Client("127.0.0.1")
         super(Application, self).__init__(routed_handlers, **app_settings)
 
 def main():

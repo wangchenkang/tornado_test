@@ -70,7 +70,7 @@ class CourseProblemDetail(BaseHandler):
     """
     def get(self):
 
-        query = self.es_query(index='course', doc_type='problem_detail') \
+        query = self.es_query(index='tap', doc_type='problem_detail') \
                 .filter('term', course_id=self.course_id)
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total])
@@ -131,11 +131,13 @@ class ChapterGradeStat(BaseHandler):
 class ChapterProblemDetail(BaseHandler):
     def get(self):
         result = []
-        query = self.es_query(index='main', doc_type='problem_user')\
+        users = get_users()
+        query = self.es_query(index='tap', doc_type='problem')\
                 .filter('term', course_id=self.course_id)\
+                .filter('terms', user_id=users)\
                 .filter('term', chapter_id=self.chapter_id)[:0]
         query.aggs.bucket("pid_dim", "terms", field="pid", size=0)\
-                .bucket("count", "terms", field="answer_right", size=0)
+                .bucket("count", "terms", field="correctness", size=0)
         results = self.es_execute(query)
         aggs = results.aggregations
         buckets = aggs["pid_dim"]["buckets"]

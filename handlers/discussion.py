@@ -438,9 +438,14 @@ class CourseDiscussionStat(BaseHandler):
 @route('/discussion/chapter_discussion_detail')
 class CourseChapterDiscussionDetail(BaseHandler):
     def get(self):
+        users = self.get_users()
         query = self.es_query(index='tap', doc_type='discussion') \
                 .filter('term', course_id=self.course_id) \
+                .filter('terms', uid=users)\
                 .filter('term', chapter_id=self.chapter_id)[:0]
+        #query = self.es_query(index='main', doc_type='discussion') \
+        #        .filter('term', course_id=self.course_id) \
+        #        .filter('term', chapter_id=self.chapter_id)[:0]
         query.aggs.metric('value', "terms", field="item_id")
         data = self.es_execute(query)
         aggs = data.aggregations
