@@ -29,7 +29,7 @@ class CourseDiscussion(BaseHandler):
         group_dict = {}
         for group in data.aggregations.groups.buckets:
             try:
-                member_count = 0 #int(group.group_num.buckets[0].key)
+                member_count = group.doc_count
             except (KeyError, IndexError, AttributeError):
                 member_count = 0
             group_posts_total = int(group.posts_total.value)
