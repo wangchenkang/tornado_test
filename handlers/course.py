@@ -184,6 +184,8 @@ class CourseEnrollmentsDate(BaseHandler):
             total_enroll += 1
             if not hit.is_active:
                 total_unenroll += 1
+            if not hit.enroll_time:
+                print hit
             enroll_time = hit.enroll_time[:10]
             if hit.unenroll_time:
                 unenroll_time = hit.unenroll_time[:10]

@@ -41,7 +41,6 @@ class ChapterStudentVideo(BaseHandler):
         chapter_id = self.chapter_id
         uid = self.get_param('user_id')
         students = [u.strip() for u in uid.split(',') if u.strip()]
-
         video_query = self.es_query(index='main', doc_type='video') \
                 .filter('term', course_id=course_id) \
                 .filter('term', chapter_id=chapter_id) \
@@ -69,21 +68,8 @@ class ChapterStudentVideo(BaseHandler):
                 'la_access': item.la_access
             })
 
-        student_query = self.es_query(index='rollup', doc_type='video_user_avg_percent_ds') \
-                .filter('term', course_id=course_id) \
-                .filter('term', chapter_id=chapter_id) \
-                .filter('terms', user_id=students)
-        total = self.es_execute(student_query[:0]).hits.total
-        student_data = self.es_execute(student_query[:total])
-        students_rate = {}
-        for item in student_data.hits:
-            students_rate.setdefault(item.seq_id, {})
-            students_rate[item.seq_id][str(item.user_id)] = item.avg_watch_percent
-
         result = {
-            'total': video_data.hits.total,
             'sequentials': chapter_student_stat,
-            'students_rate': students_rate
         }
 
         self.success_response(result)
