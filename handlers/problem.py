@@ -70,7 +70,7 @@ class CourseProblemDetail(BaseHandler):
     """
     def get(self):
 
-        query = self.es_query(index='tap', doc_type='problem_detail') \
+        query = self.es_query(index='course', doc_type='problem_detail') \
                 .filter('term', course_id=self.course_id)
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total])
@@ -96,7 +96,7 @@ class ChapterGradeStat(BaseHandler):
     def get(self):
         chapter_id = self.chapter_id
         users = self.get_problem_users()
-        query = self.search(doc_type="seq_problem")\
+        query = self.search(index='tap',doc_type="seq_problem")\
                 .filter('term', course_id=self.course_id)\
                 .filter('term', chapter_id=chapter_id)\
                 .filter('terms', user_id=users)
@@ -115,29 +115,29 @@ class ChapterGradeStat(BaseHandler):
         user_dic = defaultdict(list)
         max_len = 0
         for hit in hits:
-            user_dic[hit.user_id].append(int(hit.grade_ratio))
-            if max_len < len(user_dic[hit.user_id]):
-                max_len = len(user_dic[hit.user_id])
+            user_id, grade_ratio = hit.user_id, hit.grade_ratio
+            user_dic[user_id].append(grade_ratio/100.0)
+            if max_len < len(user_dic[user_id]):
+                max_len = len(user_dic[user_id])
         user_group = [sum(item)/float(max_len) for item in user_dic.values()]
         groups = defaultdict(int)
         for item in user_group:
-            group_id = int(item) / 20 + 1
+            group_id = int(item*5) + 1
             groups[str(group_id)] += 1
-
-        self.success_response({'graded_student_num': len(user_group), 'groups': groups})
+        self.success_response({'graded_student_num': sum(groups.values()), 'groups': groups})
 
 
 @route('/problem/chapter_problem_detail')
 class ChapterProblemDetail(BaseHandler):
     def get(self):
         result = []
-        users = get_users()
+        users = self.get_users()
         query = self.es_query(index='tap', doc_type='problem')\
                 .filter('term', course_id=self.course_id)\
                 .filter('terms', user_id=users)\
                 .filter('term', chapter_id=self.chapter_id)[:0]
         query.aggs.bucket("pid_dim", "terms", field="pid", size=0)\
-                .bucket("count", "terms", field="correctness", size=0)
+                .metric("count", "terms", field="correctness", size=0)
         results = self.es_execute(query)
         aggs = results.aggregations
         buckets = aggs["pid_dim"]["buckets"]
@@ -156,7 +156,21 @@ class ChapterProblemDetail(BaseHandler):
                 "correct": correct,
                 "incorrect": incorrect
                 })
-        self.success_response({"data": result})
+        # 计算成绩超过60%的人
+        query = self.es_query(index='tap', doc_type='seq_problem')\
+                .filter('term', course_id=self.course_id)\
+                .filter('terms', user_id=users)\
+                .filter('range', grade_ratio={'gt': 60})\
+                .filter('term', chapter_id=self.chapter_id)[:0]
+        results = self.es_execute(query).hits
+        results = self.es_execute(query[:results.total]).hits
+        seq_result = {}
+        for item in results:
+            seq_id, user_id = item.seq_id, item.user_id
+            if seq_id not in seq_result:
+                seq_result[seq_id] = 0
+            seq_result[seq_id] += 1
+        self.success_response({"pid_result": result, "seq_result": seq_result})
 
 
 @route('/problem/chapter_student_detail_stat')
@@ -165,19 +179,15 @@ class ChapterProblemDetailStat(BaseHandler):
         result = []
         uid_str = self.get_argument('uid', "")
         uid = uid_str.split(',')
-        query = self.es_query(index='main', doc_type='problem_user')\
+        query = self.es_query(index='tap', doc_type='problem')\
                 .filter("term", course_id=self.course_id)\
                 .filter("term", chapter_id=self.chapter_id)\
                 .filter("terms", user_id=uid)[:0]
         results = self.es_execute(query)
         total = results.hits.total
-        query = self.es_query(index='main', doc_type='problem_user')\
-                .filter("term", course_id=self.course_id)\
-                .filter("term", chapter_id=self.chapter_id)\
-                .filter("terms", user_id=uid)[:total]
-        results = self.es_execute(query)
+        results = self.es_execute(query[:total])
         for hit in results.hits:
-            correct = 'correct' if hit.answer_right == "1" else "uncorrect"
+            correct = 'correct' if hit.correctness == "1" else "uncorrect"
             answer = hit.answer
             try:
                 answer = ast.literal_eval(answer)
@@ -185,7 +195,6 @@ class ChapterProblemDetailStat(BaseHandler):
                 pass
             result.append({
                 'uid': hit.user_id,
-                'grade': float(hit.grade),
                 'pid': hit.pid,
                 'correctness': correct,
                 'value': answer,

@@ -2,6 +2,7 @@
 import pytz
 from datetime import datetime, timedelta
 from tornado.escape import url_unescape
+import math
 
 timezone = 'Asia/Chongqing'
 
@@ -21,3 +22,10 @@ def datedelta(dt, day):
 
 def fix_course_id(course_id):
     return url_unescape(course_id).replace(' ', '+')
+
+def var(data, total=None):
+    if not total:
+        total = len(data)
+    data += [0]*(total-len(data))
+    avg = sum(data)/total
+    return math.sqrt(sum([(i-avg)*(i-avg) for i in data])/total)
