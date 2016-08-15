@@ -67,6 +67,9 @@ class BaseHandler(RequestHandler):
     @property
     def elective(self):
         elective = self.get_argument('elective', None)
+        if elective == "None":
+            elective = None
+        #elective = '西安交通大学'
         return elective
 
 
@@ -118,11 +121,14 @@ class BaseHandler(RequestHandler):
         if hits.total > 100:
             hits = self.es_execute(query[:hits.total]).hits
         if course_id:
-            return hits[0].enroll_num
+            if hits.total:
+                return hits[0].enroll_num
+            else:
+                return 0
         else:
             return dict([(hit.course_id, int(hit.enroll_num)) for hit in hits])
     
-    def get_users(self):
+    def get_users(self, is_active=True):
         hashstr = "student" + self.course_id + (self.elective or "")
         hashcode = hashlib.md5(hashstr).hexdigest()
         users = self.memcache.get(hashcode)
@@ -134,9 +140,14 @@ class BaseHandler(RequestHandler):
             query = query.filter('term', elective=self.elective)
         else:
             query = query.filter(~F('exists', field='elective'))
+        if is_active:
+            query = query.filter('term', is_active=1)
+        elif is_active == False:
+            query = query.filter('term', is_active=0)
 
         if self.course_id:
             query = query.filter('term', course_id=self.course_id)
+
         size = self.es_execute(query[:0]).hits.total
         size = 10000
         hits = self.es_execute(query[:size]).hits
@@ -145,18 +156,25 @@ class BaseHandler(RequestHandler):
         return users
 
     def get_problem_users(self):
+        hashstr = "problem_student" + self.course_id + (self.elective or "")
+        hashcode = hashlib.md5(hashstr).hexdigest()
+        users = self.memcache.get(hashcode)
+        if users:
+            return users
         users = self.get_users()
-        query = self.es_query(doc_type='problem')\
+        query = self.es_query(index='tap', doc_type='problem')\
                 .filter("term", course_id=self.course_id)\
                 .filter("terms", user_id=users)
         query.aggs.bucket("p", "terms", field="user_id", size=0)
         results = self.es_execute(query[:0])
         aggs = results.aggregations["p"]["buckets"]
-        return [item["key"] for item in aggs]
+        users = [item["key"] for item in aggs] 
+        self.memcache.set(hashcode, users, 60*60)
+        return users
     
     def get_video_users(self):
         users = self.get_users()
-        query = self.es_query(doc_type='video')\
+        query = self.es_query(index='tap', doc_type='video')\
                 .filter("term", course_id=self.course_id)\
                 .filter("terms", user_id=users)
         query.aggs.bucket("p", "terms", field="user_id", size=0)
@@ -167,3 +185,39 @@ class BaseHandler(RequestHandler):
     def search(self, **kwargs):
         response = Search(using=self.es, **kwargs)
         return response
+
+    def get_user_name(self, users=None):
+        if not users:
+            users = self.get_users()
+        query = self.es_query(index='tap', doc_type='student')\
+                .filter("term", course_id=self.course_id)\
+                .filter("terms", user_id=users)\
+                .fields(fields=["rname", "nickname", "user_id"])
+        if self.elective:
+            query = query.filter('term', elective=self.elective)
+        else:
+            query = query.filter(~F('exists', field='elective'))
+        results = self.es_execute(query[:len(users)]).hits
+        result = {}
+        for item in results:
+            user_id = item.user_id[0]
+            if item.rname and item.rname[0] != "":
+                name = item.rname[0]
+            else:
+                name = item.nickname[0]
+            result[user_id] = name
+        return result
+
+    def get_grade(self, users=None):
+        if not users:
+            users = self.get_users()
+        query = self.es_query(index='tap', doc_type='problem_course')\
+                .filter("term", course_id=self.course_id)\
+                .filter("terms", user_id=users)
+        results = self.es_execute(query[:len(users)])
+        result = {}
+        for item in results:
+            if item.grade_ratio < 0:
+                item.grade_ratio = 0
+            result[item.user_id] = item.grade_ratio
+        return result

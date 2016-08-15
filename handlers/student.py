@@ -74,11 +74,13 @@ class StudyStudentList(BaseHandler):
     """
     def get(self):
         chapter_id = self.get_param('chapter_id')
-        start = self.get_argument('start', 0)
-        size = self.get_argument('size', 20)
+        start = int(self.get_argument('start', 0))
+        size = int(self.get_argument('size', 20))
+        import time
+        t1 = time.time()
 
         students = self.get_problem_users()
-
+        print time.time() - t1
         if len(students) >= start + size:
             self.success_response({'data': students[start: start+size]})
 
@@ -341,3 +343,4 @@ class UserAverage(BaseHandler):
             'staff_avg_comments_num': staff_avg_comments_num,
             'students_avg_enrollment': students_avg_enrollment
         })
+

@@ -9,3 +9,4 @@ from .data import *
 from .difficulty import *
 from .config import *
 from .prediction import *
+from .detail import *

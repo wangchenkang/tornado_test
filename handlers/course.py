@@ -104,19 +104,22 @@ class CourseGradeDistribution(BaseHandler):
                 .filter("term", course_id=self.course_id)\
                 .filter("terms", user_id=users)
         result = self.es_execute(query)
+        result = self.es_execute(query[:result.hits.total])
         hits = result.hits
         data = {
                 "distribution":[0]*50,
                 "student_num": 0}
         avg = 0
         for hit in hits:
+            if hit.grade_ratio < 0:
+                continue
             index = int(hit.grade_ratio/2)
             if index == 50:
                 index = 49
             data["distribution"][index] += 1
             data["student_num"] += 1
             avg += index
-        avg /= data["student_num"]
+        avg /= float(data["student_num"])
         above_avg = sum(data["distribution"][int(avg+1):])
         data["above_average"] = above_avg
         self.success_response({'data': data})
@@ -162,7 +165,8 @@ class CourseEnrollmentsDate(BaseHandler):
         start = self.get_param("start")
         end = self.get_param("end")
         query = self.es_query(index="tap", doc_type="student")\
-                .filter("term", course_id=self.course_id)
+                .filter("term", course_id=self.course_id)\
+                .fields(fields=["user_id", "unenroll_time", "enroll_time", "is_active"])
         if self.elective:
             query = query.filter("term", elective=self.elective)
         
@@ -182,13 +186,14 @@ class CourseEnrollmentsDate(BaseHandler):
         total_enroll, total_unenroll = 0, 0
         for hit in hits:
             total_enroll += 1
-            if not hit.is_active:
+            if hit.is_active and hit.is_active[0] == 0:
                 total_unenroll += 1
-            if not hit.enroll_time:
-                print hit
-            enroll_time = hit.enroll_time[:10]
-            if hit.unenroll_time:
-                unenroll_time = hit.unenroll_time[:10]
+            if getattr(hit, "enroll_time", None):
+                enroll_time = hit.enroll_time[0][:10]
+            else:
+                enroll_time = None
+            if getattr(hit, "unenroll_time", None):
+                unenroll_time = hit.unenroll_time[0][:10]
             else:
                 unenroll_time = None
             if enroll_time >= start and enroll_time <= end:
@@ -218,7 +223,6 @@ class CourseEnrollmentsDate(BaseHandler):
             ret[prev]["date_enrollment"] = ret[prev]["enroll"] - ret[prev]["unenroll"]
             curr = prev
             prev = datedelta(prev, -1)
-
         self.success_response({"data": sorted(ret.values(), key=lambda x: x["date"])})
 
 @route('/course/active_num')
@@ -347,7 +351,7 @@ class CourseTsinghuaStudent(BaseHandler):
     课程绑定清华账号学生数
     """
     def get(self):
-        query = self.es_query(index='main', doc_type='student') \
+        query = self.es_query(index='tap', doc_type='student') \
                 .filter('term', courses=self.course_id) \
                 .filter('term', binding_org='tsinghua')[:0]
         if self.elective:
