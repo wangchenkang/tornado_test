@@ -381,3 +381,45 @@ class UserAverage(BaseHandler):
             'staff_avg_comments_num': staff_avg_comments_num,
             'students_avg_enrollment': students_avg_enrollment
         })
+        
+@route('/student/grade_detail')
+class GradeDetail(BaseHandler):
+    def get(self):
+        course_id = self.get_param('course_id')
+        query = self.es_query(index='tap', doc_type='problem_course') \
+            .filter('term', course_id=self.course_id)
+        header = ['昵称','学堂号','姓名','学号','院系','专业','成绩','课程_得分','课程_得分率']
+        data = self.es_execute(query)
+        print len(data.hits)
+        grade = {}
+        for item in data.hits:
+            # print item.to_dict()
+            grade[item.user_id] = {
+                'user_id': item.user_id,
+                'final_grade': item.final_grade,
+                'grade_ratio': item.grade_ratio,
+                'current_grade': item.current_grade
+            }
+        headerl = ['nickname','xid','rname','binding_uid','faculty','major','final_grade','current_grade','grade_ratio']
+        query = self.es_query(index='tap', doc_type='student') \
+                .filter('term', course_id=self.course_id) \
+                .filter('terms', user_id=grade.keys())
+        data = self.es_execute(query[:data.hits.total])
+        print len(data.hits)
+        for item in data.hits:
+            # print type(item.user_id)
+            # print item.to_dict()
+            u = str(item.user_id)
+            grade[u]['xid'] = item.xid
+            grade[u]['nickname'] = item.nickname
+            grade[u]['rname'] = item.rname
+            grade[u]['binding_uid'] = item.binding_uid
+            grade[u]['faculty'] = item.faculty
+            grade[u]['major'] = item.major
+        hDict = dict(zip(header, headerl))
+        result = []
+        for i in grade:
+            print sorted(grade[i].items())
+            result.append([value for (key, value) in sorted(grade[i].items())])
+        # print result
+        self.success_response({'header': sorted(hDict, key=hDict.__getitem__), 'data': result})
