@@ -267,7 +267,7 @@ class StudentPostTopStat(BaseHandler):
             # TODO
             # students[item.user_id].setdefault('user_name', item.user_name)
             students[item.user_id].setdefault('group_id', item.group_id)
-            students[item.user_id].setdefault('user_id', int(item.group_id))
+            students[item.user_id].setdefault('user_id', int(item.user_id))
 
         students_list = sorted(students.values(), key=lambda x: x['posts_total'], reverse=True)
 

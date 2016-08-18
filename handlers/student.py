@@ -347,7 +347,10 @@ class UserAverage(BaseHandler):
 @route('/student/grade_detail')
 class GradeDetail(BaseHandler):
     def get(self):
-        course_id = self.get_param('course_id')
+        sort_field = self.get_param('sort_field')
+        # sort_type = self.get_param('sort_type')
+        # fields = self.get_param('fields')
+        # elective = self.get_param('elective')
         query = self.es_query(index='tap', doc_type='problem_course') \
             .filter('term', course_id=self.course_id)
         header = ['昵称','学堂号','姓名','学号','院系','专业','成绩','课程_得分','课程_得分率']
@@ -382,6 +385,79 @@ class GradeDetail(BaseHandler):
         result = []
         for i in grade:
             print sorted(grade[i].items())
-            result.append([value for (key, value) in sorted(grade[i].items())])
+            result.append(grade[i])
         # print result
-        self.success_response({'header': sorted(hDict, key=hDict.__getitem__), 'data': result})
+        result = sorted(result, key=lambda x: x[sort_field], reverse=True)
+        self.success_response({'header': header, 'data': result})
+
+@route('/student/overview_detail')
+class GradeDetail(BaseHandler):
+    def get(self):
+        """昵称
+        学堂号
+        姓名 *
+        学号 *
+        院系 *
+        专业 *
+        课程_学习比例
+        讨论区_发回帖数
+        课程_得分率
+        课程_得分
+        成绩
+        nickname
+        xid
+        rname
+        binding_uid
+        faculty
+        major
+        video
+        discussion
+        grade_ratio
+        current_grade
+        final_grade"""
+
+@route('/student/discussion_detail')
+class GradeDetail(BaseHandler):
+    def get(self):
+        """昵称
+学堂号
+姓名 *
+学号 *
+院系 *
+专业 *
+成绩
+课程_得分
+课程_得分率
+讨论区发回帖数	发帖数	回帖数
+nickname	xid	rname	binding_uid	faculty	major	final_grade	current_grade	grade_ratio	discussion	post	reply"""
+
+@route('/student/video_detail')
+class GradeDetail(BaseHandler):
+    def get(self):
+        """昵称
+学堂号
+姓名 *
+学号 *
+院系 *
+专业 *
+成绩
+课程_得分
+课程_得分率
+章学习比例
+nickname	xid	rname	binding_uid	faculty	major	final_grade	current_grade	grade_ratio	chapter_video"""
+
+@route('/student/student_detail')
+class GradeDetail(BaseHandler):
+    def get(self):
+        """昵称
+学堂号
+姓名 *
+学号 *
+院系 *
+专业 *
+成绩
+课程_得分
+课程_得分率
+选课状态	最后选课时间	最后退课时间
+nickname	xid	rname	binding_uid	faculty	major	final_grade	current_grade	grade_ratio	status	enroll_time	unenroll_time
+"""
