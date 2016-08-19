@@ -353,8 +353,9 @@ class GradeDetail(BaseHandler):
         # elective = self.get_param('elective')
         query = self.es_query(index='tap', doc_type='problem_course') \
             .filter('term', course_id=self.course_id)
+        size = self.es_execute(query[:0]).hits.total
         header = ['昵称','学堂号','姓名','学号','院系','专业','成绩','课程_得分','课程_得分率']
-        data = self.es_execute(query)
+        data = self.es_execute(query[:size])
         print len(data.hits)
         grade = {}
         for item in data.hits:
@@ -391,30 +392,64 @@ class GradeDetail(BaseHandler):
         self.success_response({'header': header, 'data': result})
 
 @route('/student/overview_detail')
-class GradeDetail(BaseHandler):
+class OverviewDetail(BaseHandler):
     def get(self):
-        """昵称
-        学堂号
-        姓名 *
-        学号 *
-        院系 *
-        专业 *
-        课程_学习比例
-        讨论区_发回帖数
-        课程_得分率
-        课程_得分
-        成绩
-        nickname
-        xid
-        rname
-        binding_uid
-        faculty
-        major
-        video
-        discussion
-        grade_ratio
-        current_grade
-        final_grade"""
+        """昵称, 学堂号, 姓名 *, 学号 *, 院系 *, 专业 *, 课程_学习比例, 讨论区_发回帖数, 课程_得分率, 课程_得分, 成绩, nickname, xid, rname, binding_uid, faculty, major, video, discussion, grade_ratio, current_grade, final_grade"""
+        query = self.es_query(index='tap', doc_type='student') \
+            .filter('term', course_id=self.course_id)
+        size = self.es_execute(query[:0]).hits.total
+        data = self.es_execute(query[:size])
+        print len(data.hits)
+        users = {}
+        for item in data.hits:
+            # print type(item.user_id)
+            # print item.to_dict()
+            users[str(item.user_id)] = {
+            'xid' : item.xid,
+            'nickname' : item.nickname,
+            'rname': item.rname,
+            'binding_uid': item.binding_uid,
+            'faculty': item.faculty,
+            'major': item.major,
+            'status': item.is_active,
+            'enroll_time': item.enroll_time,
+            'unenroll_time': item.unenroll_time
+            }
+
+        query = self.es_query(index='tap', doc_type='problem_course') \
+            .filter('term', course_id=self.course_id)\
+            .filter('terms', user_id=users.keys())
+        score = self.es_execute(query[:size])
+        for item in score.hits:
+            # print type(item.user_id)
+            # print item.to_dict()
+            user = str(item.user_id)
+            users[user]['final_grade'] = item.final_grade
+            users[user]['grade_ratio'] = item.grade_ratio
+            users[user]['current_grade'] = item.current_grade
+        query = self.es_query(index='tap', doc_type='discussion_aggs') \
+            .filter('term', course_id=self.course_id) \
+            .filter('terms', user_id=users.keys())
+        discussion = self.es_execute(query[:size])
+        for item in discussion.hits:
+            # print type(item.user_id)
+            # print item.to_dict()
+            user = str(item.user_id)
+            post = item.post_num if item.post_num != None else 0
+            reply = item.reply_num if item.reply_num != None else 0
+            users[user]['post'] = post
+            users[user]['reply'] = reply
+            users[user]['discussion'] = post + reply
+        query = self.es_query(index='tap', doc_type='video_course') \
+            .filter('term', course_id=self.course_id) \
+            .filter('terms', user_id=users.keys())
+        chapter_video = self.es_execute(query[:size])
+        for item in chapter_video.hits:
+            # print type(item.user_id)
+            # print item.to_dict()
+            user = str(item.user_id)
+            users[user]['chapter_video'] = item.study_rate
+        self.success_response({'data': users})
 
 @route('/student/discussion_detail')
 class GradeDetail(BaseHandler):
