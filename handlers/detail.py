@@ -8,18 +8,12 @@ from .base import BaseHandler
 Log.create('detail')
 
 @route('/detail/course_grade_ratio')
-class CourseGradeRatio(BaseHandler):
+class DetailCourseGradeRatio(BaseHandler):
     def get(self):
-        uid = self.get_argument('user_id', '')
-        users = [u.strip() for u in uid.split(',') if u.strip()]
-
         query = self.es_query(index='tap', doc_type='problem_course') \
                 .filter('term', course_id=self.course_id)
-        if users:
-            query.filter('terms', user_id=users)
-        else:
-            problem_users = self.get_problem_users()
-            query.filter('terms', user_id=problem_users)
+        problem_users = self.get_problem_users()
+        query.filter('terms', user_id=problem_users)
 
         result = self.es_execute(query)
         result = self.es_execute(query[:result.hits.total])
@@ -44,19 +38,46 @@ class CourseGradeRatio(BaseHandler):
         self.success_response({'data': grade_overview})
 
 
-@route('/detail/course_video_study_ratio')
-class CourseVideoStudyRatio(BaseHandler):
+@route('/detail/student_grade_ratio')
+class DetailCourseGradeRatioDetail(BaseHandler):
     def get(self):
-        uid = self.get_argument('user_id', '')
-        users = [u.strip() for u in uid.split(',') if u.strip()]
+        query = self.es_query(index='tap', doc_type='problem_course') \
+                .filter('term', course_id=self.course_id) \
+                .filter('range', **{'grade_ratio': {'gt': 0}})
 
+        response = self.es_execute(query[:0])
+        response = self.es_execute(query[:response.hits.total])
+
+        result = {}
+        for user in response.hits:
+            result[user.user_id] = user.grade_ratio
+
+        self.success_response({'data': result})
+
+
+@route('/detail/student_study_ratio')
+class DetailCourseStudyRatioDetail(BaseHandler):
+    def get(self):
+        query = self.es_query(index='tap', doc_type='video_course') \
+            .filter('term', course_id=self.course_id)
+
+        response = self.es_execute(query[:0])
+        response = self.es_execute(query[:response.hits.total])
+
+        result = {}
+        for user in response.hits:
+            result[user.user_id] = float(user.study_rate)
+
+        self.success_response({'data': result})
+
+
+@route('/detail/course_study_ratio')
+class DetailCourseStudyRatio(BaseHandler):
+    def get(self):
         query = self.es_query(index='rollup', doc_type='course_video_rate') \
                 .filter('term', course_id=self.course_id)
-        if users:
-            query.filter('terms', user_id=users)
-        else:
-            video_users = self.get_video_users()
-            query.filter('terms', user_id=video_users)
+        video_users = self.get_video_users()
+        query.filter('terms', user_id=video_users)
 
         result = self.es_execute(query)
         result = self.es_execute(query[:result.hits.total])
@@ -80,16 +101,11 @@ class CourseVideoStudyRatio(BaseHandler):
         self.success_response({'data': video_overview})
 
 
-@route('/detail/discussion_overview')
-class CourseDiscussionOverview(BaseHandler):
+@route('/detail/course_discussion')
+class DetailCourseDiscussion(BaseHandler):
     def get(self):
-        uid = self.get_argument('user_id', '')
-        users = [u.strip() for u in uid.split(',') if u.strip()]
-
         query = self.es_query(index='tap', doc_type='discussion_aggs') \
                 .filter('term', course_id=self.course_id)
-        if users:
-            query.filter('terms', user_id=users)
         query.aggs.metric('post_total', 'sum', field='post_num') \
                 .aggs.metric('comment_total', 'sum', field='reply_num') \
                 .aggs.metric('post_mean', 'avg', field='post_num') \
@@ -99,8 +115,93 @@ class CourseDiscussionOverview(BaseHandler):
         result = {}
         result['post_total'] = response.aggregations.post_total.value
         result['comment_total'] = response.aggregations.comment_total.value
+        result['total'] = result['post_total'] + result['comment_total']
         result['post_mean'] = response.aggregations.post_mean.value
         result['comment_mean'] = response.aggregations.comment_mean.value
+        result['total_mean'] = float(result['total']) / response.hits.total
 
         self.success_response({'data': result})
+
+
+@route('/detail/student_discussion')
+class DetailStudentDiscussion(BaseHandler):
+    def get(self):
+        query = self.es_query(index='tap', doc_type='discussion_aggs') \
+                .filter('term', course_id=self.course_id)
+
+        response = self.es_execute(query[:0])
+        response = self.es_execute(query[:response.hits.total])
+
+        result = {}
+        for item in response.hits:
+            result[item.user_id] = item.post_num + item.reply_num
+
+        self.success_response({'data': result})
+
+#TODO
+@route('/detail/student_discussion_stat')
+class DetailStudentDiscussionStat(BaseHandler):
+    def get(self):
+        query = self.es_query(index='tap', doc_type='discussion_aggs') \
+                .filter('term', course_id=self.course_id)
+        # need to add post_total field
+        query.aggs.bucket('post', 'terms', field='post_total', size=0) \
+
+        response = self.es_execute(query)
+
+        result = []
+        for item in response.aggregations.post.buckets:
+            result.append({
+                'post_num': item['key'],
+                'student_num': item.doc_count
+            })
+
+        self.success_response({'data': result})
+
+
+#TODO
+@route('/detail/chapter_study_ratio')
+class DetailChapterStudyRatio(BaseHandler):
+    def get(self):
+        query = self.es_query(index='tap', doc_type='video_chapter') \
+                .filter('term', course_id=self.course_id)
+        # study_rate is string now, should be numeric value
+        query.aggs.bucket('chapter', 'terms', field='chapter_id', size=0) \
+            .metric('study_ratio_mean', 'avg', field='study_rate')
+
+        response = self.es_execute(query[:0])
+        response = self.es_execute(query[:response.hits.total])
+
+        aggs = response.aggregations.chapter.buckets
+        buckets = {}
+        for bucket in aggs:
+            buckets[bucket['key']] = bucket.study_ratio_mean.value
+        self.success_response({'data': buckets})
+
+
+#TODO
+@route('/detail/chapter_study_ratio_detail')
+class DetailChapterStudyRatioDetail(BaseHandler):
+    def get(self):
+        query = self.es_query(index='tap', doc_type='video_chapter') \
+                .filter('term', course_id=self.course_id)
+        ranges = [{'from': i*0.1, 'to': i*0.1+0.1 } for i in range(0,9)]
+        # study_rate is string now, should be numeric value
+        query.aggs.bucket('chapter', 'terms', field='chapter_id', size=0) \
+            .bucket('study_rate', 'range', field='study_rate', ranges=ranges, size=0) \
+
+        response = self.es_execute(query[:0])
+        response = self.es_execute(query[:response.hits.total])
+        result = []
+
+        for chapter in response.aggregations.chapter.buckets:
+            result.append({chapter.key: []})
+            for range_study_rate in chapter.study_rate.buckets:
+                result[chapter.key].append({
+                  'study_rate': range_study_rate.key,
+                  'num': range_study_rate.doc_count
+                })
+
+        self.success_response({'data': result})
+
 
