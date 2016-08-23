@@ -172,15 +172,6 @@ class DetailHomeworkGrade(BaseHandler):
         self.success_response({'data': result})
 
 
-@route('/detail/homework_grade_detail')
-class DetailStudentDiscussion(BaseHandler):
-    """
-    
-    """
-    def get(self):
-        pass
-
-
 @route('/detail/student_discussion')
 class DetailStudentDiscussion(BaseHandler):
     """
@@ -227,7 +218,6 @@ class DetailStudentDiscussionStat(BaseHandler):
         self.success_response({'data': result})
 
 
-#TODO
 @route('/detail/chapter_study_ratio')
 class DetailChapterStudyRatio(BaseHandler):
     """
@@ -237,21 +227,19 @@ class DetailChapterStudyRatio(BaseHandler):
     def get(self):
         query = self.es_query(index='tap', doc_type='video_chapter') \
                 .filter('term', course_id=self.course_id)
-        # study_rate is string now, should be numeric value
+
         query.aggs.bucket('chapter', 'terms', field='chapter_id', size=0) \
             .metric('study_ratio_mean', 'avg', field='study_rate')
 
-        response = self.es_execute(query[:0])
-        response = self.es_execute(query[:response.hits.total])
+        response = self.es_execute(query)
 
         aggs = response.aggregations.chapter.buckets
         buckets = {}
         for bucket in aggs:
-            buckets[bucket['key']] = bucket.study_ratio_mean.value
+            buckets[bucket['key']] = round(bucket.study_ratio_mean.value, 4)
         self.success_response({'data': buckets})
 
 
-#TODO
 @route('/detail/chapter_study_ratio_detail')
 class DetailChapterStudyRatioDetail(BaseHandler):
     """
@@ -261,22 +249,25 @@ class DetailChapterStudyRatioDetail(BaseHandler):
     def get(self):
         query = self.es_query(index='tap', doc_type='video_chapter') \
                 .filter('term', course_id=self.course_id)
-        ranges = [{'from': i*0.1, 'to': i*0.1+0.1 } for i in range(0,9)]
-        # study_rate is string now, should be numeric value
+        ranges = [{'from': i*0.1, 'to': i*0.1+0.1 } for i in range(0, 10)]
+
         query.aggs.bucket('chapter', 'terms', field='chapter_id', size=0) \
-            .bucket('study_rate', 'range', field='study_rate', ranges=ranges, size=0) \
+            .bucket('study_rate', 'range', field='study_rate', ranges=ranges)
 
         response = self.es_execute(query[:0])
         response = self.es_execute(query[:response.hits.total])
-        result = []
+        result = {}
 
         for chapter in response.aggregations.chapter.buckets:
-            result.append({chapter.key: []})
+            chapter_study_rate = {}
+            chapter_study_rate['distribution'] = []
             for range_study_rate in chapter.study_rate.buckets:
-                result[chapter.key].append({
-                  'study_rate': range_study_rate.key,
-                  'num': range_study_rate.doc_count
+                range_study_rate_key = '-'.join([key[:3] for key in range_study_rate.key.split('-')])
+                chapter_study_rate['distribution'].append({
+                    'study_rate': range_study_rate_key,
+                    'num': range_study_rate.doc_count
                 })
+            result[chapter.key] = chapter_study_rate
 
         self.success_response({'data': result})
 
