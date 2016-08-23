@@ -18,6 +18,7 @@ class DetailCourseGradeRatio(BaseHandler):
     def get(self):
         query = self.es_query(index='tap', doc_type='problem_course') \
                 .filter('term', course_id=self.course_id) \
+                .filter('range', grade_ratio={'gte': 0}) \
                 .filter('range', final_grade={'gte': 0})
         problem_users = self.get_problem_users()
         query.filter('terms', user_id=problem_users)
@@ -30,8 +31,9 @@ class DetailCourseGradeRatio(BaseHandler):
 
         grade_overview = {'mean': 0, 'variance': 0}
         if hits.total:
-            grade_overview['mean'] = sum(grade_list) / hits.total
-            grade_overview['variance'] = var(grade_list)
+            grade_list = [float(grade) / 100 for grade in grade_list]
+            grade_overview['mean'] = round(sum(grade_list) / hits.total, 4)
+            grade_overview['variance'] = round(var(grade_list), 4)
 
         self.success_response({'data': grade_overview})
 
@@ -84,7 +86,7 @@ class DetailCourseStudyRatio(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.1关键指标
     """
     def get(self):
-        query = self.es_query(index='rollup', doc_type='course_video_rate') \
+        query = self.es_query(index='tap', doc_type='video_course') \
                 .filter('term', course_id=self.course_id)
         video_users = self.get_video_users()
         query.filter('terms', user_id=video_users)
@@ -94,19 +96,17 @@ class DetailCourseStudyRatio(BaseHandler):
         hits = result.hits
 
         video_user_count = 0
-        video_ratio_sum = 0
         video_user_ratio_list = []
         for hit in hits:
-            if float(hit.study_rate_open) <= 0:
+            if float(hit.study_rate) <= 0:
                 continue
-            video_ratio_sum += float(hit.study_rate_open) * 100
             video_user_count += 1
-            video_user_ratio_list.append(float(hit.study_rate_open) * 100)
+            video_user_ratio_list.append(float(hit.study_rate))
 
         video_overview = {'mean': 0, 'variance': 0}
         if video_user_count:
-            video_overview['mean'] = video_ratio_sum / video_user_count
-            video_overview['variance'] = var(video_user_ratio_list)
+            video_overview['mean'] = round(sum(video_user_ratio_list) / video_user_count, 4)
+            video_overview['variance'] = round(var(video_user_ratio_list), 4)
 
         self.success_response({'data': video_overview})
 
@@ -131,9 +131,9 @@ class DetailCourseDiscussion(BaseHandler):
         result['post_total'] = response.aggregations.post_total.value
         result['comment_total'] = response.aggregations.comment_total.value
         result['total'] = result['post_total'] + result['comment_total']
-        result['post_mean'] = response.aggregations.post_mean.value
-        result['comment_mean'] = response.aggregations.comment_mean.value
-        result['total_mean'] = float(result['total']) / response.hits.total
+        result['post_mean'] = round(response.aggregations.post_mean.value, 4)
+        result['comment_mean'] = round(response.aggregations.comment_mean.value, 4)
+        result['total_mean'] = round(float(result['total']) / response.hits.total, 4)
 
         self.success_response({'data': result})
 
@@ -165,7 +165,7 @@ class DetailHomeworkGrade(BaseHandler):
             result[seq_id]['distribution'][hit['grade']] += 1
 
         for seq in result.keys():
-            result[seq]['grade_ratio_mean'] = round((float(result[seq]['sum_grade']) / result[seq]['student_num']) * 100)
+            result[seq]['grade_ratio_mean'] = round((float(result[seq]['sum_grade']) / result[seq]['student_num']), 4)
             del result[seq]['sum_grade']
             del result[seq]['student_num']
 
@@ -235,8 +235,12 @@ class DetailChapterStudyRatio(BaseHandler):
 
         aggs = response.aggregations.chapter.buckets
         buckets = {}
+        student_num = len(self.get_users())
         for bucket in aggs:
-            buckets[bucket['key']] = round(bucket.study_ratio_mean.value, 4)
+            buckets[bucket['key']] = {}
+            buckets[bucket['key']]['study_ratio_mean'] = round(bucket.study_ratio_mean.value, 4)
+            buckets[bucket['key']]['unstudy_student_num'] = student_num - bucket.doc_count
+
         self.success_response({'data': buckets})
 
 
