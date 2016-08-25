@@ -32,6 +32,17 @@ class StudentOrg(BaseHandler):
         self.success_response({'students': students})
 
 
+@route('/student/course_student')
+class CourseStudent(BaseHandler):
+    """
+    获取课程的学生列表
+    """
+    def get(self):
+        students = self.get_users()
+
+        self.success_response({'students': students})
+
+
 @route('/student/course_grade')
 class StudentCourseGrade(BaseHandler):
     """

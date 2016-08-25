@@ -129,7 +129,7 @@ class BaseHandler(RequestHandler):
             return dict([(hit.course_id, int(hit.enroll_num)) for hit in hits])
     
     def get_users(self, is_active=True):
-        hashstr = "student" + self.course_id + (self.elective or "")
+        hashstr = "student" + self.course_id + (self.elective or "") + str(is_active)
         hashcode = hashlib.md5(hashstr).hexdigest()
         users = self.memcache.get(hashcode)
         if users:
@@ -149,7 +149,7 @@ class BaseHandler(RequestHandler):
             query = query.filter('term', course_id=self.course_id)
 
         size = self.es_execute(query[:0]).hits.total
-        size = 10000
+        size = 100000
         hits = self.es_execute(query[:size]).hits
         users = [hit.user_id[0] for hit in hits]
         self.memcache.set(hashcode, users, 60*60)
