@@ -348,6 +348,7 @@ class UserAverage(BaseHandler):
 class GradeDetail(BaseHandler):
     def get(self):
         sort_field = self.get_param('sort_field')
+
         # sort_type = self.get_param('sort_type')
         # fields = self.get_param('fields')
         # elective = self.get_param('elective')
@@ -394,6 +395,8 @@ class GradeDetail(BaseHandler):
 @route('/student/overview_detail')
 class OverviewDetail(BaseHandler):
     def get(self):
+        pn = int(self.get_param('page'))
+        num = int(self.get_param('num'))
         """昵称, 学堂号, 姓名 *, 学号 *, 院系 *, 专业 *, 课程_学习比例, 讨论区_发回帖数, 课程_得分率, 课程_得分, 成绩, nickname, xid, rname, binding_uid, faculty, major, video, discussion, grade_ratio, current_grade, final_grade"""
         query = self.es_query(index='tap', doc_type='student') \
             .filter('term', course_id=self.course_id)
@@ -449,7 +452,8 @@ class OverviewDetail(BaseHandler):
             # print item.to_dict()
             user = str(item.user_id)
             users[user]['chapter_video'] = item.study_rate
-        self.success_response({'data': users})
+        result = users.values()[num * pn: num * pn + num]
+        self.success_response({'data': result})
 
 @route('/student/discussion_detail')
 class GradeDetail(BaseHandler):
