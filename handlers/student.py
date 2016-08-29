@@ -427,7 +427,14 @@ class OverviewDetail(BaseHandler):
             'major': item.major,
             'status': item.is_active,
             'enroll_time': item.enroll_time,
-            'unenroll_time': item.unenroll_time
+            'unenroll_time': item.unenroll_time,
+             'final_grade': 0,
+              'grade_ratio' : None,
+               'current_grade' : 0,
+                'post': 0,
+                'reply' : 0,
+                'discussion': 0,
+                'chapter_video': 0.0
             }
 
         query = self.es_query(index='tap', doc_type='problem_course') \
