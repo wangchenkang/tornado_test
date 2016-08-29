@@ -73,13 +73,13 @@ class BaseHandler(RequestHandler):
         return elective
 
     @property
-    def group_id(self):
-        group_id = self.get_argument('group_id', None)
-        if group_id == "None":
-            group_id = None
-        if group_id:
-            group_id = int(group_id)
-        return group_id
+    def group_key(self):
+        group_key = self.get_argument('group_key', None)
+        if group_key == "None":
+            group_key = None
+        if group_key:
+            group_key = int(group_key)
+        return group_key
 
     def get_param(self, key):
         try:
@@ -117,7 +117,7 @@ class BaseHandler(RequestHandler):
 
         return response
 
-    def get_enroll(self, group_id=None, course_id=None):
+    def get_enroll(self, group_key=None, course_id=None):
         query = self.es_query(doc_type='course')
         #if elective:
         #    query = query.filter('term', elective=elective)
@@ -137,17 +137,17 @@ class BaseHandler(RequestHandler):
             return dict([(hit.course_id, int(hit.enroll_num)) for hit in hits])
 
     def get_users(self, is_active=True):
-        hashstr = "student" + self.course_id + (str(self.group_id) or "") + str(is_active)
+        hashstr = "student" + self.course_id + (str(self.group_key) or "") + str(is_active)
         hashcode = hashlib.md5(hashstr).hexdigest()
         #users = self.memcache.get(hashcode)
         #if users:
         #    return users
         query = self.es_query(doc_type='student')\
                 .fields(fields="user_id")
-        if self.group_id:
-            query = query.filter('term', group_id=self.group_id)
+        if self.group_key:
+            query = query.filter('term', group_key=self.group_key)
         #else:
-        #    query = query.filter(~F('exists', field='group_id'))
+        #    query = query.filter(~F('exists', field='group_key'))
         if is_active:
             query = query.filter('term', is_active=1)
         elif is_active == False:
@@ -164,7 +164,7 @@ class BaseHandler(RequestHandler):
         return users
 
     def get_problem_users(self):
-        hashstr = "problem_student" + self.course_id + (str(self.group_id) or "")
+        hashstr = "problem_student" + self.course_id + (str(self.group_key) or "")
         hashcode = hashlib.md5(hashstr).hexdigest()
         users = self.memcache.get(hashcode)
         if users:
@@ -201,10 +201,10 @@ class BaseHandler(RequestHandler):
                 .filter("term", course_id=self.course_id)\
                 .filter("terms", user_id=users)\
                 .fields(fields=["rname", "nickname", "user_id"])
-        if self.group_id:
-            query = query.filter('term', group_id=self.group_id)
-        else:
-            query = query.filter(~F('exists', field='group_id'))
+        if self.group_key:
+            query = query.filter('term', group_key=self.group_key)
+        #else:
+        #    query = query.filter(~F('exists', field='group_key'))
         results = self.es_execute(query[:len(users)]).hits
         result = {}
         for item in results:
@@ -213,7 +213,7 @@ class BaseHandler(RequestHandler):
                 name = item.rname[0]
             else:
                 name = item.nickname[0]
-            result[user_id] = name
+            result[int(user_id)] = name
         return result
 
     def get_grade(self, users=None):

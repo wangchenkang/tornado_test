@@ -17,15 +17,15 @@ class CourseActivity(BaseHandler):
         # 获得全部记录
         query = self.es_query(doc_type = 'active')\
                 .filter('term', date=self.get_argument('date'))
-        if self.group_id:
-            query = query.filter('term', group_id=self.group_id)
+        if self.group_key:
+            query = query.filter('term', group_key=self.group_key)
         #else:
-        #    query = query.filter(~F('exists', field='group_id'))
+        #    query = query.filter(~F('exists', field='group_key'))
         hits = self.es_execute(query[:1000]).hits
         if hits.total > 1000:
             hits = self.es_execute(query[:hits.total]).hits
         course_list = []
-        enroll_dic = self.get_enroll(group_id=self.group_id)
+        enroll_dic = self.get_enroll(group_key=self.group_key)
         for hit in hits:
             enroll_num = enroll_dic.get(hit.course_id, 0)
             if enroll_num == 0:
@@ -62,10 +62,10 @@ class CourseRegisterRank(BaseHandler):
     """
     def get(self):
         query = self.es_query(doc_type = 'course')
-        if self.group_id:
-            query = query.filter('term', group_id=self.group_id)
+        if self.group_key:
+            query = query.filter('term', group_key=self.group_key)
         #else:
-        #    query = query.filter(~F('exists', field='group_id'))
+        #    query = query.filter(~F('exists', field='group_key'))
         hits = self.es_execute(query[:1000]).hits
         if hits.total > 1000:
             hits = self.es_execute(query[:hits.total]).hits
@@ -133,7 +133,7 @@ class CourseEnrollmentsCount(BaseHandler):
     获取课程当前总选课人数
     """
     def get(self):
-        self.success_response({"total": self.get_enroll(self.group_id, self.course_id)})
+        self.success_response({"total": self.get_enroll(self.group_key, self.course_id)})
 
 @route('/course/enrollments/users')
 class CourseEnrollments(BaseHandler):
@@ -168,8 +168,8 @@ class CourseEnrollmentsDate(BaseHandler):
         end = self.get_param("end")
         query = self.es_query(index="tap", doc_type="student")\
                 .filter("term", course_id=self.course_id)
-        if self.group_id:
-            query = query.filter('term', group_id=self.group_id)
+        if self.group_key:
+            query = query.filter('term', group_key=self.group_key)
         query = query.fields(fields=["user_id", "unenroll_time", "enroll_time", "is_active"])
 
         size = self.es_execute(query[:0]).hits.total
@@ -239,10 +239,10 @@ class CourseActive(BaseHandler):
         query = self.es_query(index="tap", doc_type="active") \
                 .filter("range", **{'date': {'lte': end, 'gte': start}}) \
                 .filter("term", course_id=self.course_id)
-        if self.group_id:
-            query = query.filter("term", group_id=self.group_id)
+        if self.group_key:
+            query = query.filter("term", group_key=self.group_key)
         #else:
-        #    query = query.filter(~F("exists", field="group_id"))
+        #    query = query.filter(~F("exists", field="group_key"))
         total = self.es_execute(query[:0]).hits.total
         results = self.es_execute(query[:total])
         res_dict = {}
@@ -275,8 +275,8 @@ class CourseDistribution(BaseHandler):
     """
     def get(self):
         query = self.es_query(index="tap", doc_type="student")
-        if self.group_id:
-            query = query.filter("term", group_id=self.group_id)
+        if self.group_key:
+            query = query.filter("term", group_key=self.group_key)
         top = int(self.get_argument("top", 10))
         query = query.filter("term", course_id=self.course_id)\
                 .filter("term", country='中国')[:0]
@@ -356,7 +356,7 @@ class CourseTsinghuaStudent(BaseHandler):
         query = self.es_query(index='tap', doc_type='student') \
                 .filter('term', courses=self.course_id) \
                 .filter('term', binding_org='tsinghua')[:0]
-        if self.group_id:
-            query = query.filter('term', group_id=self.group_id)
+        if self.group_key:
+            query = query.filter('term', group_key=self.group_key)
         data = self.es_execute(query)
         self.success_response({'data': data.hits.total})
