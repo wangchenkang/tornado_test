@@ -205,9 +205,11 @@ class CoursePostsNoComment(BaseHandler):
     获取没有评论的总帖子数
     """
     def get(self):
-
+        users = self.get_users()
         query = self.es_query(index='tap', doc_type='discussion_aggs') \
-                .filter('term', course_id=self.course_id)
+                .filter('term', course_id=self.course_id) \
+                .filter('terms', user_id=users)
+
         data = self.es_execute(query)
         # query.aggs.bucket().metric('noreply_total', 'sum', field='noreply_num')
         count = 0
@@ -326,14 +328,14 @@ class StudentRelation(BaseHandler):
 @route('/discussion/course_rank_stat')
 class CourseRankStat(BaseHandler):
     def get(self):
-        # 获得course_list的elective
+        # 获得course_list的group_id
         result = {}
         query = self.es_query(index='tap', doc_type='course')\
                 .filter('range', status={'gte': 0})
-        if self.elective:
-            query = query.filter('term', elective=self.elective)
+        if self.group_id:
+            query = query.filter('term', group_id=self.group_id)
         else:
-            query = query.filter(~F('exists', field='elective'))
+            query = query.filter(~F('exists', field='group_id'))
         hits = self.es_execute(query[:0]).hits
         if hits.total > 0:
             hits = self.es_execute(query[:hits.total]).hits
@@ -378,7 +380,7 @@ class CourseRankStat(BaseHandler):
         result["reply_overcome"] = reply_overcome
         # 讨论区人均互动次数
         # 人均互动次数=(发帖数+回帖数)/总人数
-        enroll_dict = self.get_enroll(elective=self.elective)
+        enroll_dict = self.get_enroll(group_id=self.group_id)
         total_comment = defaultdict(float)
         for hit in hits:
             course_id, post_num, reply_num = hit.course_id, int(hit.post_num), int(hit.reply_num)
@@ -432,9 +434,11 @@ class CourseDiscussionStat(BaseHandler):
     def get(self):
 
         result = {}
+        users = self.get_users()
         query = self.es_query(index='tap', doc_type='discussion') \
                 .filter('term', course_id=self.course_id) \
-                .filter('term', chapter_id=self.chapter_id)
+                .filter('term', chapter_id=self.chapter_id) \
+                .filter('terms', user_id=users)
                 # .sort('-date')[:1]
         data = self.es_execute(query)
         hit = data.hits

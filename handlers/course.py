@@ -17,15 +17,15 @@ class CourseActivity(BaseHandler):
         # 获得全部记录
         query = self.es_query(doc_type = 'active')\
                 .filter('term', date=self.get_argument('date'))
-        if self.elective:
-            query = query.filter('term', elective=self.elective)
-        else:
-            query = query.filter(~F('exists', field='elective'))
+        if self.group_id:
+            query = query.filter('term', group_id=self.group_id)
+        #else:
+        #    query = query.filter(~F('exists', field='group_id'))
         hits = self.es_execute(query[:1000]).hits
         if hits.total > 1000:
             hits = self.es_execute(query[:hits.total]).hits
         course_list = []
-        enroll_dic = self.get_enroll(elective=self.elective)
+        enroll_dic = self.get_enroll(group_id=self.group_id)
         for hit in hits:
             enroll_num = enroll_dic.get(hit.course_id, 0)
             if enroll_num == 0:
@@ -62,10 +62,10 @@ class CourseRegisterRank(BaseHandler):
     """
     def get(self):
         query = self.es_query(doc_type = 'course')
-        if self.elective:
-            query = query.filter('term', elective=self.elective)
-        else:
-            query = query.filter(~F('exists', field='elective'))
+        if self.group_id:
+            query = query.filter('term', group_id=self.group_id)
+        #else:
+        #    query = query.filter(~F('exists', field='group_id'))
         hits = self.es_execute(query[:1000]).hits
         if hits.total > 1000:
             hits = self.es_execute(query[:hits.total]).hits
@@ -89,7 +89,7 @@ class CourseRegisterRank(BaseHandler):
                 "user_num": value,
                 "overcome": overcome
                 }
-        
+
         self.success_response({'data': result})
 
 
@@ -108,20 +108,22 @@ class CourseGradeDistribution(BaseHandler):
         hits = result.hits
         data = {
                 "distribution":[0]*50,
-                "student_num": 0}
+                "student_num": 0,
+                "above_average": 0}
         avg = 0
         for hit in hits:
             if hit.grade_ratio < 0:
                 continue
             index = int(hit.grade_ratio/2)
-            if index == 50:
+            if index >= 50:
                 index = 49
             data["distribution"][index] += 1
             data["student_num"] += 1
             avg += index
-        avg /= float(data["student_num"])
-        above_avg = sum(data["distribution"][int(avg+1):])
-        data["above_average"] = above_avg
+        if data["student_num"] > 0:
+            avg /= float(data["student_num"])
+            above_avg = sum(data["distribution"][int(avg+1):])
+            data["above_average"] = above_avg
         self.success_response({'data': data})
 
 
@@ -131,7 +133,7 @@ class CourseEnrollmentsCount(BaseHandler):
     获取课程当前总选课人数
     """
     def get(self):
-        self.success_response({"total": self.get_enroll(self.elective, self.course_id)})
+        self.success_response({"total": self.get_enroll(self.group_id, self.course_id)})
 
 @route('/course/enrollments/users')
 class CourseEnrollments(BaseHandler):
@@ -165,11 +167,11 @@ class CourseEnrollmentsDate(BaseHandler):
         start = self.get_param("start")
         end = self.get_param("end")
         query = self.es_query(index="tap", doc_type="student")\
-                .filter("term", course_id=self.course_id)\
-                .fields(fields=["user_id", "unenroll_time", "enroll_time", "is_active"])
-        if self.elective:
-            query = query.filter("term", elective=self.elective)
-        
+                .filter("term", course_id=self.course_id)
+        if self.group_id:
+            query = query.filter('term', group_id=self.group_id)
+        query = query.fields(fields=["user_id", "unenroll_time", "enroll_time", "is_active"])
+
         size = self.es_execute(query[:0]).hits.total
         hits = self.es_execute(query[:size]).hits
         ret = {}
@@ -177,7 +179,7 @@ class CourseEnrollmentsDate(BaseHandler):
             return {
                 "enroll": 0,    # 当天选课量
                 "unenroll": 0,  # 当天退课量
-                "date_enrollment": 0, # 当天净选课量
+                "date_enrollment": -1, # 当天净选课量
                 "total_enroll": 0, # 截止当天总选课量
                 "total_unenroll": 0, # 截止当天总退课量
                 "enrollment": 0,     # 截止当天正在选课量
@@ -237,10 +239,10 @@ class CourseActive(BaseHandler):
         query = self.es_query(index="tap", doc_type="active") \
                 .filter("range", **{'date': {'lte': end, 'gte': start}}) \
                 .filter("term", course_id=self.course_id)
-        if self.elective:
-            query = query.filter("term", elective=self.elective)
-        else:
-            query = query.filter(~F("exists", field="elective"))
+        if self.group_id:
+            query = query.filter("term", group_id=self.group_id)
+        #else:
+        #    query = query.filter(~F("exists", field="group_id"))
         total = self.es_execute(query[:0]).hits.total
         results = self.es_execute(query[:total])
         res_dict = {}
@@ -273,8 +275,8 @@ class CourseDistribution(BaseHandler):
     """
     def get(self):
         query = self.es_query(index="tap", doc_type="student")
-        if self.elective:
-            query = query.filter("term", elective=self.elective)
+        if self.group_id:
+            query = query.filter("term", group_id=self.group_id)
         top = int(self.get_argument("top", 10))
         query = query.filter("term", course_id=self.course_id)\
                 .filter("term", country='中国')[:0]
@@ -354,7 +356,7 @@ class CourseTsinghuaStudent(BaseHandler):
         query = self.es_query(index='tap', doc_type='student') \
                 .filter('term', courses=self.course_id) \
                 .filter('term', binding_org='tsinghua')[:0]
-        if self.elective:
-            query = query.filter('term', elective=self.elective)
+        if self.group_id:
+            query = query.filter('term', group_id=self.group_id)
         data = self.es_execute(query)
         self.success_response({'data': data.hits.total})

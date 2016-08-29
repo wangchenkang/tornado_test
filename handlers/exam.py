@@ -11,11 +11,14 @@ class ExamedStudent(BaseHandler):
     获取考试学生列表
     """
     def get(self):
+        users = self.get_users()
         sequential_id = self.get_param('sequential_id')
 
         query = self.es_query(index='tap', doc_type='seq_problem') \
                 .filter('term', course_id=self.course_id) \
-                .filter('term', seq_id=sequential_id)
+                .filter('term', seq_id=sequential_id) \
+                .filter('terms', user_id=users)
+
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total]).hits
         if data.total:

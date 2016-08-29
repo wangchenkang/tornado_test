@@ -71,7 +71,8 @@ class CourseProblemDetail(BaseHandler):
     def get(self):
 
         query = self.es_query(index='course', doc_type='problem_detail') \
-                .filter('term', course_id=self.course_id)
+                .filter('term', course_id=self.course_id) \
+
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total])
 

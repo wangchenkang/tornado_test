@@ -125,10 +125,13 @@ class CourseStudyDetail(BaseHandler):
     def get(self):
         course_id = self.course_id
         user_id = self.get_argument('user_id', None)
+        users = self.get_users()
 
         query = self.es_query(index='tap', doc_type='video') \
                 .filter('term', course_id=course_id) \
-                .filter('exists', field='duration')
+                .filter('exists', field='duration') \
+                .filter('terms', user_id=users)
+
         max_length = 1000
         if user_id is not None:
             user_id = [u.strip() for u in user_id.split(',') if u.strip()][0:max_length]

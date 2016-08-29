@@ -72,6 +72,14 @@ class BaseHandler(RequestHandler):
         #elective = '西安交通大学'
         return elective
 
+    @property
+    def group_id(self):
+        group_id = self.get_argument('group_id', None)
+        if group_id == "None":
+            group_id = None
+        if group_id:
+            group_id = int(group_id)
+        return group_id
 
     def get_param(self, key):
         try:
@@ -108,13 +116,13 @@ class BaseHandler(RequestHandler):
             self.error_response(100, u'查询错误: {} - {}'.format(e.status_code, e.error))
 
         return response
- 
-    def get_enroll(self, elective=None, course_id=None):
+
+    def get_enroll(self, group_id=None, course_id=None):
         query = self.es_query(doc_type='course')
-        if elective:
-            query = query.filter('term', elective=elective)
-        else:
-            query = query.filter(~F('exists', field='elective'))
+        #if elective:
+        #    query = query.filter('term', elective=elective)
+        #else:
+        #    query = query.filter(~F('exists', field='elective'))
         if course_id:
             query = query.filter('term', course_id=course_id)
         hits = self.es_execute(query[:100]).hits
@@ -127,19 +135,19 @@ class BaseHandler(RequestHandler):
                 return 0
         else:
             return dict([(hit.course_id, int(hit.enroll_num)) for hit in hits])
-    
+
     def get_users(self, is_active=True):
-        hashstr = "student" + self.course_id + (self.elective or "") + str(is_active)
+        hashstr = "student" + self.course_id + (str(self.group_id) or "") + str(is_active)
         hashcode = hashlib.md5(hashstr).hexdigest()
-        users = self.memcache.get(hashcode)
-        if users:
-            return users
+        #users = self.memcache.get(hashcode)
+        #if users:
+        #    return users
         query = self.es_query(doc_type='student')\
                 .fields(fields="user_id")
-        if self.elective:
-            query = query.filter('term', elective=self.elective)
-        else:
-            query = query.filter(~F('exists', field='elective'))
+        if self.group_id:
+            query = query.filter('term', group_id=self.group_id)
+        #else:
+        #    query = query.filter(~F('exists', field='group_id'))
         if is_active:
             query = query.filter('term', is_active=1)
         elif is_active == False:
@@ -156,7 +164,7 @@ class BaseHandler(RequestHandler):
         return users
 
     def get_problem_users(self):
-        hashstr = "problem_student" + self.course_id + (self.elective or "")
+        hashstr = "problem_student" + self.course_id + (str(self.group_id) or "")
         hashcode = hashlib.md5(hashstr).hexdigest()
         users = self.memcache.get(hashcode)
         if users:
@@ -168,10 +176,10 @@ class BaseHandler(RequestHandler):
         query.aggs.bucket("p", "terms", field="user_id", size=0)
         results = self.es_execute(query[:0])
         aggs = results.aggregations["p"]["buckets"]
-        users = [item["key"] for item in aggs] 
+        users = [item["key"] for item in aggs]
         self.memcache.set(hashcode, users, 60*60)
         return users
-    
+
     def get_video_users(self):
         users = self.get_users()
         query = self.es_query(index='tap', doc_type='video')\
@@ -193,10 +201,10 @@ class BaseHandler(RequestHandler):
                 .filter("term", course_id=self.course_id)\
                 .filter("terms", user_id=users)\
                 .fields(fields=["rname", "nickname", "user_id"])
-        if self.elective:
-            query = query.filter('term', elective=self.elective)
+        if self.group_id:
+            query = query.filter('term', group_id=self.group_id)
         else:
-            query = query.filter(~F('exists', field='elective'))
+            query = query.filter(~F('exists', field='group_id'))
         results = self.es_execute(query[:len(users)]).hits
         result = {}
         for item in results:
