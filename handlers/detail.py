@@ -16,12 +16,12 @@ class DetailCourseGradeRatio(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.2关键指标
     """
     def get(self):
+        users = self.get_users()
         query = self.es_query(index='tap', doc_type='problem_course') \
                 .filter('term', course_id=self.course_id) \
                 .filter('range', grade_ratio={'gte': 0}) \
-                .filter('range', final_grade={'gte': 0})
-        problem_users = self.get_problem_users()
-        query.filter('terms', user_id=problem_users)
+                .filter('range', final_grade={'gte': 0}) \
+                .filter('terms', user_id=users)
 
         result = self.es_execute(query)
         result = self.es_execute(query[:result.hits.total])
@@ -45,8 +45,10 @@ class DetailCourseGradeRatioDetail(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.1图
     """
     def get(self):
+        problem_users = self.get_problem_users()
         query = self.es_query(index='tap', doc_type='problem_course') \
                 .filter('term', course_id=self.course_id) \
+                .filter('terms', user_id=problem_users) \
                 .filter('range', **{'final_grade': {'gte': 0}})
 
         response = self.es_execute(query[:0])
@@ -66,8 +68,10 @@ class DetailCourseStudyRatioDetail(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.1图
     """
     def get(self):
+        users = self.get_video_users()
         query = self.es_query(index='tap', doc_type='video_course') \
-            .filter('term', course_id=self.course_id)
+            .filter('term', course_id=self.course_id) \
+            .filter('terms', user_id=users)
 
         response = self.es_execute(query[:0])
         response = self.es_execute(query[:response.hits.total])
@@ -89,7 +93,7 @@ class DetailCourseStudyRatio(BaseHandler):
         query = self.es_query(index='tap', doc_type='video_course') \
                 .filter('term', course_id=self.course_id)
         video_users = self.get_video_users()
-        query.filter('terms', user_id=video_users)
+        query = query.filter('terms', user_id=video_users)
 
         result = self.es_execute(query)
         result = self.es_execute(query[:result.hits.total])
@@ -119,8 +123,10 @@ class DetailCourseDiscussion(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.3关键指标
     """
     def get(self):
+        users = self.get_users()
         query = self.es_query(index='tap', doc_type='discussion_aggs') \
-                .filter('term', course_id=self.course_id)
+                .filter('term', course_id=self.course_id) \
+                .filter('terms', user_id=users)
         query.aggs.metric('post_total', 'sum', field='post_num') \
                 .aggs.metric('comment_total', 'sum', field='reply_num') \
                 .aggs.metric('post_mean', 'avg', field='post_num') \
@@ -128,12 +134,12 @@ class DetailCourseDiscussion(BaseHandler):
 
         response = self.es_execute(query)
         result = {}
-        result['post_total'] = response.aggregations.post_total.value
-        result['comment_total'] = response.aggregations.comment_total.value
+        result['post_total'] = response.aggregations.post_total.value or 0
+        result['comment_total'] = response.aggregations.comment_total.value or 0
         result['total'] = result['post_total'] + result['comment_total']
-        result['post_mean'] = round(response.aggregations.post_mean.value, 4)
-        result['comment_mean'] = round(response.aggregations.comment_mean.value, 4)
-        result['total_mean'] = round(float(result['total']) / response.hits.total, 4)
+        result['post_mean'] = round(result['post_total'], 4)
+        result['comment_mean'] = round(result['comment_total'], 4)
+        result['total_mean'] = round(float(result['total']) / response.hits.total, 4) if response.hits.total else 0
 
         self.success_response({'data': result})
 
@@ -141,13 +147,14 @@ class DetailCourseDiscussion(BaseHandler):
 @route('/detail/homework_grade')
 class DetailHomeworkGrade(BaseHandler):
     """
-    每次作业的得分率均值
+    每次作业的得分率
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.2关键指标 图
     """
     def get(self):
-
+        users = self.get_users()
         query = self.es_query(index='tap', doc_type='seq_problem') \
-            .filter('term', course_id=self.course_id)
+            .filter('term', course_id=self.course_id) \
+            .filter('terms', user_id=users)
 
         response = self.es_execute(query[:0])
         response = self.es_execute(query[:response.hits.total])
@@ -179,8 +186,10 @@ class DetailStudentDiscussion(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.1图
     """
     def get(self):
+        users = self.get_users()
         query = self.es_query(index='tap', doc_type='discussion_aggs') \
-                .filter('term', course_id=self.course_id)
+                .filter('term', course_id=self.course_id) \
+                .filter('terms', user_id=users)
 
         response = self.es_execute(query[:0])
         response = self.es_execute(query[:response.hits.total])
@@ -202,8 +211,10 @@ class DetailStudentDiscussionStat(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.3图
     """
     def get(self):
+        users = self.get_users()
         query = self.es_query(index='tap', doc_type='discussion_aggs') \
-                .filter('term', course_id=self.course_id)
+                .filter('term', course_id=self.course_id) \
+                .filter('terms', user_id=users)
 
         response = self.es_execute(query[:0])
         response = self.es_execute(query[:response.hits.total])
@@ -225,8 +236,10 @@ class DetailChapterStudyRatio(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.4关键指标
     """
     def get(self):
+        users = self.get_users()
         query = self.es_query(index='tap', doc_type='video_chapter') \
-                .filter('term', course_id=self.course_id)
+                .filter('term', course_id=self.course_id) \
+                .filter('terms', user_id=users)
 
         query.aggs.bucket('chapter', 'terms', field='chapter_id', size=0) \
             .metric('study_ratio_mean', 'avg', field='study_rate')
@@ -235,7 +248,7 @@ class DetailChapterStudyRatio(BaseHandler):
 
         aggs = response.aggregations.chapter.buckets
         buckets = {}
-        student_num = len(self.get_users())
+        student_num = len(users)
         for bucket in aggs:
             buckets[bucket['key']] = {}
             buckets[bucket['key']]['study_ratio_mean'] = round(bucket.study_ratio_mean.value, 4)
@@ -251,8 +264,10 @@ class DetailChapterStudyRatioDetail(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.4图
     """
     def get(self):
+        users = self.get_users()
         query = self.es_query(index='tap', doc_type='video_chapter') \
-                .filter('term', course_id=self.course_id)
+                .filter('term', course_id=self.course_id) \
+                .filter('terms', user_id=users)
         ranges = [{'from': i*0.1, 'to': i*0.1+0.1 } for i in range(0, 10)]
 
         query.aggs.bucket('chapter', 'terms', field='chapter_id', size=0) \
