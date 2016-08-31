@@ -70,7 +70,7 @@ class CourseDailyStat(BaseHandler):
                 .filter('range', **{'date': {'gte': start, 'lte': end}})
         # data = self.es_execute(query[:0])
         # data = self.es_execute(query[:data.hits.total])
-        query.aggs.bucket('date', 'terms', field='date').bucket('groups', 'terms', field='group_id') \
+        query.aggs.bucket('date', 'terms', field='date', size=1000).bucket('groups', 'terms', field='group_id', size=10) \
             .metric('post_num', 'sum', field='post_num').metric('reply_num', 'sum', field='reply_num')
         data = self.es_execute(query)
         # date_list = [date_to_str(start + timedelta(days=d)) for d in xrange(0, days)]
@@ -211,7 +211,7 @@ class CoursePostsNoComment(BaseHandler):
                 .filter('terms', user_id=users)
 
         data = self.es_execute(query)
-        data = self.es_execute(data.hits.total)
+        data = self.es_execute(query[:data.hits.total])
         # query.aggs.bucket().metric('noreply_total', 'sum', field='noreply_num')
         count = 0
         for i in data.hits:
@@ -334,9 +334,16 @@ class CourseRankStat(BaseHandler):
 
         # 获得所有相同group_key的课程
         query = self.es_query(doc_type='course') \
+            .filter('term', course_id=self.course_id) \
+            .filter('term', group_key=self.group_key)
+        current_course = self.es_execute(query).hits[0]
+
+        query = self.es_query(doc_type='course') \
             .filter('range', status={'gte': 0}) \
             .filter('term', group_key=self.group_key)
         courses = self.es_execute(query[:1000]).hits
+        courses.append(current_course)
+        courses = set(courses)
         course_ids = [course.course_id for course in courses]
 
         # 获得这些课程的帖子数据
@@ -356,10 +363,7 @@ class CourseRankStat(BaseHandler):
 
         result = {}
         # 计算指标
-        current_course = None
         for course in courses:
-            if course.course_id == self.course_id:
-                current_course = course
             course_id = course.course_id
             course.post_total = 0
             course.reply_total = 0

@@ -24,8 +24,9 @@ class CourseActivity(BaseHandler):
             .filter('terms', course_id=courses) \
             .filter('term', group_key=self.group_key)
 
-        hits = self.es_execute(query[:1000]).hits
-        result = {}
+        result = self.es_execute(query)
+        hits = self.es_execute(query[:result.hits.total]).hits
+        result = {'active_user_num': 0, 'percent': 0, 'overcome': 0 }
         # 计算该课程该group的7日活跃率
         for hit in hits:
             if hit.course_id == self.course_id:
@@ -101,9 +102,9 @@ class CourseGradeDistribution(BaseHandler):
                 "above_average": 0}
         avg = 0
         for hit in hits:
-            if hit.grade_ratio < 0:
+            if hit.current_grade < 0:
                 continue
-            index = int(hit.grade_ratio/2)
+            index = int(hit.current_grade/2)
             if index >= 50:
                 index = 49
             data["distribution"][index] += 1
