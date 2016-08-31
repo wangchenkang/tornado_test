@@ -208,7 +208,8 @@ class CoursePostsNoComment(BaseHandler):
         users = self.get_users()
         query = self.es_query(index='tap', doc_type='discussion_aggs') \
                 .filter('term', course_id=self.course_id) \
-                .filter('terms', user_id=users)
+                .filter('terms', user_id=users) \
+                .filter('term', group_key=self.group_key)
 
         data = self.es_execute(query)
         data = self.es_execute(query[:data.hits.total])
@@ -341,7 +342,8 @@ class CourseRankStat(BaseHandler):
         query = self.es_query(doc_type='course') \
             .filter('range', status={'gte': 0}) \
             .filter('term', group_key=self.group_key)
-        courses = self.es_execute(query[:1000]).hits
+        courses = self.es_execute(query).hits
+        courses = self.es_execute(query[:courses.total]).hits
         courses.append(current_course)
         courses = set(courses)
         course_ids = [course.course_id for course in courses]
