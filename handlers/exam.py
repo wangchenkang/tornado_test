@@ -62,7 +62,7 @@ class ContentStudentStat(BaseHandler):
                 .filter('term', seq_id=sequential_id) \
                 .filter('terms', user_id=users)
         data = self.es_execute(query[:0]).hits
-        data = self.es_execute(query[:data.total]).hits
+        data = self.es_execute(query[:data.total])
 
         content = {}
         for item in data.hits:

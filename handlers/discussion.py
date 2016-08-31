@@ -211,6 +211,7 @@ class CoursePostsNoComment(BaseHandler):
                 .filter('terms', user_id=users)
 
         data = self.es_execute(query)
+        data = self.es_execute(data.hits.total)
         # query.aggs.bucket().metric('noreply_total', 'sum', field='noreply_num')
         count = 0
         for i in data.hits:
