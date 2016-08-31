@@ -119,8 +119,8 @@ class BaseHandler(RequestHandler):
 
     def get_enroll(self, group_key=None, course_id=None):
         query = self.es_query(doc_type='course')
-        #if elective:
-        #    query = query.filter('term', elective=elective)
+        if group_key:
+            query = query.filter('term', group_key=group_key)
         #else:
         #    query = query.filter(~F('exists', field='elective'))
         if course_id:

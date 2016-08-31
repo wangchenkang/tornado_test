@@ -14,44 +14,33 @@ class CourseActivity(BaseHandler):
     课程7日活跃统计
     """
     def get(self):
-        # 获得全部记录
-        query = self.es_query(doc_type = 'active')\
-                .filter('term', date=self.get_argument('date'))
-        if self.group_key:
-            query = query.filter('term', group_key=self.group_key)
-        #else:
-        #    query = query.filter(~F('exists', field='group_key'))
+        date = self.get_argument('date')[:10]
+        # 拿到所有当前group的所有课程及其注册人数
+        course_enrolls = self.get_enroll(group_key=self.group_key)
+        courses = course_enrolls.keys()
+        # 查询该group的所有课程活跃数据
+        query = self.es_query(doc_type = 'active') \
+            .filter('term', time_d=date) \
+            .filter('terms', course_id=courses) \
+            .filter('term', group_key=self.group_key)
+
         hits = self.es_execute(query[:1000]).hits
-        if hits.total > 1000:
-            hits = self.es_execute(query[:hits.total]).hits
-        course_list = []
-        enroll_dic = self.get_enroll(group_key=self.group_key)
+        result = {}
+        # 计算该课程该group的7日活跃率
         for hit in hits:
-            enroll_num = enroll_dic.get(hit.course_id, 0)
-            if enroll_num == 0:
-                course_list.append((hit.course_id, (0, 0)))
-            else:
-                course_list.append((hit.course_id, (hit.weekly_active/enroll_num, enroll_num)))
-        course_list.sort(key=lambda x: x[1][0], reverse=True)
-        total = len(course_list)
-        index = total
-        value = 0
-        percent = 0
-        for i, course in enumerate(course_list):
-            if course[0] == self.course_id:
-                index = i
-                percent = course[1][0]
-                value = course[1][1]
+            if hit.course_id == self.course_id:
+                result['active_user_num'] = hit.active_user_num
+                result['percent'] = float(hit.active_user_num) / course_enrolls[self.course_id]
                 break
-        if percent == 0:
-            overcome = 0
-        else:
-            overcome = 1 - (1+index)/float(total)
-        result = {
-            "active_user_num": value,
-            "percent": percent,
-            "overcome": overcome
-            }
+        # 计算该group在所有课程中的7日活跃率排名
+        rank = 0
+        for hit in hits:
+            if hit.course_id == self.course_id:
+                continue
+            course_activity_rate = float(hit.active_user_num) / course_enrolls[self.course_id]
+            if course_activity_rate > result['percent']:
+                rank += 1
+        result['overcome'] = 1 - rank / len(courses)
         self.success_response({'data': result})
 
 
@@ -237,7 +226,7 @@ class CourseActive(BaseHandler):
         start = self.get_param("start")
 
         query = self.es_query(index="tap", doc_type="active") \
-                .filter("range", **{'date': {'lte': end, 'gte': start}}) \
+                .filter("range", **{'time_d': {'lte': end, 'gte': start}}) \
                 .filter("term", course_id=self.course_id)
         if self.group_key:
             query = query.filter("term", group_key=self.group_key)
@@ -247,12 +236,12 @@ class CourseActive(BaseHandler):
         results = self.es_execute(query[:total])
         res_dict = {}
         for item in results.hits:
-            res_dict[item.date] = {
-                "active": getattr(item, 'active', 0),
-                "inactive": getattr(item, 'inactive', 0),
-                "new_inactive": getattr(item, 'new_inactive', 0),
-                "revival": getattr(item, 'revival', 0),
-                "date": item.date
+            res_dict[item.time_d] = {
+                "active": getattr(item, 'active_user_num', 0),
+                "inactive": getattr(item, 'sleep_user_num', 0),
+                "new_inactive": getattr(item, 'sleep_user_num', 0),
+                "revival": getattr(item, 'weakup_user_num', 0),
+                "date": item.time_d
             }
         item = start
         while item <= end:

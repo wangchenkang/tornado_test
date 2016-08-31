@@ -282,11 +282,13 @@ class StudentDetail(BaseHandler):
     获取所有参与讨论学生统计
     """
     def get(self):
-        users = self.get_users()
         query = self.es_query(index='tap', doc_type='discussion_aggs') \
                 .filter('term', course_id=self.course_id) \
-                .filter('terms', user_id=users)\
                 .query(Q('range', **{'post_num': {'gt': 0}}) | Q('range', **{'reply_num': {'gt': 0}}))
+        if self.group_key:
+            users = self.get_users()
+            query = query.filter('terms', user_id=users)
+
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total])
         usernames = self.get_user_name()
@@ -328,104 +330,77 @@ class StudentRelation(BaseHandler):
 @route('/discussion/course_rank_stat')
 class CourseRankStat(BaseHandler):
     def get(self):
-        # 获得course_list的group_id
+
+        # 获得所有相同group_key的课程
+        query = self.es_query(doc_type='course') \
+            .filter('range', status={'gte': 0}) \
+            .filter('term', group_key=self.group_key)
+        courses = self.es_execute(query[:1000]).hits
+        course_ids = [course.course_id for course in courses]
+
+        # 获得这些课程的帖子数据
+        query = self.es_query(doc_type='discussion_aggs') \
+            .filter('terms', course_id=course_ids) \
+            .filter('term', group_key=self.group_key)
+        query.aggs.bucket('course_id', 'terms', field='course_id', size=1000) \
+            .metric('post_total', 'sum', field='post_num') \
+            .metric('reply_total', 'sum', field='reply_num') \
+            .metric('noreply_total', 'sum', field='noreply_num')
+
+        course_discussions = self.es_execute(query).aggregations.course_id.buckets
+
+        course_discussion_dict = {}
+        for course_discussion in course_discussions:
+            course_discussion_dict[course_discussion.key] = course_discussion
+
         result = {}
-        query = self.es_query(index='tap', doc_type='course')\
-                .filter('range', status={'gte': 0})
-        if self.group_key:
-            query = query.filter('term', group_key=self.group_key)
-        #else:
-        #    query = query.filter(~F('exists', field='group_id'))
-        hits = self.es_execute(query[:0]).hits
-        if hits.total > 0:
-            hits = self.es_execute(query[:hits.total]).hits
-        course_list = [hit.course_id for hit in hits]
-        # 获得course_list下的所有数据
-        query = self.es_query(doc_type='discussion_aggs')\
-                .filter('terms', course_id=course_list)
-        hits = self.es_execute(query[:0]).hits
-        hits = self.es_execute(query[:hits.total]).hits
-        # 获得发帖回复率数据
-        # 发帖回复率=(帖子总数-零回复总数)/帖子总数
-        # 帖子总数=所有人发帖数之和
-        reply_dict = {}
-        # 第一个是帖子数，第二个是零回复数
-        for hit in hits:
-            course_id, post_num, noreply_num = hit.course_id, int(hit.post_num), int(hit.noreply_num) if hit.noreply_num else 0
-            if course_id not in reply_dict:
-                reply_dict[course_id] = [0,0]
-            reply_dict[course_id][0] += int(post_num)
-            if noreply_num:
-                reply_dict[course_id][1] += int(noreply_num)
-        sorted_dict = sorted(reply_dict.items(), 
-                key=lambda x: (x[1][0]-x[1][1])/float(x[1][0]) if float(x[1][0]) != 0 else 0,
-                reverse=True)
-        reply_index = len(sorted_dict)
-        reply_ratio = 0
-        no_reply_num = 0
-        for i, item in enumerate(sorted_dict):
-            if item[0] == self.course_id:
-                reply_index = i
-                reply_ratio = (item[1][0] - item[1][1]) / float(item[1][0])
-                no_reply_num = item[1][1]
-                break
-        if reply_ratio == 1:
-            reply_overcome = 1 - 1 / float(len(course_list))
-        elif reply_ratio == 0:
-            reply_overcome = 0
-        else:
-            reply_overcome = 1 - (reply_index+1)/float(len(course_list))
-        result["reply_ratio"] = reply_ratio
-        result["no_reply_num"] = no_reply_num
-        result["reply_overcome"] = reply_overcome
-        # 讨论区人均互动次数
-        # 人均互动次数=(发帖数+回帖数)/总人数
-        enroll_dict = self.get_enroll(group_key=self.group_key)
-        total_comment = defaultdict(float)
-        for hit in hits:
-            course_id, post_num, reply_num = hit.course_id, int(hit.post_num), int(hit.reply_num)
-            total_comment[course_id] += int(post_num) / float(enroll_dict[course_id])
-            total_comment[course_id] += int(reply_num) / float(enroll_dict[course_id])
-        sorted_dict = sorted(total_comment.items(),
-                key=lambda x: x[1],
-                reverse=True)
-        discussion_avg = 0
-        for i, item in enumerate(sorted_dict):
-            if item[0] == self.course_id:
-                discussion_index = i
-                discussion_avg = item[1]
-                break
-        if discussion_avg == 0:
-            discussion_overcome = 0
-        else:
-            discussion_overcome = 1 - (discussion_index+1)/float(len(course_list))
-        result["discussion_avg"] = discussion_avg
-        result["discussion_overcome"] = discussion_overcome
-        # 参与规模
-        # 讨论区参与规模只计人数，不计每人发回帖数
-        discussion_student_list = {}
-        for hit in hits:
-            course_id,user_id = hit.course_id, hit.user_id
-            if course_id not in discussion_student_list:
-                discussion_student_list[course_id] = set()
-            if user_id not in discussion_student_list[course_id]:
-                discussion_student_list[course_id].add(user_id)
-        sorted_dict = sorted(discussion_student_list.items(),
-                key=lambda x: len(x[1]),
-                reverse=True)
-        discussion_num = 0
-        discussion_num = 0
-        for i, item in enumerate(sorted_dict):
-            if item[0] == self.course_id:
-                discussion_num_index = i
-                discussion_num = len(item[1])
-                break
-        if discussion_num == 0:
-            discussion_num_overcome = 0
-        else:
-            discussion_num_overcome = 1 - (discussion_num_index+1)/float(len(course_list))
-        result["discussion_num"] = discussion_num
-        result["discussion_num_overcome"] = discussion_num_overcome
+        # 计算指标
+        current_course = None
+        for course in courses:
+            if course.course_id == self.course_id:
+                current_course = course
+            course_id = course.course_id
+            course.post_total = 0
+            course.reply_total = 0
+            course.noreply_total = 0
+            course.discussion_users = 0
+            course.avg_discussion = 0
+            course.reply_rate = 0
+            if course_id not in course_discussion_dict.keys():
+                continue
+            course_discussion = course_discussion_dict[course_id]
+            # 人均互动次数=(发帖数+回帖数)/总人数
+            course.avg_discussion = float(course_discussion.post_total.value + course_discussion.reply_total.value) / course_discussion.doc_count
+            # 发帖回复率=(帖子总数-零回复总数)/帖子总数
+            course.reply_rate = float(course_discussion.post_total.value - course_discussion.noreply_total.value) / course_discussion.post_total.value if course_discussion.post_total.value else 0
+            course.discussion_users = course_discussion.doc_count
+            course.noreply_total = course_discussion.noreply_total.value
+
+        # 计算排名
+        avg_discussion_rank = 0
+        reply_rate_rank = 0
+        discussion_users_rank = 0
+        for course in courses:
+            if course.course_id == self.course_id:
+                continue
+            if course.avg_discussion > current_course.avg_discussion:
+                avg_discussion_rank += 1
+            if course.reply_rate > current_course.reply_rate:
+                reply_rate_rank += 1
+            if course.discussion_users > current_course.discussion_users:
+                discussion_users_rank += 1
+
+        # 填充结果
+        result = {
+            'discussion_num': current_course.discussion_users,
+            'discussion_num_overcome': 1 - float(discussion_users_rank) / len(courses),
+            'discussion_avg': current_course.avg_discussion,
+            'discussion_overcome': 1 - float(avg_discussion_rank) / len(courses),
+            'reply_ratio': current_course.reply_rate,
+            'no_reply_num': current_course.noreply_total,
+            'reply_overcome': 1 - float(reply_rate_rank) / len(courses),
+            }
+
         self.success_response(result)
 
 
