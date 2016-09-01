@@ -289,7 +289,7 @@ class StudentDetail(BaseHandler):
                 .query(Q('range', **{'post_num': {'gt': 0}}) | Q('range', **{'reply_num': {'gt': 0}}))
         if self.group_key:
             users = self.get_users()
-            query = query.filter('terms', user_id=users)
+            query = query.filter('term', group_key=self.group_key)
 
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total])
