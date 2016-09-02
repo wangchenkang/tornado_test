@@ -118,23 +118,21 @@ class BaseHandler(RequestHandler):
         return response
 
     def get_enroll(self, group_key=None, course_id=None):
-        query = self.es_query(doc_type='course')
+        query = self.es_query(doc_type='student') \
+            .filter('term', is_active=1)
         if group_key:
             query = query.filter('term', group_key=group_key)
-        #else:
-        #    query = query.filter(~F('exists', field='elective'))
         if course_id:
             query = query.filter('term', course_id=course_id)
-        hits = self.es_execute(query[:100]).hits
-        if hits.total > 100:
-            hits = self.es_execute(query[:hits.total]).hits
-        if course_id:
-            if hits.total:
-                return hits[0].enroll_num
-            else:
-                return 0
+            hits = self.es_execute(query).hits
+            return hits.total if hits.total else 0
         else:
-            return dict([(hit.course_id, int(hit.enroll_num)) for hit in hits])
+            query.aggs.bucket('course', 'terms', field='course_id', size=1000)
+            result = self.es_execute(query)
+            course_num = {}
+            for course in result.aggregations.course.buckets:
+                course_num[course.key] = course.doc_count
+            return course_num
 
     def get_users(self, is_active=True):
         hashstr = "student" + self.course_id + (str(self.group_key) or "") + str(is_active)

@@ -51,32 +51,15 @@ class CourseRegisterRank(BaseHandler):
     课程总注册人数统计及排名
     """
     def get(self):
-        query = self.es_query(doc_type = 'course')
-        if self.group_key:
-            query = query.filter('term', group_key=self.group_key)
-        #else:
-        #    query = query.filter(~F('exists', field='group_key'))
-        hits = self.es_execute(query[:1000]).hits
-        if hits.total > 1000:
-            hits = self.es_execute(query[:hits.total]).hits
-        course_list = []
-        for hit in hits:
-            course_list.append((hit.course_id, hit.enroll_num))
-        course_list.sort(key=lambda x: x[1], reverse=True)
-        total = len(course_list)
-        index = total
-        value = 0
-        for i, course in enumerate(course_list):
-            if course[0] == self.course_id:
-                index = i
-                value = course[1]
-                break
-        if value == 0:
-            overcome = 0
-        else:
-            overcome = 1 - (1+index)/float(total)
+        student_num = self.get_enroll(self.group_key, self.course_id)
+        courses_student_num = self.get_enroll(self.group_key)
+        rank = 0
+        for course_id, value in courses_student_num.items():
+            if course_id != self.course_id and value > student_num:
+                rank += 1
+        overcome = 1 - float(rank) / len(courses_student_num)
         result = {
-                "user_num": value,
+                "user_num": student_num,
                 "overcome": overcome
                 }
 
