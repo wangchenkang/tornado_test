@@ -34,14 +34,14 @@ class CourseActivity(BaseHandler):
                 result['percent'] = float(hit.active_user_num) / course_enrolls[self.course_id]
                 break
         # 计算该group在所有课程中的7日活跃率排名
-        rank = 0
+        overcome = 0
         for hit in hits:
             if hit.course_id == self.course_id:
                 continue
             course_activity_rate = float(hit.active_user_num) / course_enrolls[self.course_id]
-            if course_activity_rate > result['percent']:
-                rank += 1
-        result['overcome'] = 1 - rank / len(courses)
+            if course_activity_rate < result['percent']:
+                overcome += 1
+        result['overcome'] = float(overcome) / len(courses)
         self.success_response({'data': result})
 
 
@@ -53,11 +53,11 @@ class CourseRegisterRank(BaseHandler):
     def get(self):
         student_num = self.get_enroll(self.group_key, self.course_id)
         courses_student_num = self.get_enroll(self.group_key)
-        rank = 0
+        overcome = 0
         for course_id, value in courses_student_num.items():
             if course_id != self.course_id and value > student_num:
-                rank += 1
-        overcome = 1 - float(rank) / len(courses_student_num)
+                overcome += 1
+        overcome = float(overcome) / len(courses_student_num)
         result = {
                 "user_num": student_num,
                 "overcome": overcome

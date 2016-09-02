@@ -384,28 +384,28 @@ class CourseRankStat(BaseHandler):
             course.noreply_total = course_discussion.noreply_total.value
 
         # 计算排名
-        avg_discussion_rank = 0
-        reply_rate_rank = 0
-        discussion_users_rank = 0
+        avg_discussion_overcome = 0
+        reply_rate_overcome = 0
+        discussion_users_overcome = 0
         for course in courses:
             if course.course_id == self.course_id:
                 continue
-            if course.avg_discussion > current_course.avg_discussion:
-                avg_discussion_rank += 1
-            if course.reply_rate > current_course.reply_rate:
-                reply_rate_rank += 1
-            if course.discussion_users > current_course.discussion_users:
-                discussion_users_rank += 1
+            if course.avg_discussion < current_course.avg_discussion:
+                avg_discussion_overcome += 1
+            if course.reply_rate < current_course.reply_rate:
+                reply_rate_overcome += 1
+            if course.discussion_users < current_course.discussion_users:
+                discussion_users_overcome += 1
 
         # 填充结果
         result = {
             'discussion_num': current_course.discussion_users,
-            'discussion_num_overcome': 1 - float(discussion_users_rank) / len(courses),
+            'discussion_num_overcome': float(discussion_users_overcome) / len(courses),
             'discussion_avg': current_course.avg_discussion,
-            'discussion_overcome': 1 - float(avg_discussion_rank) / len(courses),
+            'discussion_overcome': float(avg_discussion_overcome) / len(courses),
             'reply_ratio': current_course.reply_rate,
             'no_reply_num': current_course.noreply_total,
-            'reply_overcome': 1 - float(reply_rate_rank) / len(courses),
+            'reply_overcome': float(reply_rate_overcome) / len(courses),
             }
 
         self.success_response(result)
