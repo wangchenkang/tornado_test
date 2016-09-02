@@ -246,7 +246,7 @@ class StudentPostTopStat(BaseHandler):
         data = self.es_execute(query)
 
         students = {}
-        usernames = self.get_user_name()
+        usernames = self.get_user_name(group_name=self.group_name)
         for item in data.aggregations.students.buckets:
             students[item.key] = {
                 'user_id': int(item.key),
@@ -293,7 +293,7 @@ class StudentDetail(BaseHandler):
 
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total])
-        usernames = self.get_user_name()
+        usernames = self.get_user_name(group_name=self.group_name)
         grades = self.get_grade()
         students_detail = {}
         for item in data.hits:

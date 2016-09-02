@@ -81,6 +81,14 @@ class BaseHandler(RequestHandler):
             group_key = int(group_key)
         return group_key
 
+    @property
+    def group_name(self):
+        query = self.es_query(doc_type='course') \
+            .filter('term', course_id=self.course_id) \
+            .filter('term', group_key=self.group_key)
+        result = self.es_execute(query)
+        return result.hits[0].group_name if result.hits else 'xuetangx'
+
     def get_param(self, key):
         try:
             param = self.get_argument(key)
@@ -164,9 +172,9 @@ class BaseHandler(RequestHandler):
     def get_problem_users(self):
         hashstr = "problem_student" + self.course_id + (str(self.group_key) or "")
         hashcode = hashlib.md5(hashstr).hexdigest()
-        users = self.memcache.get(hashcode)
-        if users:
-            return users
+        #users = self.memcache.get(hashcode)
+        #if users:
+        #    return users
         users = self.get_users()
         query = self.es_query(index='tap', doc_type='problem')\
                 .filter("term", course_id=self.course_id)\
@@ -192,7 +200,7 @@ class BaseHandler(RequestHandler):
         response = Search(using=self.es, **kwargs)
         return response
 
-    def get_user_name(self, users=None):
+    def get_user_name(self, users=None, group_name='xuetangx'):
         if not users:
             users = self.get_users()
         query = self.es_query(index='tap', doc_type='student')\
@@ -207,10 +215,13 @@ class BaseHandler(RequestHandler):
         result = {}
         for item in results:
             user_id = item.user_id[0]
-            if item.rname and item.rname[0] != "":
-                name = item.rname[0]
-            else:
+            if group_name == 'xuetangx':
                 name = item.nickname[0]
+            else:
+                if item.rname and item.rname[0] != "":
+                    name = item.rname[0]
+                else:
+                    name = item.nickname[0]
             result[int(user_id)] = name
         return result
 
