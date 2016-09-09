@@ -145,9 +145,9 @@ class BaseHandler(RequestHandler):
     def get_users(self, is_active=True):
         hashstr = "student" + self.course_id + (str(self.group_key) or "") + str(is_active)
         hashcode = hashlib.md5(hashstr).hexdigest()
-        #users = self.memcache.get(hashcode)
-        #if users:
-        #    return users
+        users = self.memcache.get(hashcode)
+        if users:
+            return users
         query = self.es_query(doc_type='student')\
                 .fields(fields="user_id")
         if self.group_key:
@@ -172,9 +172,9 @@ class BaseHandler(RequestHandler):
     def get_problem_users(self):
         hashstr = "problem_student" + self.course_id + (str(self.group_key) or "")
         hashcode = hashlib.md5(hashstr).hexdigest()
-        #users = self.memcache.get(hashcode)
-        #if users:
-        #    return users
+        users = self.memcache.get(hashcode)
+        if users:
+            return users
         users = self.get_users()
         query = self.es_query(index='tap', doc_type='problem')\
                 .filter("term", course_id=self.course_id)\
