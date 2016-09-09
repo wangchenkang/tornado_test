@@ -288,13 +288,13 @@ class StudentDetail(BaseHandler):
                 .filter('term', course_id=self.course_id) \
                 .query(Q('range', **{'post_num': {'gt': 0}}) | Q('range', **{'reply_num': {'gt': 0}}))
         if self.group_key:
-            users = self.get_users()
             query = query.filter('term', group_key=self.group_key)
 
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total])
-        usernames = self.get_user_name(group_name=self.group_name)
-        grades = self.get_grade()
+        users = [item.user_id for item in data.hits]
+        usernames = self.get_user_name(users=users, group_name=self.group_name)
+        grades = self.get_grade(users=users)
         students_detail = {}
         for item in data.hits:
             students_detail[item.user_id] = {
