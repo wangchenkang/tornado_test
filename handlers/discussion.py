@@ -234,11 +234,10 @@ class StudentPostTopStat(BaseHandler):
     def get(self):
         top = self.get_argument('top', 5)
         order = self.get_argument('order', 'post')
-        users = self.get_users()
         order_field = 'comments_total' if order == 'comment' else 'posts_total'
 
         query = self.es_query(index='tap', doc_type='discussion_aggs') \
-                .filter('terms', user_id=users)\
+                .filter('term', group_key=self.group_key)\
                 .filter('term', course_id=self.course_id)[:0]
         query.aggs.bucket('students', 'terms', field='user_id', size=top, order={order_field: 'desc'}) \
                 .metric('posts_total', 'sum', field='post_num') \
@@ -246,7 +245,8 @@ class StudentPostTopStat(BaseHandler):
         data = self.es_execute(query)
 
         students = {}
-        usernames = self.get_user_name(group_name=self.group_name)
+        users = [item.key for item in data.aggregations.students.buckets]
+        usernames = self.get_user_name(users=users, group_name=self.group_name)
         for item in data.aggregations.students.buckets:
             students[item.key] = {
                 'user_id': int(item.key),
@@ -274,7 +274,6 @@ class StudentPostTopStat(BaseHandler):
             students[item.user_id].setdefault('user_id', int(item.user_id))
 
         students_list = sorted(students.values(), key=lambda x: x['posts_total'], reverse=True)
-
         self.success_response({'students': students_list})
 
 
