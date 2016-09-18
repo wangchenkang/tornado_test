@@ -1,7 +1,7 @@
 #! -*- coding: utf-8 -*-
 from __future__ import division
 from elasticsearch_dsl import A, F
-from .base import BaseHandler
+from .base import BaseHandler, DispatchHandler
 from utils.routes import route
 from utils.tools import utc_to_cst, date_to_str, datedelta
 from elasticsearch_dsl import A
@@ -132,11 +132,76 @@ class CourseEnrollments(BaseHandler):
 
 
 @route('/course/enrollments_date')
-class CourseEnrollmentsDate(BaseHandler):
+class CourseEnrollmentsDate(DispatchHandler):
     """
     课程选课退课每日数据
     """
-    def get(self):
+    def mooc(self):
+        start = self.get_param("start")
+        end = self.get_param("end")
+
+        query = self.es_query(index="main", doc_type="enrollment")
+        query = query.filter("range", **{'event_time': {'lte': end, 'gte': start}}) \
+                .filter("term", course_id=self.course_id)[:0]
+        query.aggs.bucket('value', A("date_histogram", field="event_time", interval="day")) \
+                .metric('count', "terms", field="is_active", size=2)
+        results = self.es_execute(query)
+        aggs = results.aggregations
+        buckets = aggs['value']['buckets']
+        res_dict = {}
+        for x in buckets:
+            date = str(x["key_as_string"][:10])
+            data = {}
+            aggs_buckets = x["count"]["buckets"]
+            for aggs_bucket in aggs_buckets:
+                if str(aggs_bucket["key"]) == 'T':
+                    data['enroll'] = aggs_bucket["doc_count"]
+                elif str(aggs_bucket['key']) == 'F':
+                    data['unenroll'] = aggs_bucket["doc_count"]
+            data["date"] = date
+            res_dict[date] = data
+        item = start
+        end_1 = datedelta(end, 1)
+        while item != end_1:
+            if item in res_dict:
+                if not "enroll" in res_dict[item]:
+                    res_dict[item]["enroll"] = 0
+                if not "unenroll" in res_dict[item]:
+                    res_dict[item]["unenroll"] = 0
+            else:
+                res_dict[item] = {
+                    "date": item,
+                    "enroll": 0,
+                    "unenroll": 0
+                }
+            item = datedelta(item, 1)
+        # 取end的数据
+        query = self.es_query(index="main", doc_type="enrollment")
+        query = query.filter("range", **{'event_time': {'lt': start}})
+        query = query.filter("term", course_id=self.course_id)
+        query = query[:0]
+        query.aggs.bucket('value', "terms", field="is_active", size=2)
+        results = self.es_execute(query)
+        aggs = results.aggregations
+        buckets = aggs['value']['buckets']
+        enroll = 0
+        unenroll = 0
+        for x in buckets:
+            if str(x["key"]) == 'T':
+                enroll = x["doc_count"]
+            elif str(x['key']) == 'F':
+                unenroll = x["doc_count"]
+        data = sorted(res_dict.values(), key=lambda x: x["date"])
+        for item in data:
+            enroll += item["enroll"]
+            unenroll += item["unenroll"]
+            item["total_enroll"] = enroll + unenroll
+            item["total_unenroll"] = unenroll
+            item["enrollment"] = enroll
+
+        self.success_response({"data": data})
+
+    def spoc(self):
         start = self.get_param("start")
         end = self.get_param("end")
         query = self.es_query(index="tap", doc_type="student")\

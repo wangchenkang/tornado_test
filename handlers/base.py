@@ -7,7 +7,7 @@ from tornado.escape import url_unescape, json_encode
 from elasticsearch import ConnectionError, ConnectionTimeout, RequestError
 from elasticsearch_dsl import Search, F
 from utils.tools import fix_course_id
-
+import settings
 
 class BaseHandler(RequestHandler):
     def write_error(self, status_code, **kwargs):
@@ -238,3 +238,26 @@ class BaseHandler(RequestHandler):
                 item.grade_ratio = 0
             result[item.user_id] = item.grade_ratio
         return result
+
+
+class DispatchHandler(BaseHandler):
+
+    def get(self, *args, **kwargs):
+        if settings.DISPATCH_OPTIMIZE:
+            try:
+                group_key = int(self.get_argument('group_key'))
+            except MissingArgumentError:
+                self.error_response(200, u'参数错误')
+
+            mooc_func = getattr(self, 'mooc', None)
+            spoc_func = getattr(self, 'spoc', None)
+            if not (mooc_func and spoc_func):
+                self.error_response(200, u'没有定义mooc() 或 spoc()')
+
+            if group_key == settings.MOOC_GROUP_KEY:
+                return mooc_func(*args, **kwargs)
+            else:
+                return spoc_func(*args, **kwargs)
+        else:
+            spoc_func = getattr(self, 'spoc', None)
+            return spoc_func(*args, **kwargs)
