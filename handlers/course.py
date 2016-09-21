@@ -349,11 +349,39 @@ class CourseDistribution(BaseHandler):
         self.success_response({'data': data})
 
 @route('/course/watch_num')
-class CourseVideoWatch(BaseHandler):
+class CourseVideoWatch(DispatchHandler):
     """
     获取用户视频观看时段统计
     """
-    def get(self):
+    def mooc(self):
+        start = self.get_param("start")
+        end = self.get_param("end")
+
+        query = self.es_query(index="api1", doc_type="video_course_active_learning")
+        query = query.filter("term", course_id=self.course_id)
+        query = query.filter("range", **{'date': {'lte': end, 'gte': start}})[:100]
+
+        results = self.es_execute(query)
+        hits = results.hits
+        res_dict = {}
+        for hit in hits:
+            res_dict[hit.date] = {
+                "date": hit.date,
+                "hour_watch_num": list(hit.watch_num_list)
+            }
+        item = start
+        end_1 = datedelta(end, 1)
+        while item != end_1:
+            if not item in res_dict:
+                res_dict[item] = {
+                    "date": item,
+                    "hour_watch_num": [0]*24
+                }
+            item = datedelta(item, 1)
+        data = sorted(res_dict.values(), key=lambda x: x["date"])
+        self.success_response({'data': data})
+
+    def spoc(self):
         start = self.get_param("start")
         end = self.get_param("end")
         # get student
