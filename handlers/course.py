@@ -67,11 +67,30 @@ class CourseRegisterRank(BaseHandler):
 
 
 @route('/course/grade_distribution')
-class CourseGradeDistribution(BaseHandler):
+class CourseGradeDistribution(DispatchHandler):
     """
     课程成绩分布统计
     """
-    def get(self):
+    def mooc(self):
+        query = self.es_query(index="api1", doc_type="course_grade_distribution")
+        query = query.filter("term", course_id=self.course_id).sort("-date")[:1]
+        result = self.es_execute(query)
+        hits = result.hits
+        data = {}
+        if hits:
+            hit = hits[0]
+            data["distribution"] = list(hit.distribution)
+            data["above_average"] = int(hit.above_average)
+            data["student_num"] = sum(list(hit.distribution))
+            data["date"] = hit.date
+        else:
+            data["distribution"] = [0]*50
+            data["above_average"] = 0
+            data["student_num"] = 0
+            data["date"] = ''
+        self.success_response({'data': data})
+
+    def spoc(self):
         users = self.get_problem_users()
         query = self.es_query(index="tap", doc_type="problem_course")\
                 .filter("term", course_id=self.course_id)\

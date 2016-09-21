@@ -1,5 +1,5 @@
 #! -*- coding: utf-8 -*-
-from .base import BaseHandler
+from .base import BaseHandler, DispatchHandler
 from utils.routes import route
 from utils.log import Log
 
@@ -162,8 +162,31 @@ class CourseStudyDetail(BaseHandler):
 
 
 @route('/video/chapter_video_stat')
-class ChapterVideoStat(BaseHandler):
-    def get(self):
+class ChapterVideoStat(DispatchHandler):
+
+    def mooc(self):
+        result = {}
+        query = self.es_query(index='rollup', doc_type='video_student_num_ds') \
+                .filter('term', course_id=self.course_id) \
+                .filter('term', chapter_id=self.chapter_id) \
+                .filter('term', seq_id='-1') \
+                .filter('term', video_id='-1')
+
+        data = self.es_execute(query)
+        hit = data.hits
+        result['course_id'] = self.course_id
+        result['chapter_id'] = self.chapter_id
+        if hit:
+            hit = hit[0]
+            result['study_num'] = int(hit.view_user_num)
+            result['review_num'] = int(hit.review_user_num)
+        else:
+            result['study_num'] = 0
+            result['review_num'] = 0
+
+        self.success_response(result)
+
+    def spoc(self):
         result = {}
         users = self.get_users()
         query = self.search(index='tap',doc_type='video') \
@@ -188,20 +211,15 @@ class ChapterVideoStat(BaseHandler):
 
 @route('/video/chapter_video_detail')
 class CourseChapterVideoDetail(BaseHandler):
+
     def get(self):
-        result = {}
-        users = self.get_users()
-        # TODO
-        # 将main该为tap，uid改为user_id
-        query = self.es_query(index='tap', doc_type='video')\
+        result = []
+        query = self.es_query(index='main', doc_type='video')\
                 .filter('term', course_id=self.course_id)\
                 .filter('term', chapter_id=self.chapter_id)\
-                .filter('terms', user_id=users)\
                 .filter('exists', field='watch_num')[:0]
-        query.aggs.bucket("video_watch", "terms", field="item_id", size=0)\
+        query.aggs.bucket("video_watch", "terms", field="vid", size=0)\
                 .metric('num', 'range', field="watch_num", ranges=[{"from": 1, "to": 2}, {"from": 2}])
-        query.aggs.bucket("video_seq_watch", "terms", field="seq_id", size=0)\
-        #        .metric('num', 'terms', field="user_id", size=0)
         results = self.es_execute(query)
         aggs = results.aggregations
         buckets = aggs["video_watch"]["buckets"]
@@ -215,14 +233,10 @@ class CourseChapterVideoDetail(BaseHandler):
                     num1 = item["doc_count"]
                 elif item["key"] == "2.0-*":
                     num2 = item["doc_count"]
-            result[vid] = {
+            result.append({
                 "vid": vid,
                 "num1": num1,
                 "num2": num2
-                }
-        seq_buckets = aggs["video_seq_watch"]["buckets"]
-        seq_result = {}
-        for bucket in seq_buckets:
-            seq_result[bucket['key']] = bucket.doc_count
+                })
+        self.success_response({"data": result})
 
-        self.success_response({"vid_result": result, "seq_result": seq_result})
