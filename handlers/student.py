@@ -415,6 +415,7 @@ class OverviewDetail(BaseHandler):
         data = self.es_execute(query[:size])
         print len(data.hits)
         users = {}
+
         for item in data.hits:
             # print type(item.user_id)
             # print item.to_dict()
@@ -427,14 +428,14 @@ class OverviewDetail(BaseHandler):
             'major': item.major,
             'status': item.is_active,
             'enroll_time': item.enroll_time,
-            'unenroll_time': item.unenroll_time,
-             'final_grade': 0,
-              'grade_ratio' : None,
-               'current_grade' : 0,
-                'post': 0,
-                'reply' : 0,
-                'discussion': 0,
-                'chapter_video': 0.0
+            'unenroll_time': item.unenroll_time if 'unenroll_time' in item else '',
+            'final_grade': 0,
+            'grade_ratio' : 0,
+            'current_grade' : 0,
+            'post': 0,
+            'reply' : 0,
+            'discussion': 0,
+            'chapter_video': 0.0
             }
 
         query = self.es_query(index='tap', doc_type='problem_course') \
