@@ -51,6 +51,13 @@ class BaseHandler(RequestHandler):
         raise Finish
 
     @property
+    def user_id(self):
+        user_id = self.get_argument('user_id', None)
+        if user_id is None:
+            self.error_response(200, u'参数错误')
+        return user_id
+
+    @property
     def course_id(self):
         course_id = self.get_argument('course_id', None)
         if course_id is None:
@@ -88,6 +95,12 @@ class BaseHandler(RequestHandler):
             .filter('term', group_key=self.group_key)
         result = self.es_execute(query)
         return result.hits[0].group_name if result.hits else 'xuetangx'
+
+    @property
+    def course_type(self):
+        if settings.MOOC_GROUP_KEY == self.group_key:
+            return 'mooc'
+        return 'mooc_org'
 
     def get_param(self, key):
         try:

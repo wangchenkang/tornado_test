@@ -10,3 +10,4 @@ from .difficulty import *
 from .config import *
 from .prediction import *
 from .detail import *
+from .permission import *
