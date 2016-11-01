@@ -1,5 +1,5 @@
 #! -*- coding: utf-8 -*-
-from .base import BaseHandler
+from .base import BaseHandler, DispatchHandler
 from utils.routes import route
 from utils.log import Log
 import ast
@@ -93,8 +93,35 @@ class CourseProblemDetail(BaseHandler):
 
 
 @route('/problem/chapter_grade_stat')
-class ChapterGradeStat(BaseHandler):
-    def get(self):
+class ChapterGradeStat(DispatchHandler):
+
+    def mooc(self):
+        chapter_id = self.chapter_id
+
+        query = self.es_query(index='main', doc_type='grade_group_stu_num') \
+                .filter('term', course_id=self.course_id) \
+                .filter('term', chapter_id=chapter_id) \
+                .filter('term', seq_id='-1')
+        data = self.es_execute(query[:0])
+        data = self.es_execute(query[:data.hits.total])
+
+        groups = {}
+        for item in data.hits:
+            groups[item.group_id] = item.user_num
+
+        query = self.es_query(index='main', doc_type='grade_stu_num') \
+                .filter('term', course_id=self.course_id) \
+                .filter('term', chapter_id=chapter_id) \
+                .filter('term', seq_id='-1')
+        data = self.es_execute(query[:1])
+        try:
+            graded_num = data.hits[0].user_num
+        except (KeyError, IndexError, AttributeError):
+            graded_num = 0
+
+        self.success_response({'graded_student_num': graded_num, 'groups': groups})
+
+    def spoc(self):
         chapter_id = self.chapter_id
         users = self.get_problem_users()
         query = self.search(index='tap',doc_type="seq_problem")\
@@ -130,6 +157,7 @@ class ChapterGradeStat(BaseHandler):
 
 @route('/problem/chapter_problem_detail')
 class ChapterProblemDetail(BaseHandler):
+
     def get(self):
         result = []
         users = self.get_users()

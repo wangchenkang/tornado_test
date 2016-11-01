@@ -414,6 +414,7 @@ class OverviewDetail(BaseHandler):
             .filter('terms', user_id=users).filter('term', course_id = self.course_id)
         size = self.es_execute(query[:0]).hits.total
         data = self.es_execute(query[:size])
+
         struct = self.es_query(index='tap', doc_type='grade_struct') \
             .filter('term', course_id=self.course_id)
         struct_d = self.es_execute(struct)

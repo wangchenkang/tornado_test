@@ -1,7 +1,7 @@
 #! -*- coding: utf-8 -*-
 from datetime import datetime, timedelta
 from elasticsearch_dsl import Q, F
-from .base import BaseHandler
+from .base import BaseHandler, DispatchHandler
 from utils.routes import route
 from utils.log import Log
 from utils.tools import date_from_query, date_to_str, utc_to_cst
@@ -70,7 +70,7 @@ class CourseDailyStat(BaseHandler):
                 .filter('range', **{'date': {'gte': start, 'lte': end}})
         # data = self.es_execute(query[:0])
         # data = self.es_execute(query[:data.hits.total])
-        query.aggs.bucket('date', 'terms', field='date').bucket('groups', 'terms', field='group_id') \
+        query.aggs.bucket('date', 'terms', field='date', size=1000).bucket('groups', 'terms', field='group_id', size=10) \
             .metric('post_num', 'sum', field='post_num').metric('reply_num', 'sum', field='reply_num')
         data = self.es_execute(query)
         # date_list = [date_to_str(start + timedelta(days=d)) for d in xrange(0, days)]
@@ -208,9 +208,11 @@ class CoursePostsNoComment(BaseHandler):
         users = self.get_users()
         query = self.es_query(index='tap', doc_type='discussion_aggs') \
                 .filter('term', course_id=self.course_id) \
-                .filter('terms', user_id=users)
+                .filter('terms', user_id=users) \
+                .filter('term', group_key=self.group_key)
 
         data = self.es_execute(query)
+        data = self.es_execute(query[:data.hits.total])
         # query.aggs.bucket().metric('noreply_total', 'sum', field='noreply_num')
         count = 0
         for i in data.hits:
@@ -232,11 +234,10 @@ class StudentPostTopStat(BaseHandler):
     def get(self):
         top = self.get_argument('top', 5)
         order = self.get_argument('order', 'post')
-        users = self.get_users()
         order_field = 'comments_total' if order == 'comment' else 'posts_total'
 
         query = self.es_query(index='tap', doc_type='discussion_aggs') \
-                .filter('terms', user_id=users)\
+                .filter('term', group_key=self.group_key)\
                 .filter('term', course_id=self.course_id)[:0]
         query.aggs.bucket('students', 'terms', field='user_id', size=top, order={order_field: 'desc'}) \
                 .metric('posts_total', 'sum', field='post_num') \
@@ -244,7 +245,8 @@ class StudentPostTopStat(BaseHandler):
         data = self.es_execute(query)
 
         students = {}
-        usernames = self.get_user_name()
+        users = [item.key for item in data.aggregations.students.buckets]
+        usernames = self.get_user_name(users=users, group_name=self.group_name)
         for item in data.aggregations.students.buckets:
             students[item.key] = {
                 'user_id': int(item.key),
@@ -272,7 +274,6 @@ class StudentPostTopStat(BaseHandler):
             students[item.user_id].setdefault('user_id', int(item.user_id))
 
         students_list = sorted(students.values(), key=lambda x: x['posts_total'], reverse=True)
-
         self.success_response({'students': students_list})
 
 
@@ -286,13 +287,13 @@ class StudentDetail(BaseHandler):
                 .filter('term', course_id=self.course_id) \
                 .query(Q('range', **{'post_num': {'gt': 0}}) | Q('range', **{'reply_num': {'gt': 0}}))
         if self.group_key:
-            users = self.get_users()
-            query = query.filter('terms', user_id=users)
+            query = query.filter('term', group_key=self.group_key)
 
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total])
-        usernames = self.get_user_name()
-        grades = self.get_grade()
+        users = [item.user_id for item in data.hits]
+        usernames = self.get_user_name(users=users, group_name=self.group_name)
+        grades = self.get_grade(users=users)
         students_detail = {}
         for item in data.hits:
             students_detail[item.user_id] = {
@@ -333,9 +334,17 @@ class CourseRankStat(BaseHandler):
 
         # 获得所有相同group_key的课程
         query = self.es_query(doc_type='course') \
+            .filter('term', course_id=self.course_id) \
+            .filter('term', group_key=self.group_key)
+        current_course = self.es_execute(query).hits[0]
+
+        query = self.es_query(doc_type='course') \
             .filter('range', status={'gte': 0}) \
             .filter('term', group_key=self.group_key)
-        courses = self.es_execute(query[:1000]).hits
+        courses = self.es_execute(query).hits
+        courses = self.es_execute(query[:courses.total]).hits
+        courses.append(current_course)
+        courses = set(courses)
         course_ids = [course.course_id for course in courses]
 
         # 获得这些课程的帖子数据
@@ -355,10 +364,7 @@ class CourseRankStat(BaseHandler):
 
         result = {}
         # 计算指标
-        current_course = None
         for course in courses:
-            if course.course_id == self.course_id:
-                current_course = course
             course_id = course.course_id
             course.post_total = 0
             course.reply_total = 0
@@ -377,36 +383,54 @@ class CourseRankStat(BaseHandler):
             course.noreply_total = course_discussion.noreply_total.value
 
         # 计算排名
-        avg_discussion_rank = 0
-        reply_rate_rank = 0
-        discussion_users_rank = 0
+        avg_discussion_overcome = 0
+        reply_rate_overcome = 0
+        discussion_users_overcome = 0
         for course in courses:
             if course.course_id == self.course_id:
                 continue
-            if course.avg_discussion > current_course.avg_discussion:
-                avg_discussion_rank += 1
-            if course.reply_rate > current_course.reply_rate:
-                reply_rate_rank += 1
-            if course.discussion_users > current_course.discussion_users:
-                discussion_users_rank += 1
+            if course.avg_discussion < current_course.avg_discussion:
+                avg_discussion_overcome += 1
+            if course.reply_rate < current_course.reply_rate:
+                reply_rate_overcome += 1
+            if course.discussion_users < current_course.discussion_users:
+                discussion_users_overcome += 1
 
         # 填充结果
         result = {
             'discussion_num': current_course.discussion_users,
-            'discussion_num_overcome': 1 - float(discussion_users_rank) / len(courses),
+            'discussion_num_overcome': float(discussion_users_overcome) / len(courses),
             'discussion_avg': current_course.avg_discussion,
-            'discussion_overcome': 1 - float(avg_discussion_rank) / len(courses),
+            'discussion_overcome': float(avg_discussion_overcome) / len(courses),
             'reply_ratio': current_course.reply_rate,
             'no_reply_num': current_course.noreply_total,
-            'reply_overcome': 1 - float(reply_rate_rank) / len(courses),
+            'reply_overcome': float(reply_rate_overcome) / len(courses),
             }
 
         self.success_response(result)
 
 
 @route('/discussion/chapter_discussion_stat')
-class CourseDiscussionStat(BaseHandler):
-    def get(self):
+class CourseDiscussionStat(DispatchHandler):
+
+    def mooc(self):
+        result = {}
+        query = self.es_query(index='api1', doc_type='comment_problem') \
+                .filter('term', course_id=self.course_id) \
+                .filter('term', chapter_id=self.chapter_id) \
+                .sort('-date')[:1]
+        data = self.es_execute(query)
+        hit = data.hits
+        result['course_id'] = self.course_id
+        result['chapter_id'] = self.chapter_id
+        if hit:
+            result['students_num'] = int(hit[0].num)
+        else:
+            result['students_num'] = 0
+
+        self.success_response(result)
+
+    def spoc(self):
 
         result = {}
         users = self.get_users()
@@ -429,6 +453,7 @@ class CourseDiscussionStat(BaseHandler):
 
 @route('/discussion/chapter_discussion_detail')
 class CourseChapterDiscussionDetail(BaseHandler):
+
     def get(self):
         users = self.get_users()
         query = self.es_query(index='tap', doc_type='discussion') \

@@ -62,7 +62,7 @@ class ContentStudentStat(BaseHandler):
                 .filter('term', seq_id=sequential_id) \
                 .filter('terms', user_id=users)
         data = self.es_execute(query[:0]).hits
-        data = self.es_execute(query[:data.total]).hits
+        data = self.es_execute(query[:data.total])
 
         content = {}
         for item in data.hits:
@@ -90,7 +90,6 @@ class StudentGrade(BaseHandler):
             query = query.filter('terms', user_id=students)
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total])
-
         students_grade = {}
         for item in data.hits:
             if item.user_id not in students_grade:

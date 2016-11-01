@@ -1,7 +1,7 @@
 #! -*- coding: utf-8 -*-
 from __future__ import division
 from elasticsearch_dsl import A, F
-from .base import BaseHandler
+from .base import BaseHandler, DispatchHandler
 from utils.routes import route
 from utils.tools import utc_to_cst, date_to_str, datedelta
 from elasticsearch_dsl import A
@@ -24,8 +24,9 @@ class CourseActivity(BaseHandler):
             .filter('terms', course_id=courses) \
             .filter('term', group_key=self.group_key)
 
-        hits = self.es_execute(query[:1000]).hits
-        result = {}
+        result = self.es_execute(query)
+        hits = self.es_execute(query[:result.hits.total]).hits
+        result = {'active_user_num': 0, 'percent': 0, 'overcome': 0 }
         # 计算该课程该group的7日活跃率
         for hit in hits:
             if hit.course_id == self.course_id:
@@ -33,14 +34,14 @@ class CourseActivity(BaseHandler):
                 result['percent'] = float(hit.active_user_num) / course_enrolls[self.course_id]
                 break
         # 计算该group在所有课程中的7日活跃率排名
-        rank = 0
+        overcome = 0
         for hit in hits:
             if hit.course_id == self.course_id:
                 continue
             course_activity_rate = float(hit.active_user_num) / course_enrolls[self.course_id]
-            if course_activity_rate > result['percent']:
-                rank += 1
-        result['overcome'] = 1 - rank / len(courses)
+            if course_activity_rate < result['percent']:
+                overcome += 1
+        result['overcome'] = float(overcome) / len(courses)
         self.success_response({'data': result})
 
 
@@ -50,32 +51,15 @@ class CourseRegisterRank(BaseHandler):
     课程总注册人数统计及排名
     """
     def get(self):
-        query = self.es_query(doc_type = 'course')
-        if self.group_key:
-            query = query.filter('term', group_key=self.group_key)
-        #else:
-        #    query = query.filter(~F('exists', field='group_key'))
-        hits = self.es_execute(query[:1000]).hits
-        if hits.total > 1000:
-            hits = self.es_execute(query[:hits.total]).hits
-        course_list = []
-        for hit in hits:
-            course_list.append((hit.course_id, hit.enroll_num))
-        course_list.sort(key=lambda x: x[1], reverse=True)
-        total = len(course_list)
-        index = total
-        value = 0
-        for i, course in enumerate(course_list):
-            if course[0] == self.course_id:
-                index = i
-                value = course[1]
-                break
-        if value == 0:
-            overcome = 0
-        else:
-            overcome = 1 - (1+index)/float(total)
+        student_num = self.get_enroll(self.group_key, self.course_id)
+        courses_student_num = self.get_enroll(self.group_key)
+        overcome = 0
+        for course_id, value in courses_student_num.items():
+            if course_id != self.course_id and value > student_num:
+                overcome += 1
+        overcome = float(overcome) / len(courses_student_num)
         result = {
-                "user_num": value,
+                "user_num": student_num,
                 "overcome": overcome
                 }
 
@@ -83,11 +67,30 @@ class CourseRegisterRank(BaseHandler):
 
 
 @route('/course/grade_distribution')
-class CourseGradeDistribution(BaseHandler):
+class CourseGradeDistribution(DispatchHandler):
     """
     课程成绩分布统计
     """
-    def get(self):
+    def mooc(self):
+        query = self.es_query(index="api1", doc_type="course_grade_distribution")
+        query = query.filter("term", course_id=self.course_id).sort("-date")[:1]
+        result = self.es_execute(query)
+        hits = result.hits
+        data = {}
+        if hits:
+            hit = hits[0]
+            data["distribution"] = list(hit.distribution)
+            data["above_average"] = int(hit.above_average)
+            data["student_num"] = sum(list(hit.distribution))
+            data["date"] = hit.date
+        else:
+            data["distribution"] = [0]*50
+            data["above_average"] = 0
+            data["student_num"] = 0
+            data["date"] = ''
+        self.success_response({'data': data})
+
+    def spoc(self):
         users = self.get_problem_users()
         query = self.es_query(index="tap", doc_type="problem_course")\
                 .filter("term", course_id=self.course_id)\
@@ -101,9 +104,9 @@ class CourseGradeDistribution(BaseHandler):
                 "above_average": 0}
         avg = 0
         for hit in hits:
-            if hit.grade_ratio < 0:
+            if hit.current_grade < 0:
                 continue
-            index = int(hit.grade_ratio/2)
+            index = int(hit.current_grade/2)
             if index >= 50:
                 index = 49
             data["distribution"][index] += 1
@@ -148,11 +151,76 @@ class CourseEnrollments(BaseHandler):
 
 
 @route('/course/enrollments_date')
-class CourseEnrollmentsDate(BaseHandler):
+class CourseEnrollmentsDate(DispatchHandler):
     """
     课程选课退课每日数据
     """
-    def get(self):
+    def mooc(self):
+        start = self.get_param("start")
+        end = self.get_param("end")
+
+        query = self.es_query(index="main", doc_type="enrollment")
+        query = query.filter("range", **{'event_time': {'lte': end, 'gte': start}}) \
+                .filter("term", course_id=self.course_id)[:0]
+        query.aggs.bucket('value', A("date_histogram", field="event_time", interval="day")) \
+                .metric('count', "terms", field="is_active", size=2)
+        results = self.es_execute(query)
+        aggs = results.aggregations
+        buckets = aggs['value']['buckets']
+        res_dict = {}
+        for x in buckets:
+            date = str(x["key_as_string"][:10])
+            data = {}
+            aggs_buckets = x["count"]["buckets"]
+            for aggs_bucket in aggs_buckets:
+                if str(aggs_bucket["key"]) == 'T':
+                    data['enroll'] = aggs_bucket["doc_count"]
+                elif str(aggs_bucket['key']) == 'F':
+                    data['unenroll'] = aggs_bucket["doc_count"]
+            data["date"] = date
+            res_dict[date] = data
+        item = start
+        end_1 = datedelta(end, 1)
+        while item != end_1:
+            if item in res_dict:
+                if not "enroll" in res_dict[item]:
+                    res_dict[item]["enroll"] = 0
+                if not "unenroll" in res_dict[item]:
+                    res_dict[item]["unenroll"] = 0
+            else:
+                res_dict[item] = {
+                    "date": item,
+                    "enroll": 0,
+                    "unenroll": 0
+                }
+            item = datedelta(item, 1)
+        # 取end的数据
+        query = self.es_query(index="main", doc_type="enrollment")
+        query = query.filter("range", **{'event_time': {'lt': start}})
+        query = query.filter("term", course_id=self.course_id)
+        query = query[:0]
+        query.aggs.bucket('value', "terms", field="is_active", size=2)
+        results = self.es_execute(query)
+        aggs = results.aggregations
+        buckets = aggs['value']['buckets']
+        enroll = 0
+        unenroll = 0
+        for x in buckets:
+            if str(x["key"]) == 'T':
+                enroll = x["doc_count"]
+            elif str(x['key']) == 'F':
+                unenroll = x["doc_count"]
+        data = sorted(res_dict.values(), key=lambda x: x["date"])
+        for item in data:
+            enroll += item["enroll"]
+            unenroll += item["unenroll"]
+            item["total_enroll"] = enroll + unenroll
+            item["total_unenroll"] = unenroll
+            item["enrollment"] = enroll
+
+        self.success_response({"data": data})
+
+    def spoc(self):
         start = self.get_param("start")
         end = self.get_param("end")
         query = self.es_query(index="tap", doc_type="student")\
@@ -281,11 +349,39 @@ class CourseDistribution(BaseHandler):
         self.success_response({'data': data})
 
 @route('/course/watch_num')
-class CourseVideoWatch(BaseHandler):
+class CourseVideoWatch(DispatchHandler):
     """
     获取用户视频观看时段统计
     """
-    def get(self):
+    def mooc(self):
+        start = self.get_param("start")
+        end = self.get_param("end")
+
+        query = self.es_query(index="api1", doc_type="video_course_active_learning")
+        query = query.filter("term", course_id=self.course_id)
+        query = query.filter("range", **{'date': {'lte': end, 'gte': start}})[:100]
+
+        results = self.es_execute(query)
+        hits = results.hits
+        res_dict = {}
+        for hit in hits:
+            res_dict[hit.date] = {
+                "date": hit.date,
+                "hour_watch_num": list(hit.watch_num_list)
+            }
+        item = start
+        end_1 = datedelta(end, 1)
+        while item != end_1:
+            if not item in res_dict:
+                res_dict[item] = {
+                    "date": item,
+                    "hour_watch_num": [0]*24
+                }
+            item = datedelta(item, 1)
+        data = sorted(res_dict.values(), key=lambda x: x["date"])
+        self.success_response({'data': data})
+
+    def spoc(self):
         start = self.get_param("start")
         end = self.get_param("end")
         # get student
