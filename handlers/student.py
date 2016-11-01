@@ -408,70 +408,82 @@ class OverviewDetail(BaseHandler):
     def get(self):
         pn = int(self.get_param('page'))
         num = int(self.get_param('num'))
+        users = self.get_users()
         """昵称, 学堂号, 姓名 *, 学号 *, 院系 *, 专业 *, 课程_学习比例, 讨论区_发回帖数, 课程_得分率, 课程_得分, 成绩, nickname, xid, rname, binding_uid, faculty, major, video, discussion, grade_ratio, current_grade, final_grade"""
-        query = self.es_query(index='tap', doc_type='student') \
-            .filter('term', course_id=self.course_id)
+        query = self.es_query(index='tap', doc_type='grade_overview') \
+            .filter('terms', user_id=users).filter('term', course_id = self.course_id)
         size = self.es_execute(query[:0]).hits.total
         data = self.es_execute(query[:size])
-        print len(data.hits)
-        users = {}
+        struct = self.es_query(index='tap', doc_type='grade_struct') \
+            .filter('term', course_id=self.course_id)
+        struct_d = self.es_execute(struct)
+        header = struct_d.hits[0].to_dict()['doc']
+        types = header['type_header'].split(',_,')
+        seqs = header['seq_names'].split(',_,')
+        users = [] #item.to_dict()['doc'] for item in data.hits
         for item in data.hits:
-            # print type(item.user_id)
-            # print item.to_dict()
-            users[str(item.user_id)] = {
-            'xid' : item.xid,
-            'nickname' : item.nickname,
-            'rname': item.rname,
-            'binding_uid': item.binding_uid,
-            'faculty': item.faculty,
-            'major': item.major,
-            'status': item.is_active,
-            'enroll_time': item.enroll_time,
-            'unenroll_time': item.unenroll_time,
-             'final_grade': 0,
-              'grade_ratio' : None,
-               'current_grade' : 0,
-                'post': 0,
-                'reply' : 0,
-                'discussion': 0,
-                'chapter_video': 0.0
-            }
-
-        query = self.es_query(index='tap', doc_type='problem_course') \
-            .filter('term', course_id=self.course_id)\
-            .filter('terms', user_id=users.keys())
-        score = self.es_execute(query[:size])
-        for item in score.hits:
-            # print type(item.user_id)
-            # print item.to_dict()
-            user = str(item.user_id)
-            users[user]['final_grade'] = item.final_grade
-            users[user]['grade_ratio'] = item.grade_ratio
-            users[user]['current_grade'] = item.current_grade
-        query = self.es_query(index='tap', doc_type='discussion_aggs') \
-            .filter('term', course_id=self.course_id) \
-            .filter('terms', user_id=users.keys())
-        discussion = self.es_execute(query[:size])
-        for item in discussion.hits:
-            # print type(item.user_id)
-            # print item.to_dict()
-            user = str(item.user_id)
-            post = item.post_num if item.post_num != None else 0
-            reply = item.reply_num if item.reply_num != None else 0
-            users[user]['post'] = post
-            users[user]['reply'] = reply
-            users[user]['discussion'] = post + reply
-        query = self.es_query(index='tap', doc_type='video_course') \
-            .filter('term', course_id=self.course_id) \
-            .filter('terms', user_id=users.keys())
-        chapter_video = self.es_execute(query[:size])
-        for item in chapter_video.hits:
-            # print type(item.user_id)
-            # print item.to_dict()
-            user = str(item.user_id)
-            users[user]['chapter_video'] = item.study_rate
-        result = users.values()[num * pn: num * pn + num]
-        self.success_response({'data': result})
+            item = item.to_dict()['doc']
+            type_grade = item['type_grade'].split(',')
+            seq_grade = item['seq_grade'].split(',')
+            # dic = {
+            # 'xid' : item.xid,
+            # 'nickname' : item.nickname,
+            # 'rname': item.rname,
+            # 'binding_uid': item.binding_uid,
+            # 'faculty': item.faculty,
+            # 'major': item.major,
+            # 'status': item.is_active,
+            # 'enroll_time': item.enroll_time,
+            # 'unenroll_time': item.unenroll_time,
+            item['type_grade'] = dict(zip(types, type_grade)),
+            item['seq_grade'] =  dict(zip(seqs, seq_grade))
+            # }
+            users.append(item)
+             # 'final_grade': 0,
+             #  'grade_ratio' : None,
+             #   'current_grade' : 0,
+             #    'post': 0,
+             #    'reply' : 0,
+             #    'discussion': 0,
+             #    'chapter_video': 0.0
+        #
+        # query = self.es_query(index='tap', doc_type='problem_course') \
+        #     .filter('term', course_id=self.course_id)\
+        #     .filter('terms', user_id=users.keys())
+        # score = self.es_execute(query[:size])
+        # for item in score.hits:
+        #     # print type(item.user_id)
+        #     # print item.to_dict()
+        #     user = str(item.user_id)
+        #     users[user]['final_grade'] = item.final_grade
+        #     users[user]['grade_ratio'] = item.grade_ratio
+        #     users[user]['current_grade'] = item.current_grade
+        # query = self.es_query(index='tap', doc_type='discussion_aggs') \
+        #     .filter('term', course_id=self.course_id) \
+        #     .filter('terms', user_id=users.keys())
+        # discussion = self.es_execute(query[:size])
+        # for item in discussion.hits:
+        #     # print type(item.user_id)
+        #     # print item.to_dict()
+        #     user = str(item.user_id)
+        #     post = item.post_num if item.post_num != None else 0
+        #     reply = item.reply_num if item.reply_num != None else 0
+        #     users[user]['post'] = post
+        #     users[user]['reply'] = reply
+        #     users[user]['discussion'] = post + reply
+        # query = self.es_query(index='tap', doc_type='video_course') \
+        #     .filter('term', course_id=self.course_id) \
+        #     .filter('terms', user_id=users.keys())
+        # chapter_video = self.es_execute(query[:size])
+        # for item in chapter_video.hits:
+        #     # print type(item.user_id)
+        #     # print item.to_dict()
+        #     user = str(item.user_id)
+        #     users[user]['chapter_video'] = item.study_rate
+        result = {}
+        result['data'] = users[num * pn: num * pn + num]
+        # result['header'] = struct_d.hits[0].to_dict()
+        self.success_response(result)
 
 @route('/student/discussion_detail')
 class GradeDetail(BaseHandler):
