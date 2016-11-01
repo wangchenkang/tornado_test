@@ -419,27 +419,18 @@ class OverviewDetail(BaseHandler):
             .filter('term', course_id=self.course_id)
         struct_d = self.es_execute(struct)
         header = struct_d.hits[0].to_dict()['doc']
+        h1 =  [ 'xid',  'nickname',  'rname',  'binding_uid',  'faculty',  'major',  'is_active',  'enroll_time',  'unenroll_time']
         types = header['type_header'].split(',_,')
         seqs = header['seq_names'].split(',_,')
         users = [] #item.to_dict()['doc'] for item in data.hits
         for item in data.hits:
             item = item.to_dict()['doc']
+            li = [item['xid'], item['nickname'], item['rname'], item['binding_uid'], item['faculty'], item['major'], item['is_active'], item['enroll_time'], item['unenroll_time'] ]
             type_grade = item['type_grade'].split(',')
             seq_grade = item['seq_grade'].split(',')
-            # dic = {
-            # 'xid' : item.xid,
-            # 'nickname' : item.nickname,
-            # 'rname': item.rname,
-            # 'binding_uid': item.binding_uid,
-            # 'faculty': item.faculty,
-            # 'major': item.major,
-            # 'status': item.is_active,
-            # 'enroll_time': item.enroll_time,
-            # 'unenroll_time': item.unenroll_time,
-            item['type_grade'] = dict(zip(types, type_grade)),
-            item['seq_grade'] =  dict(zip(seqs, seq_grade))
+            li = li + type_grade + seq_grade
             # }
-            users.append(item)
+            users.append(li)
              # 'final_grade': 0,
              #  'grade_ratio' : None,
              #   'current_grade' : 0,
@@ -483,7 +474,7 @@ class OverviewDetail(BaseHandler):
         #     users[user]['chapter_video'] = item.study_rate
         result = {}
         result['data'] = users[num * pn: num * pn + num]
-        # result['header'] = struct_d.hits[0].to_dict()
+        result['header'] = h1 + types + seqs
         self.success_response(result)
 
 @route('/student/discussion_detail')
