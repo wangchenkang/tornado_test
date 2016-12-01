@@ -1,6 +1,6 @@
 #! -*- coding: utf-8 -*-
 from datetime import datetime, timedelta
-from elasticsearch_dsl import Q, F
+from elasticsearch_dsl import Q
 from .base import BaseHandler, DispatchHandler
 from utils.routes import route
 from utils.log import Log

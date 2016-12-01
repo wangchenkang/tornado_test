@@ -5,7 +5,7 @@ from tornado.web import RequestHandler, Finish, MissingArgumentError
 from tornado.options import options
 from tornado.escape import url_unescape, json_encode
 from elasticsearch import ConnectionError, ConnectionTimeout, RequestError
-from elasticsearch_dsl import Search, F
+from elasticsearch_dsl import Search, Q
 from utils.tools import fix_course_id
 import settings
 
@@ -161,8 +161,8 @@ class BaseHandler(RequestHandler):
         users = self.memcache.get(hashcode)
         if users:
             return users
-        query = self.es_query(doc_type='student')\
-                .fields(fields="user_id")
+        query = self.es_query(doc_type='student')#\
+                # .fields(fields="user_id")
         if self.group_key:
             query = query.filter('term', group_key=self.group_key)
         #else:
@@ -176,9 +176,11 @@ class BaseHandler(RequestHandler):
             query = query.filter('term', course_id=self.course_id)
 
         size = self.es_execute(query[:0]).hits.total
-        size = 100000
+        size = 10000
         hits = self.es_execute(query[:size]).hits
-        users = [hit.user_id[0] for hit in hits]
+        # print len(hits), hits
+        # users = [hit.user_id[0] for hit in hits]
+        users = [hit.user_id for hit in hits]
         self.memcache.set(hashcode, users, 60*60)
         return users
 

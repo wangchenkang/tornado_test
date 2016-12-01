@@ -1,8 +1,9 @@
+memcache
 pytz
 unicodecsv
 xlsxwriter
 PyYAML==3.11
 tornado==4.2.1
 requests==2.8.1
-elasticsearch==2.1.0
-elasticsearch-dsl==0.0.9
+elasticsearch==5.0.1
+elasticsearch-dsl==5.0.0

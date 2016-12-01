@@ -1,6 +1,5 @@
 #! -*- coding: utf-8 -*-
 from __future__ import division
-from elasticsearch_dsl import A, F
 from .base import BaseHandler, DispatchHandler
 from utils.routes import route
 from utils.tools import utc_to_cst, date_to_str, datedelta
