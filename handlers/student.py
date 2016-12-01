@@ -516,20 +516,21 @@ class DiscussDetail(BaseHandler):
         num = int(self.get_argument('num', 10))
         sort_field = self.get_argument('sort', None)
         if sort_field:
-            query = self.es_query(index='tap', doc_type='grade_overview1') \
-            .filter('term', course_id=self.course_id).sort(sort_field)
+            query = self.es_query(index='tap', doc_type='grade_overview') \
+            .filter('term', course_id=self.course_id).sort(sort_field)[num * pn: num * pn + num]
         else:
-            query = self.es_query(index='tap', doc_type='grade_overview1')#\
-            # .filter('term', course_id=self.course_id)
-            q = Q("match", course_id=self.course_id)
-            query = query.query(q)
+            query = self.es_query(index='tap', doc_type='grade_overview') \
+            .filter('term', course_id=self.course_id)[num * pn: num * pn + num]
+            # q = Q("match", course_id=self.course_id)
+            # query = query.query(q)
         size = self.es_execute(query[:0]).hits.total
-        data = self.es_execute(query[:10000])
+        print self.course_id, size
+        data = self.es_execute(query)
         # data = self.es_execute(query)
         final = {}
         result = [item.to_dict() for item in data.hits]
-        final['total'] = len(result)
-        final['data'] = result[num * pn: num * pn + num]
+        final['total'] = size
+        final['data'] = result
         t_elapse = time.time() - t_beg
         final['time'] = "%.0f" % (float(t_elapse) * 1000)
         self.success_response(final)
