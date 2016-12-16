@@ -8,7 +8,7 @@ Log.create('student')
 
 class TableHandler(BaseHandler):
 
-    def get_query(self, page, num, sort, sort_type, fields):
+    def get_query(self, course_id, page, num, sort, sort_type, fields):
         pass
 
     def post(self):
@@ -19,8 +19,10 @@ class TableHandler(BaseHandler):
         sort_type = int(self.get_argument('sort_type', 0))
         fields = self.get_argument('fields', '')
         fields = fields.split(',') if fields else []
+        course_id = self.course_id
+        user_ids = self.get_users()
 
-        query = self.get_query(page, num, sort, sort_type, fields)
+        query = self.get_query(course_id, user_ids, page, num, sort, sort_type, fields)
         if fields:
             query = query.source(fields)
 
@@ -37,32 +39,91 @@ class TableHandler(BaseHandler):
         self.success_response(final)
 
 
-@route('/table/grade_detail')
+@route('/table/grade_overview')
 class GradeDetail(TableHandler):
-    def get_query(self, page, num, sort, sort_type, fields):
+    def get_query(self, course_id, user_ids, page, num, sort, sort_type, fields):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
             query = self.es_query(index='tap', doc_type='grade_overview') \
-            .filter('term', course_id=self.course_id).sort(sort)[num*page:num*page+num]
+                        .filter('term', course_id=course_id) \
+                        .filter('terms', user_id=user_ids) \
+                        .sort(sort)[num*page:num*page+num]
         else:
             query = self.es_query(index='tap', doc_type='grade_overview') \
-            .filter('term', course_id=self.course_id)[num*page:num*page+num]
+                        .filter('term', course_id=course_id) \
+                        .filter('terms', user_id=user_ids)[num*page:num*page+num]
 
         return query
 
 
-@route('/table/video_detail')
-class ProblemDetail(TableHandler):
-    def get_query(self, page, num, sort, sort_type, fields):
+@route('/table/question_overview')
+class QuestionDetail(TableHandler):
+    def get_query(self, course_id, user_ids, page, num, sort, sort_type, fields):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
-            query = self.es_query(index='tap', doc_type='video_study') \
-            .filter('term', course_id=self.course_id).sort(sort)[num*page:num*page+num]
+            query = self.es_query(index='tap', doc_type='question_overview') \
+                        .filter('term', course_id=course_id) \
+                        .filter('terms', user_id=user_ids) \
+                        .sort(sort)[num*page:num*page+num]
         else:
-            query = self.es_query(index='tap', doc_type='video_study') \
-            .filter('term', course_id=self.course_id)[num*page:num*page+num]
+            query = self.es_query(index='tap', doc_type='question_overview') \
+                        .filter('term', course_id=course_id) \
+                        .filter('terms', user_id=user_ids)[num*page:num*page+num]
 
         return query
 
+@route('/table/video_overview')
+class VideoDetail(TableHandler):
+    def get_query(self, course_id, user_ids, page, num, sort, sort_type, fields):
+        if sort:
+            reverse = True if sort_type else False
+            sort = '-' + sort if reverse else sort
+            query = self.es_query(index='tap', doc_type='video_overview') \
+                        .filter('term', course_id=course_id) \
+                        .filter('terms', user_id=user_ids) \
+                        .sort(sort)[num*page:num*page+num]
+        else:
+            query = self.es_query(index='tap', doc_type='video_overview') \
+                        .filter('term', course_id=course_id) \
+                        .filter('terms', user_id=user_ids)[num*page:num*page+num]
+
+        return query
+
+
+
+
+@route('/table/discussion_overview')
+class DiscussionDetail(TableHandler):
+    def get_query(self, course_id, user_ids, page, num, sort, sort_type, fields):
+        if sort:
+            reverse = True if sort_type else False
+            sort = '-' + sort if reverse else sort
+            query = self.es_query(index='tap', doc_type='discussion_overview') \
+                        .filter('term', course_id=course_id) \
+                        .filter('terms', user_id=user_ids) \
+                        .sort(sort)[num*page:num*page+num]
+        else:
+            query = self.es_query(index='tap', doc_type='discussion_overview') \
+                        .filter('term', course_id=course_id) \
+                        .filter('terms', user_id=user_ids)[num*page:num*page+num]
+
+        return query
+
+@route('/table/enroll_overview')
+class EnrollDetail(TableHandler):
+    def get_query(self, course_id, user_ids, page, num, sort, sort_type, fields):
+        if sort:
+            reverse = True if sort_type else False
+            sort = '-' + sort if reverse else sort
+            query = self.es_query(index='tap', doc_type='enroll_overview') \
+                        .filter('term', course_id=course_id) \
+                        .filter('terms', user_id=user_ids) \
+                        .sort(sort)[num*page:num*page+num]
+        else:
+            query = self.es_query(index='tap', doc_type='enroll_overview') \
+                        .filter('term', course_id=course_id) \
+                        .filter('terms', user_id=user_ids)[num*page:num*page+num]
+
+        return query
