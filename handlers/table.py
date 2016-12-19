@@ -38,7 +38,6 @@ class TableHandler(BaseHandler):
 
         self.success_response(final)
 
-
 @route('/table/grade_overview')
 class GradeDetail(TableHandler):
     def get_query(self, course_id, user_ids, page, num, sort, sort_type, fields):
@@ -55,7 +54,6 @@ class GradeDetail(TableHandler):
                         .filter('terms', user_id=user_ids)[num*page:num*page+num]
 
         return query
-
 
 @route('/table/question_overview')
 class QuestionDetail(TableHandler):
@@ -90,9 +88,6 @@ class VideoDetail(TableHandler):
                         .filter('terms', user_id=user_ids)[num*page:num*page+num]
 
         return query
-
-
-
 
 @route('/table/discussion_overview')
 class DiscussionDetail(TableHandler):
