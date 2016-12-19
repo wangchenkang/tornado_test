@@ -405,7 +405,9 @@ class GradeDetail(BaseHandler):
 
 @route('/student/overview_detail')
 class OverviewDetail(BaseHandler):
-    def get(self):
+    #def get(self):
+    def post(self):
+        print self.course_id
         t_beg = time.time()
         print self.course_id
         pn = int(self.get_argument('page', 0))
