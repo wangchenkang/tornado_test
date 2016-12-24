@@ -10,4 +10,5 @@ from .difficulty import *
 from .config import *
 from .prediction import *
 from .detail import *
+from .table import *
 from .permission import *
