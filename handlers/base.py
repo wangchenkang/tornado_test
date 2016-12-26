@@ -101,6 +101,14 @@ class BaseHandler(RequestHandler):
         if settings.MOOC_GROUP_KEY == self.group_key:
             return 'mooc'
         return 'mooc_org'
+    
+    @property
+    def course_group_key(self):
+        course_group_key = self.get_argument("course_group_key", None)
+        if course_group_key is None:
+            self.error_response(200, u"参数错误")
+        else:
+            return course_group_key
 
     def get_param(self, key):
         try:
@@ -154,6 +162,27 @@ class BaseHandler(RequestHandler):
             for course in result.aggregations.course.buckets:
                 course_num[course.key] = course.doc_count
             return course_num
+    
+    def get_student_num(self, course_group_key=None):
+    
+        if course_group_key:
+            course_group_key=eval(course_group_key)
+            result = {}
+            for i in course_group_key:
+                for k,v in i.items():
+                    group_key = {}
+                    for j in v:
+                        query = self.es_query(doc_type='course')\
+                                    .filter('term', course_id=k)\
+                                    .filter('term', group_key=j)
+                        hits = self.es_execute(query).hits
+                        if hits.total > 0:
+                            hits = hits.hits[0]
+                            group_key[j] = hits["_source"]["enroll_num"] if hits["_source"]["enroll_num"] else 0
+                        else:
+                            group_key[j] = 0    
+                    result[k] = group_key
+            return result
 
     def get_users(self, is_active=True):
         hashstr = "student" + self.course_id + (str(self.group_key) or "") + str(is_active)

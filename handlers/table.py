@@ -31,6 +31,13 @@ class TableHandler(BaseHandler):
 
         final = {}
         result = [item.to_dict() for item in data.hits]
+        for i in result:
+            for j in i.keys():
+                try:
+                     i[i[j]["block_id"]]= i[j]["study_rate"]
+                except Exception as e:
+                    pass
+
         final['total'] = size
         final['data'] = result
         time_elapse = time.time() - time_begin
@@ -77,12 +84,12 @@ class VideoDetail(TableHandler):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
-            query = self.es_query(index='tap2_test', doc_type='video_overview3') \
+            query = self.es_query(index='tap5_test', doc_type='video_overview') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids) \
                         .sort(sort)[num*page:num*page+num]
         else:
-            query = self.es_query(index='tap2_test', doc_type='video_overview3') \
+            query = self.es_query(index='tap5_test', doc_type='video_overview') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids)[num*page:num*page+num]
 

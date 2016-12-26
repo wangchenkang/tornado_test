@@ -64,6 +64,19 @@ class CourseRegisterRank(BaseHandler):
 
         self.success_response({'data': result})
 
+@route('/course/student_num')
+class CourseStudentNum(BaseHandler):
+    """
+    课程学生人数，针对某个课程下的多个group_key
+    """
+    def get(self):
+
+        student_num = self.get_student_num(self.course_group_key)
+        result = {
+                "student_num": student_num
+                }
+
+        self.success_response({"data": result})
 
 @route('/course/grade_distribution')
 class CourseGradeDistribution(DispatchHandler):
