@@ -21,7 +21,6 @@ class TableHandler(BaseHandler):
         fields = fields.split(',') if fields else []
         course_id = self.course_id
         chapter_id = self.chapter_id
-        print chapter_id
         user_ids = self.get_users()
 
         query = self.get_query(course_id, chapter_id, user_ids, page, num, sort, sort_type, fields)
@@ -51,7 +50,7 @@ class TableHandler(BaseHandler):
 
 @route('/table/grade_overview')
 class GradeDetail(TableHandler):
-    def get_query(self, course_id, user_ids, page, num, sort, sort_type, fields):
+    def get_query(self, course_id, chapter_id, user_ids, page, num, sort, sort_type, fields):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
@@ -86,8 +85,7 @@ class QuestionDetail(TableHandler):
 
 @route('/table/video_overview')
 class VideoDetail(TableHandler):
-    def get_query(self, course_id, chapter_id, user_ids, page, num, sort, sort_type, fields):
-        print "************"
+    def get_query(self, course_id, chapter_id,  user_ids, page, num, sort, sort_type, fields):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
@@ -104,7 +102,7 @@ class VideoDetail(TableHandler):
 
 @route('/table/discussion_overview')
 class DiscussionDetail(TableHandler):
-    def get_query(self, course_id, user_ids, page, num, sort, sort_type, fields):
+    def get_query(self, course_id, chapter_id, user_ids, page, num, sort, sort_type, fields):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
@@ -121,7 +119,7 @@ class DiscussionDetail(TableHandler):
 
 @route('/table/enroll_overview')
 class EnrollDetail(TableHandler):
-    def get_query(self, course_id, user_ids, page, num, sort, sort_type, fields):
+    def get_query(self, course_id, chapter_id, user_ids, page, num, sort, sort_type, fields):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
