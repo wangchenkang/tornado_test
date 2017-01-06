@@ -147,7 +147,7 @@ class BaseHandler(RequestHandler):
         return response
 
     def get_enroll(self, group_key=None, course_id=None):
-        query = self.es_query(doc_type='student') \
+        query = self.es_query(index='tap2.0', doc_type='student_enrollment_info') \
             .filter('term', is_active=1)
         if group_key:
             query = query.filter('term', group_key=group_key)

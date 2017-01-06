@@ -18,7 +18,7 @@ class CourseActivity(BaseHandler):
         course_enrolls = self.get_enroll(group_key=self.group_key)
         courses = course_enrolls.keys()
         # 查询该group的所有课程活跃数据
-        query = self.es_query(doc_type = 'active') \
+        query = self.es_query(index='tap2.0', doc_type = 'course_active_num') \
             .filter('term', time_d=date) \
             .filter('terms', course_id=courses) \
             .filter('term', group_key=self.group_key)
@@ -171,7 +171,7 @@ class CourseEnrollmentsDate(DispatchHandler):
         start = self.get_param("start")
         end = self.get_param("end")
 
-        query = self.es_query(index="main", doc_type="enrollment")
+        query = self.es_query(index="tap2.0", doc_type="student_courseenrollment")
         query = query.filter("range", **{'event_time': {'lte': end, 'gte': start}}) \
                 .filter("term", course_id=self.course_id)[:0]
         query.aggs.bucket('value', A("date_histogram", field="event_time", interval="day")) \
@@ -207,7 +207,7 @@ class CourseEnrollmentsDate(DispatchHandler):
                 }
             item = datedelta(item, 1)
         # 取end的数据
-        query = self.es_query(index="main", doc_type="enrollment")
+        query = self.es_query(index="tap2.0", doc_type="student_courseenrollment")
         query = query.filter("range", **{'event_time': {'lt': start}})
         query = query.filter("term", course_id=self.course_id)
         query = query[:0]
@@ -235,7 +235,7 @@ class CourseEnrollmentsDate(DispatchHandler):
     def spoc(self):
         start = self.get_param("start")
         end = self.get_param("end")
-        query = self.es_query(index="tap", doc_type="student")\
+        query = self.es_query(index="tap2.0", doc_type="student_enrollment_info")\
                 .filter("term", course_id=self.course_id)
         if self.group_key:
             query = query.filter('term', group_key=self.group_key)
@@ -305,7 +305,7 @@ class CourseActive(BaseHandler):
         end = self.get_param("end")
         start = self.get_param("start")
 
-        query = self.es_query(index="tap", doc_type="active") \
+        query = self.es_query(index="tap2.0", doc_type="course_active_num") \
                 .filter("range", **{'time_d': {'lte': end, 'gte': start}}) \
                 .filter("term", course_id=self.course_id)
         if self.group_key:
@@ -314,7 +314,7 @@ class CourseActive(BaseHandler):
         #    query = query.filter(~F("exists", field="group_key"))
         total = self.es_execute(query[:0]).hits.total
         results = self.es_execute(query[:total])
-        res_dict = {}
+        ires_dict = {}
         for item in results.hits:
             res_dict[item.time_d] = {
                 "active": getattr(item, 'active_user_num', 0),
@@ -343,15 +343,13 @@ class CourseDistribution(BaseHandler):
     获取用户省份统计
     """
     def get(self):
-        query = self.es_query(index="tap", doc_type="student")
-        #query = self.es_query(index="tap2.0", doc_type="course_student_location")
+        query = self.es_query(index="tap2.0", doc_type="course_student_location")
         if self.group_key:
             query = query.filter("term", group_key=self.group_key)
         top = int(self.get_argument("top", 10))
         query = query.filter("term", course_id=self.course_id)\
-                .filter("term", country='中国')[:0]
-        query.aggs.bucket("area", "terms", field="prov", size=top)
-        #query.aggs.bucket("area", "terms", field="province", size=top)
+                     .filter("term", country='中国')[:0]
+        query.aggs.bucket("area", "terms", field="province", size=top)
         results = self.es_execute(query)
         aggs = results.aggregations["area"]["buckets"]
         data = []
@@ -452,7 +450,7 @@ class CourseTsinghuaStudent(BaseHandler):
     课程绑定清华账号学生数
     """
     def get(self):
-        query = self.es_query(index='tap', doc_type='student') \
+        query = self.es_query(index='tap2.0', doc_type='course_student_location') \
                 .filter('term', courses=self.course_id) \
                 .filter('term', binding_org='tsinghua')[:0]
         if self.group_key:
