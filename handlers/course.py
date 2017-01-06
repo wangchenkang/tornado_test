@@ -314,7 +314,7 @@ class CourseActive(BaseHandler):
         #    query = query.filter(~F("exists", field="group_key"))
         total = self.es_execute(query[:0]).hits.total
         results = self.es_execute(query[:total])
-        ires_dict = {}
+        res_dict = {}
         for item in results.hits:
             res_dict[item.time_d] = {
                 "active": getattr(item, 'active_user_num', 0),
