@@ -4,6 +4,7 @@ from utils.routes import route
 from utils.tools import var
 from utils.log import Log
 from .base import BaseHandler
+import settings
 
 Log.create('permission')
 
@@ -24,6 +25,9 @@ class TeacherPermission(BaseHandler):
         for hit in hits:
             if hit.course_id not in powers:
                 powers[hit.course_id] = []
-            power = {'group_key': hit.group_key, 'type': self.course_type}
+            if settings.MOOC_GROUP_KEY == hit.group_key:
+                power = {'group_key': hit.group_key, 'type': 'mooc'}
+            else:
+                power = {'group_key': hit.group_key, 'type': 'mooc_org'}
             powers[hit.course_id].append(power)
         self.success_response({'powers': powers})

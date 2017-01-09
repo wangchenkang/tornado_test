@@ -29,7 +29,7 @@ class TableHandler(BaseHandler):
         
         
         size = self.es_execute(query[:0]).hits.total
-        data = self.es_execute(query[:size])
+        data = self.es_execute(query[page*num:(page+1)*num])
 
         final = {}
         result = [item.to_dict() for item in data.hits]
@@ -57,11 +57,11 @@ class GradeDetail(TableHandler):
             query = self.es_query(index='tap2_test', doc_type='grade_overview') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids) \
-                        .sort(sort)[num*page:num*page+num]
+                        .sort(sort)
         else:
             query = self.es_query(index='tap2_test', doc_type='grade_overview') \
                         .filter('term', course_id=course_id) \
-                        .filter('terms', user_id=user_ids)[num*page:num*page+num]
+                        .filter('terms', user_id=user_ids)
         return query
 
 @route('/table/question_overview')
@@ -74,12 +74,12 @@ class QuestionDetail(TableHandler):
                         .filter('term', course_id=course_id) \
                         .filter('term', chapter_id=chapter_id)\
                         .filter('terms', user_id=user_ids) \
-                        .sort(sort)[num*page:num*page+num]
+                        .sort(sort)
         else:
             query = self.es_query(index='tap5_test', doc_type='question_overview') \
                         .filter('term', course_id=course_id) \
                         .filter('term', chapter_id=chapter_id)\
-                        .filter('terms', user_id=user_ids)[num*page:num*page+num]
+                        .filter('terms', user_id=user_ids)
 
         return query
 
@@ -92,11 +92,11 @@ class VideoDetail(TableHandler):
             query = self.es_query(index='tap5_test', doc_type='video_overview') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids) \
-                        .sort(sort)[num*page:num*page+num]
+                        .sort(sort)
         else:
             query = self.es_query(index='tap5_test', doc_type='video_overview') \
                         .filter('term', course_id=course_id) \
-                        .filter('terms', user_id=user_ids)[num*page:num*page+num]
+                        .filter('terms', user_id=user_ids)
 
         return query
 
@@ -109,11 +109,11 @@ class DiscussionDetail(TableHandler):
             query = self.es_query(index='tap2_test', doc_type='discussion_overview') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids) \
-                        .sort(sort)[num*page:num*page+num]
+                        .sort(sort)
         else:
             query = self.es_query(index='tap2_test', doc_type='discussion_overview') \
                         .filter('term', course_id=course_id) \
-                        .filter('terms', user_id=user_ids)[num*page:num*page+num]
+                        .filter('terms', user_id=user_ids)
 
         return query
 
@@ -126,10 +126,10 @@ class EnrollDetail(TableHandler):
             query = self.es_query(index='tap2_test', doc_type='enroll_overview') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids) \
-                        .sort(sort)[num*page:num*page+num]
+                        .sort(sort)
         else:
             query = self.es_query(index='tap2_test', doc_type='enroll_overview') \
                         .filter('term', course_id=course_id) \
-                        .filter('terms', user_id=user_ids)[num*page:num*page+num]
+                        .filter('terms', user_id=user_ids)
 
         return query
