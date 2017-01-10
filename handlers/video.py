@@ -222,9 +222,9 @@ class CourseChapterVideoDetail(BaseHandler):
                 .filter('term', chapter_id=self.chapter_id)\
                 .filter('terms', user_id=users)\
                 .filter('exists', field='watch_num')[:0]
-        query.aggs.bucket("video_watch", "terms", field="item_id", size=0)\
+        query.aggs.bucket("video_watch", "terms", field="item_id")\
                 .metric('num', 'range', field="watch_num", ranges=[{"from": 1, "to": 2}, {"from": 2}])
-        query.aggs.bucket("video_seq_watch", "terms", field="seq_id", size=0)\
+        query.aggs.bucket("video_seq_watch", "terms", field="seq_id")\
         #        .metric('num', 'terms', field="user_id", size=0)
         results = self.es_execute(query)
         aggs = results.aggregations

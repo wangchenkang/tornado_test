@@ -18,7 +18,7 @@ class ChapterProblem(BaseHandler):
                 .filter('term', course_id=self.course_id) \
                 .filter('term', chapter_id=chapter_id) \
                 .filter('range', **{'grade_rate': {'gte': grade_gte}})[:0]
-        query.aggs.bucket('sequentials', 'terms', field='sequential_id', size=0)
+        query.aggs.bucket('sequentials', 'terms', field='sequential_id')
         data = self.es_execute(query)
         problem_stat = {
             'total': data.hits.total,
@@ -165,8 +165,8 @@ class ChapterProblemDetail(BaseHandler):
                 .filter('term', course_id=self.course_id)\
                 .filter('terms', user_id=users)\
                 .filter('term', chapter_id=self.chapter_id)[:0]
-        query.aggs.bucket("pid_dim", "terms", field="pid", size=0)\
-                .metric("count", "terms", field="correctness", size=0)
+        query.aggs.bucket("pid_dim", "terms", field="pid")\
+                .metric("count", "terms", field="correctness")
         results = self.es_execute(query)
         aggs = results.aggregations
         buckets = aggs["pid_dim"]["buckets"]

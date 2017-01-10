@@ -19,7 +19,7 @@ class CourseDiscussion(BaseHandler):
         query = self.es_query(index='tap', doc_type='discussion_aggs') \
                 .filter('terms', user_id=users)\
                 .filter('term', course_id=self.course_id)[:0]
-        query.aggs.bucket('groups', 'terms', field='group_id', size=0) \
+        query.aggs.bucket('groups', 'terms', field='group_id') \
                 .metric('posts_total', 'sum', field='post_num') \
                 .metric('comments_total', 'sum', field='reply_num') #\
                 # .metric('group_num', 'terms', field='group_member_num', size=1, order={'_term': 'desc'})
@@ -107,7 +107,7 @@ class ChapterDiscussion(BaseHandler):
                 .filter('term', course_id=self.course_id) \
                 .filter('term', chapter_id=chapter_id) \
                 .filter('terms', user_id=users)[:0]
-        query.aggs.metric('sequentials', 'terms', field='seq_id', size=0)
+        query.aggs.metric('sequentials', 'terms', field='seq_id')
 
         data = self.es_execute(query)
         discussion_stat = {
@@ -462,7 +462,7 @@ class CourseChapterDiscussionDetail(BaseHandler):
                 .filter('term', chapter_id=self.chapter_id)[:0]
         query.aggs.bucket('value', "terms", field="item_id")
         query.aggs.bucket('seq_value', "terms", field="seq_id")\
-                .metric('num', 'terms', field='user_id', size=0)
+                .metric('num', 'terms', field='user_id')
         data = self.es_execute(query)
         aggs = data.aggregations
         buckets = aggs['value']['buckets']
