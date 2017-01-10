@@ -91,7 +91,7 @@ class DetailCourseStudyRatio(BaseHandler):
     """
     def get(self):
         query = self.es_query(index='tap', doc_type='video_course') \
-                .filter('term', course_id=self.course_id)
+                    .filter('term', course_id=self.course_id)
         video_users = self.get_video_users()
         query = query.filter('terms', user_id=video_users)
 
@@ -192,16 +192,16 @@ class DetailStudentDiscussion(BaseHandler):
                 .filter('term', course_id=self.course_id) \
                 .filter("term", group_key=self.group_key) \
                 .filter('terms', user_id=users)
-
+        
         response = self.es_execute(query[:0])
         response = self.es_execute(query[:response.hits.total])
 
         result = {}
         for item in response.hits:
             result[item.user_id] = {}
-            result[item.user_id]['post_num'] = item.post_num
-            result[item.user_id]['reply_num'] = item.reply_num
-            result[item.user_id]['total_num'] = item.post_num + item.reply_num
+            result[item.user_id]['post_num'] = item.post_num or 0
+            result[item.user_id]['reply_num'] = item.reply_num or 0
+            result[item.user_id]['total_num'] = result[item.user_id]['post_num'] + result[item.user_id]['reply_num']
 
         self.success_response({'data': result})
 

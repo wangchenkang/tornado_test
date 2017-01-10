@@ -223,7 +223,7 @@ class BaseHandler(RequestHandler):
         query = self.es_query(index='tap', doc_type='problem')\
                 .filter("term", course_id=self.course_id)\
                 .filter("terms", user_id=users)
-        query.aggs.bucket("p", "terms", field="user_id", size=0)
+        query.aggs.bucket("p", "terms", field="user_id", size=1)
         results = self.es_execute(query[:0])
         aggs = results.aggregations["p"]["buckets"]
         users = [item["key"] for item in aggs]
@@ -235,7 +235,7 @@ class BaseHandler(RequestHandler):
         query = self.es_query(index='tap', doc_type='video')\
                 .filter("term", course_id=self.course_id)\
                 .filter("terms", user_id=users)
-        query.aggs.bucket("p", "terms", field="user_id", size=0)
+        query.aggs.bucket("p", "terms", field="user_id", size=1)
         results = self.es_execute(query[:0])
         aggs = results.aggregations["p"]["buckets"]
         return [item["key"] for item in aggs]
