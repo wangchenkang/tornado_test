@@ -457,3 +457,20 @@ class CourseTsinghuaStudent(BaseHandler):
             query = query.filter('term', group_key=self.group_key)
         data = self.es_execute(query)
         self.success_response({'data': data.hits.total})
+
+@route('/course/detail')
+class CourseDetail(BaseHandler):
+    """
+    ??????
+    """
+    def get(self):
+        course_ids = self.course_id.split(",")
+        query = self.es_query(index='tap2_test', doc_type='course')\
+                            .filter('terms', course_id=course_ids)
+        data = self.es_execute(query)
+        
+        course_data = []
+        for i in range(len(data.hits)):
+            course_data.append(data.hits[i].to_dict())
+
+        self.success_response({'data': course_data})
