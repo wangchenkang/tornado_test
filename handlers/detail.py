@@ -224,7 +224,9 @@ class DetailStudentDiscussionStat(BaseHandler):
 
         result = {}
         for hit in response.hits:
-            total_num = hit['post_num'] + hit['reply_num']
+            post_num = hit['post_num'] or 0
+            reply_num = hit['reply_num'] or 0
+            total_num = post_num + reply_num
             if total_num not in result:
                 result[total_num] = 0
             result[total_num] += 1
