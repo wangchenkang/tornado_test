@@ -84,7 +84,8 @@ class CourseGradeDistribution(DispatchHandler):
     课程成绩分布统计
     """
     def mooc(self):
-        query = self.es_query(index="api1", doc_type="course_grade_distribution")
+        #query = self.es_query(index="api1", doc_type="course_grade_distribution")
+        query = self.es_query(index="tap2.0", doc_type="course_grade_distribution")
         query = query.filter("term", course_id=self.course_id).sort("-date")[:1]
         result = self.es_execute(query)
         hits = result.hits
@@ -104,7 +105,7 @@ class CourseGradeDistribution(DispatchHandler):
 
     def spoc(self):
         users = self.get_problem_users()
-        query = self.es_query(index="tap", doc_type="problem_course")\
+        query = self.es_query(index="tap2.0", doc_type="course_grade_distribution")\
                 .filter("term", course_id=self.course_id)\
                 .filter("terms", user_id=users)
         result = self.es_execute(query)
@@ -146,7 +147,7 @@ class CourseEnrollments(BaseHandler):
     """
     def get(self):
         is_active = self.get_argument("is_active", "")
-        query = self.search(index="main", doc_type="enrollment")
+        query = self.search(index="tap2.0", doc_type="student_courseenrollment")
         if is_active == "true":
             query = query.filter("term", is_active=True)
         elif is_active == "false":
@@ -369,7 +370,8 @@ class CourseVideoWatch(DispatchHandler):
         start = self.get_param("start")
         end = self.get_param("end")
 
-        query = self.es_query(index="api1", doc_type="video_course_active_learning")
+        #query = self.es_query(index="api1", doc_type="video_course_active_learning")
+        query = self.es_query(index="tap2.0", doc_type="course_video_learning")
         query = query.filter("term", course_id=self.course_id)
         query = query.filter("range", **{'date': {'lte': end, 'gte': start}})[:100]
 
@@ -398,7 +400,7 @@ class CourseVideoWatch(DispatchHandler):
         end = self.get_param("end")
         # get student
         users = self.get_users()
-        query = self.es_query(index="tap", doc_type="video_daily")\
+        query = self.es_query(index="tap2.0", doc_type="course_video_learning")\
                 .filter("term", course_id=self.course_id)\
                 .filter("range", **{'date': {'lte': end, 'gte': start}})\
                 .filter("terms", user_id=users)

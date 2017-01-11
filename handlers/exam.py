@@ -35,7 +35,7 @@ class StudentStat(BaseHandler):
         sequential_id = self.get_param('sequential_id')
         users = self.get_users()
         # 取没有group的学生数
-        query = self.es_query(index='tap', doc_type='seq_problem') \
+        query = self.es_query(index='tap2.0', doc_type='exam_seq_grade') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', seq_id=sequential_id) \
                 .filter('terms', user_id=users)[:len(users)]
@@ -57,7 +57,7 @@ class ContentStudentStat(BaseHandler):
         sequential_id = self.get_param('sequential_id')
         users = self.get_users()
         # 获取各个考试章library_content 下学生数
-        query = self.es_query(index='tap', doc_type='exam') \
+        query = self.es_query(index='tap2.0', doc_type='exam_seq_libc_grade') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', seq_id=sequential_id) \
                 .filter('terms', user_id=users)
@@ -81,7 +81,7 @@ class StudentGrade(BaseHandler):
         sequential_id = self.get_param('sequential_id')
         user_id = self.get_argument('user_id', None)
 
-        query = self.es_query(index='tap', doc_type='exam') \
+        query = self.es_query(index='tap2.0', doc_type='exam_seq_libc_grade') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', seq_id=sequential_id)
 
