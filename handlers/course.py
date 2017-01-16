@@ -13,6 +13,8 @@ class CourseActivity(BaseHandler):
     课程7日活跃统计
     """
     def get(self):
+        import ipdb
+        ipdb.set_trace()
         date = self.get_argument('date')[:10]
         # 拿到所有当前group的所有课程及其注册人数
         course_enrolls = self.get_enroll(group_key=self.group_key)
@@ -171,10 +173,10 @@ class CourseEnrollmentsDate(DispatchHandler):
     def mooc(self):
         start = self.get_param("start")
         end = self.get_param("end")
-
+        
         query = self.es_query(index="tap2.0", doc_type="student_courseenrollment")
         query = query.filter("range", **{'event_time': {'lte': end, 'gte': start}}) \
-                .filter("term", course_id=self.course_id)[:0]
+                    .filter("term", course_id=self.course_id)[:0]
         query.aggs.bucket('value', A("date_histogram", field="event_time", interval="day")) \
                 .metric('count', "terms", field="is_active", size=2)
         results = self.es_execute(query)

@@ -19,7 +19,7 @@ class CourseDiscussion(BaseHandler):
         query = self.es_query(index='tap', doc_type='discussion_aggs') \
                 .filter('terms', user_id=users)\
                 .filter('term', course_id=self.course_id)[:0]
-        query.aggs.bucket('groups', 'terms', field='group_id') \
+        query.aggs.bucket('groups', 'terms', field='group_id', size=1000) \
                 .metric('posts_total', 'sum', field='post_num') \
                 .metric('comments_total', 'sum', field='reply_num') #\
                 # .metric('group_num', 'terms', field='group_member_num', size=1, order={'_term': 'desc'})
@@ -176,7 +176,7 @@ class CoursePostsNoCommentDaily(BaseHandler):
                 .filter('term', course_id=self.course_id) \
                 .filter('terms', user_id=users)\
                 .filter('range', **{'date': {'gte': start, 'lte': end}})[:size]
-        query.aggs.bucket('date', 'terms', field='date')\
+        query.aggs.bucket('date', 'terms', field='date', size=1000)\
             .metric('num', 'sum', field='noreply_num')
         data = self.es_execute(query)
         date_list = [date_to_str(start + timedelta(days=d)) for d in xrange(0, size)]
@@ -351,7 +351,7 @@ class CourseRankStat(BaseHandler):
         query = self.es_query(doc_type='discussion_aggs') \
             .filter('terms', course_id=course_ids) \
             .filter('term', group_key=self.group_key)
-        query.aggs.bucket('course_id', 'terms', field='course_id', size=1000) \
+        query.aggs.bucket('course_id', 'terms', field='course_id', size=100000) \
             .metric('post_total', 'sum', field='post_num') \
             .metric('reply_total', 'sum', field='reply_num') \
             .metric('noreply_total', 'sum', field='noreply_num')
@@ -460,8 +460,8 @@ class CourseChapterDiscussionDetail(BaseHandler):
                 .filter('term', course_id=self.course_id) \
                 .filter('terms', user_id=users)\
                 .filter('term', chapter_id=self.chapter_id)[:0]
-        query.aggs.bucket('value', "terms", field="item_id")
-        query.aggs.bucket('seq_value', "terms", field="seq_id")\
+        query.aggs.bucket('value', "terms", field="item_id", size=1000)
+        query.aggs.bucket('seq_value', "terms", field="seq_id", size=1000)\
                 .metric('num', 'terms', field='user_id')
         data = self.es_execute(query)
         aggs = data.aggregations

@@ -246,7 +246,7 @@ class DetailChapterStudyRatio(BaseHandler):
                 .filter('term', course_id=self.course_id) \
                 .filter('terms', user_id=users)
 
-        query.aggs.bucket('chapter', 'terms', field='chapter_id') \
+        query.aggs.bucket('chapter', 'terms', field='chapter_id', size=1000) \
             .metric('study_ratio_mean', 'avg', field='study_rate')
 
         response = self.es_execute(query)
@@ -275,7 +275,7 @@ class DetailChapterStudyRatioDetail(BaseHandler):
                 .filter('terms', user_id=users)
         ranges = [{'from': i*0.1, 'to': i*0.1+0.1 } for i in range(0, 10)]
 
-        query.aggs.bucket('chapter', 'terms', field='chapter_id') \
+        query.aggs.bucket('chapter', 'terms', field='chapter_id', size=1000) \
             .bucket('study_rate', 'range', field='study_rate', ranges=ranges)
 
         response = self.es_execute(query[:0])

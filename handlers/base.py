@@ -156,7 +156,7 @@ class BaseHandler(RequestHandler):
             hits = self.es_execute(query).hits
             return hits.total if hits.total else 0
         else:
-            query.aggs.bucket('course', 'terms', field='course_id', size=1000)
+            query.aggs.bucket('course', 'terms', field='course_id', size=100000)
             result = self.es_execute(query)
             course_num = {}
             for course in result.aggregations.course.buckets:
