@@ -331,7 +331,6 @@ class StudentRelation(BaseHandler):
 @route('/discussion/course_rank_stat')
 class CourseRankStat(BaseHandler):
     def get(self):
-
         # 获得所有相同group_key的课程
         query = self.es_query(doc_type='course') \
             .filter('term', course_id=self.course_id) \

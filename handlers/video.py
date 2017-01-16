@@ -183,7 +183,7 @@ class ChapterVideoStat(DispatchHandler):
         else:
             result['study_num'] = 0
             result['review_num'] = 0
-
+        print result
         self.success_response(result)
 
     def spoc(self):

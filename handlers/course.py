@@ -362,17 +362,19 @@ class CourseDistribution(BaseHandler):
         self.success_response({'data': data})
 
 @route('/course/watch_num')
-class CourseVideoWatch(DispatchHandler):
+class CourseVideoWatch(BaseHandler):
     """
     获取用户视频观看时段统计
     """
-    def mooc(self):
+    def get(self):
         start = self.get_param("start")
         end = self.get_param("end")
+        group_key = self.group_key
 
-        #query = self.es_query(index="api1", doc_type="video_course_active_learning")
         query = self.es_query(index="tap2.0", doc_type="course_video_learning")
         query = query.filter("term", course_id=self.course_id)
+        if group_key:
+            query = query.filter("term", group_key=group_key)
         query = query.filter("range", **{'date': {'lte': end, 'gte': start}})[:100]
 
         results = self.es_execute(query)
@@ -395,38 +397,6 @@ class CourseVideoWatch(DispatchHandler):
         data = sorted(res_dict.values(), key=lambda x: x["date"])
         self.success_response({'data': data})
 
-    def spoc(self):
-        start = self.get_param("start")
-        end = self.get_param("end")
-        # get student
-        users = self.get_users()
-        query = self.es_query(index="tap2.0", doc_type="course_video_learning")\
-                .filter("term", course_id=self.course_id)\
-                .filter("range", **{'date': {'lte': end, 'gte': start}})\
-                .filter("terms", user_id=users)
-
-        size = self.es_execute(query[:0]).hits.total
-        hits = self.es_execute(query[:size]).hits
-        res_dict = {}
-        for hit in hits:
-            if hit.date in res_dict:
-                wl = list(hit.watch_list)
-                for i in range(24):
-                    res_dict[hit.date]["hour_watch_num"][i] += int(hit.watch_list[i])
-            else:
-                res_dict[hit.date] = {"date": hit.date, "hour_watch_num": list(hit.watch_list)}
-        item = start
-        end_1 = datedelta(end, 1)
-        while item != end_1:
-            if not item in res_dict:
-                res_dict[item] = {
-                    "date": item,
-                    "hour_watch_num": [0]*24
-                }
-            item = datedelta(item, 1)
-        data = res_dict.values()
-        data.sort(key=lambda x: x["date"])
-        self.success_response({'data': data})
 
 @route('/course/topic_keywords')
 class CourseTopicKeywords(BaseHandler):

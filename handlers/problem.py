@@ -69,8 +69,7 @@ class CourseProblemDetail(BaseHandler):
     获取课程解析后的习题
     """
     def get(self):
-
-        query = self.es_query(index='course', doc_type='problem_detail') \
+        query = self.es_query(index='tap', doc_type='problem_detail') \
                 .filter('term', course_id=self.course_id) \
 
         data = self.es_execute(query[:0])
@@ -83,7 +82,7 @@ class CourseProblemDetail(BaseHandler):
             problems.setdefault(problem_id, {})
             problems[problem_id][problem_num] = {
                 'detail': item.detail,
-                'answer': item.answer.to_dict(),
+                'answer': item.answer_detail.to_dict(),
                 'problem_type': item.problem_type,
                 'problem_id': item.problem_id,
                 'problem_num': item.problem_num,
