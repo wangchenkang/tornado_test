@@ -13,8 +13,6 @@ class CourseActivity(BaseHandler):
     课程7日活跃统计
     """
     def get(self):
-        import ipdb
-        ipdb.set_trace()
         date = self.get_argument('date')[:10]
         # 拿到所有当前group的所有课程及其注册人数
         course_enrolls = self.get_enroll(group_key=self.group_key)
