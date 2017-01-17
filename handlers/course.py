@@ -172,7 +172,7 @@ class CourseEnrollmentsDate(DispatchHandler):
         start = self.get_param("start")
         end = self.get_param("end")
         
-        query = self.es_query(index="tap2.0", doc_type="student_courseenrollment")
+        query = self.es_query(index="main", doc_type="enrollment")
         query = query.filter("range", **{'event_time': {'lte': end, 'gte': start}}) \
                     .filter("term", course_id=self.course_id)[:0]
         query.aggs.bucket('value', A("date_histogram", field="event_time", interval="day")) \
@@ -186,9 +186,9 @@ class CourseEnrollmentsDate(DispatchHandler):
             data = {}
             aggs_buckets = x["count"]["buckets"]
             for aggs_bucket in aggs_buckets:
-                if str(aggs_bucket["key"]) == 'T':
+                if str(aggs_bucket["key"]) == '1':
                     data['enroll'] = aggs_bucket["doc_count"]
-                elif str(aggs_bucket['key']) == 'F':
+                elif str(aggs_bucket['key']) == '0':
                     data['unenroll'] = aggs_bucket["doc_count"]
             data["date"] = date
             res_dict[date] = data
@@ -208,7 +208,7 @@ class CourseEnrollmentsDate(DispatchHandler):
                 }
             item = datedelta(item, 1)
         # 取end的数据
-        query = self.es_query(index="tap2.0", doc_type="student_courseenrollment")
+        query = self.es_query(index="main", doc_type="enrollment")
         query = query.filter("range", **{'event_time': {'lt': start}})
         query = query.filter("term", course_id=self.course_id)
         query = query[:0]
@@ -230,7 +230,6 @@ class CourseEnrollmentsDate(DispatchHandler):
             item["total_enroll"] = enroll + unenroll
             item["total_unenroll"] = unenroll
             item["enrollment"] = enroll
-
         self.success_response({"data": data})
 
     def spoc(self):
