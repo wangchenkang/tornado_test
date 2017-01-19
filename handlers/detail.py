@@ -106,7 +106,6 @@ class DetailCourseStudyRatio(BaseHandler):
                 continue
             video_user_count += 1
             video_user_ratio_list.append(float(hit.study_rate))
-
         video_overview = {'mean': 0, 'variance': 0}
         if video_user_count:
             video_overview['mean'] = round(sum(video_user_ratio_list) / video_user_count, 4)

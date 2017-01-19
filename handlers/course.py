@@ -173,6 +173,7 @@ class CourseEnrollmentsDate(DispatchHandler):
         end = self.get_param("end")
         
         query = self.es_query(index="main", doc_type="enrollment")
+        #query = self.es_query(index="tap2.0", doc_type="student_courseenrollment")
         query = query.filter("range", **{'event_time': {'lte': end, 'gte': start}}) \
                     .filter("term", course_id=self.course_id)[:0]
         query.aggs.bucket('value', A("date_histogram", field="event_time", interval="day")) \
@@ -209,6 +210,7 @@ class CourseEnrollmentsDate(DispatchHandler):
             item = datedelta(item, 1)
         # 取end的数据
         query = self.es_query(index="main", doc_type="enrollment")
+        #query = self.es_query(index="tap2.0", doc_type="student_courseenrollment")
         query = query.filter("range", **{'event_time': {'lt': start}})
         query = query.filter("term", course_id=self.course_id)
         query = query[:0]

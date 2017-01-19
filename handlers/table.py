@@ -8,7 +8,7 @@ Log.create('student')
 
 class TableHandler(BaseHandler):
 
-    def get_query(self, course_id, chapter_id,  page, num, sort, sort_type, fields):
+    def get_query(self, course_id, page, num, sort, sort_type, fields):
         pass
 
     def post(self):
@@ -20,10 +20,9 @@ class TableHandler(BaseHandler):
         fields = self.get_argument('fields', '')
         fields = fields.split(',') if fields else []
         course_id = self.course_id
-        chapter_id = self.chapter_id
         user_ids = self.get_users()
 
-        query = self.get_query(course_id, chapter_id, user_ids, page, num, sort, sort_type, fields)
+        query = self.get_query(course_id, user_ids, page, num, sort, sort_type, fields)
         if fields:
             query = query.source(fields)
         
@@ -50,42 +49,40 @@ class TableHandler(BaseHandler):
 
 @route('/table/grade_overview')
 class GradeDetail(TableHandler):
-    def get_query(self, course_id, chapter_id, user_ids, page, num, sort, sort_type, fields):
+    def get_query(self, course_id, user_ids, page, num, sort, sort_type, fields):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
-            query = self.es_query(index='tap2_test', doc_type='grade_overview') \
+            query = self.es_query(index='tap5_test', doc_type='grade_overview') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids) \
                         .sort(sort)
         else:
-            query = self.es_query(index='tap2_test', doc_type='grade_overview') \
+            query = self.es_query(index='tap5_test', doc_type='grade_overview') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids)
         return query
 
 @route('/table/question_overview')
 class QuestionDetail(TableHandler):
-    def get_query(self, course_id, chapter_id, user_ids, page, num, sort, sort_type, fields):
+    def get_query(self, course_id, user_ids, page, num, sort, sort_type, fields):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
-            query = self.es_query(index='tap5_test', doc_type='question_overview') \
+            query = self.es_query(index='tap6_test', doc_type='question_overview') \
                         .filter('term', course_id=course_id) \
-                        .filter('term', chapter_id=chapter_id)\
                         .filter('terms', user_id=user_ids) \
                         .sort(sort)
         else:
-            query = self.es_query(index='tap5_test', doc_type='question_overview') \
+            query = self.es_query(index='tap6_test', doc_type='question_overview') \
                         .filter('term', course_id=course_id) \
-                        .filter('term', chapter_id=chapter_id)\
                         .filter('terms', user_id=user_ids)
 
         return query
 
 @route('/table/video_overview')
 class VideoDetail(TableHandler):
-    def get_query(self, course_id, chapter_id,  user_ids, page, num, sort, sort_type, fields):
+    def get_query(self, course_id, user_ids, page, num, sort, sort_type, fields):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
@@ -102,7 +99,7 @@ class VideoDetail(TableHandler):
 
 @route('/table/discussion_overview')
 class DiscussionDetail(TableHandler):
-    def get_query(self, course_id, chapter_id, user_ids, page, num, sort, sort_type, fields):
+    def get_query(self, course_id, user_ids, page, num, sort, sort_type, fields):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
@@ -119,7 +116,7 @@ class DiscussionDetail(TableHandler):
 
 @route('/table/enroll_overview')
 class EnrollDetail(TableHandler):
-    def get_query(self, course_id, chapter_id, user_ids, page, num, sort, sort_type, fields):
+    def get_query(self, course_id, user_ids, page, num, sort, sort_type, fields):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
