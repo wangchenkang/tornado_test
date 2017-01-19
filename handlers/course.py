@@ -172,8 +172,7 @@ class CourseEnrollmentsDate(DispatchHandler):
         start = self.get_param("start")
         end = self.get_param("end")
         
-        query = self.es_query(index="main", doc_type="enrollment")
-        #query = self.es_query(index="tap2.0", doc_type="student_courseenrollment")
+        query = self.es_query(index="tap2.0", doc_type="student_courseenrollment")
         query = query.filter("range", **{'event_time': {'lte': end, 'gte': start}}) \
                     .filter("term", course_id=self.course_id)[:0]
         query.aggs.bucket('value', A("date_histogram", field="event_time", interval="day")) \
@@ -209,8 +208,7 @@ class CourseEnrollmentsDate(DispatchHandler):
                 }
             item = datedelta(item, 1)
         # 取end的数据
-        query = self.es_query(index="main", doc_type="enrollment")
-        #query = self.es_query(index="tap2.0", doc_type="student_courseenrollment")
+        query = self.es_query(index="tap2.0", doc_type="student_courseenrollment")
         query = query.filter("range", **{'event_time': {'lt': start}})
         query = query.filter("term", course_id=self.course_id)
         query = query[:0]
@@ -221,9 +219,9 @@ class CourseEnrollmentsDate(DispatchHandler):
         enroll = 0
         unenroll = 0
         for x in buckets:
-            if str(x["key"]) == 'T':
+            if str(x["key"]) == '1':
                 enroll = x["doc_count"]
-            elif str(x['key']) == 'F':
+            elif str(x['key']) == '0':
                 unenroll = x["doc_count"]
         data = sorted(res_dict.values(), key=lambda x: x["date"])
         for item in data:
@@ -345,7 +343,8 @@ class CourseDistribution(BaseHandler):
     获取用户省份统计
     """
     def get(self):
-        query = self.es_query(index="tap2.0", doc_type="course_student_location")
+        query = self.es_query(index="main", doc_type="student")
+        #query = self.es_query(index="tap2.0", doc_type="course_student_location")
         if self.group_key:
             query = query.filter("term", group_key=self.group_key)
         top = int(self.get_argument("top", 10))
