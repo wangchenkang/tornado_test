@@ -17,7 +17,7 @@ class DetailCourseGradeRatio(BaseHandler):
     """
     def get(self):
         users = self.get_users()
-        query = self.es_query(index='tap', doc_type='problem_course') \
+        query = self.es_query(index='tap2.0', doc_type='problem_course') \
                 .filter('term', course_id=self.course_id) \
                 .filter('range', grade_ratio={'gte': 0}) \
                 .filter('range', final_grade={'gte': 0}) \
@@ -46,7 +46,7 @@ class DetailCourseGradeRatioDetail(BaseHandler):
     """
     def get(self):
         problem_users = self.get_problem_users()
-        query = self.es_query(index='tap', doc_type='problem_course') \
+        query = self.es_query(index='tap2.0', doc_type='problem_course') \
                 .filter('term', course_id=self.course_id) \
                 .filter('terms', user_id=problem_users) \
                 .filter('range', **{'final_grade': {'gte': 0}})

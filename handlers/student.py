@@ -363,7 +363,7 @@ class GradeDetail(BaseHandler):
         # sort_type = self.get_param('sort_type')
         # fields = self.get_param('fields')
         # elective = self.get_param('elective')
-        query = self.es_query(index='tap', doc_type='problem_course') \
+        query = self.es_query(index='tap2.0', doc_type='problem_course') \
             .filter('term', course_id=self.course_id)
         size = self.es_execute(query[:0]).hits.total
         header = ['昵称','学堂号','姓名','学号','院系','专业','成绩','课程_得分','课程_得分率']
@@ -455,7 +455,7 @@ class OverviewDetail(BaseHandler):
             reply = item['reply_num'] or 0
             result[str(item['user_id'])][10:13] = [post, reply, post + reply]
 
-        query = self.es_query(index='tap', doc_type='problem_course') \
+        query = self.es_query(index='tap2.0', doc_type='problem_course') \
             .filter('term', course_id=self.course_id) \
             .filter('terms', user_id=users)
         score = self.es_execute(query[:size])
