@@ -247,7 +247,7 @@ class BaseHandler(RequestHandler):
     def get_user_name(self, users=None, group_name='xuetangx'):
         if not users:
             users = self.get_users()
-        query = self.es_query(index='tap', doc_type='student')\
+        query = self.es_query(index='tap2.0', doc_type='student_enrollment_info')\
                 .filter("term", course_id=self.course_id)\
                 .filter("terms", user_id=users)\
                 .source(fields=["rname", "nickname", "user_id"])
@@ -258,14 +258,14 @@ class BaseHandler(RequestHandler):
         results = self.es_execute(query[:len(users)]).hits
         result = {}
         for item in results:
-            user_id = item.user_id[0]
+            user_id = item.user_id
             if group_name == 'xuetangx':
-                name = item.nickname[0]
+                name = item.nickname
             else:
-                if item.rname and item.rname[0] != "":
-                    name = item.rname[0]
+                if item.rname:
+                    name = item.rname
                 else:
-                    name = item.nickname[0]
+                    name = item.nickname
             result[int(user_id)] = name
         return result
 

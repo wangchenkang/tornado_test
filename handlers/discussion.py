@@ -16,7 +16,7 @@ class CourseDiscussion(BaseHandler):
     """
     def get(self):
         users = self.get_users()
-        query = self.es_query(index='tap', doc_type='discussion_aggs') \
+        query = self.es_query(index='tap2.0', doc_type='discussion_aggs') \
                 .filter('terms', user_id=users)\
                 .filter('term', course_id=self.course_id)[:0]
         query.aggs.bucket('groups', 'terms', field='group_id', size=1000) \
@@ -64,7 +64,7 @@ class CourseDailyStat(BaseHandler):
         end = date_from_query(end)
         days = (end - start).days + 1
         users = self.get_users()
-        query = self.es_query(index='tap', doc_type='discussion_daily') \
+        query = self.es_query(index='tap2.0', doc_type='discussion_daily') \
                 .filter('term', course_id=self.course_id) \
                 .filter('terms', user_id=users)\
                 .filter('range', **{'date': {'gte': start, 'lte': end}})
@@ -172,7 +172,7 @@ class CoursePostsNoCommentDaily(BaseHandler):
         end = date_from_query(end)
         size = (end - start).days + 1
         users = self.get_users()
-        query = self.es_query(index='tap', doc_type='discussion_daily') \
+        query = self.es_query(index='tap2.0', doc_type='discussion_daily') \
                 .filter('term', course_id=self.course_id) \
                 .filter('terms', user_id=users)\
                 .filter('range', **{'date': {'gte': start, 'lte': end}})[:size]
@@ -245,6 +245,7 @@ class StudentPostTopStat(BaseHandler):
         data = self.es_execute(query)
 
         students = {}
+
         users = [item.key for item in data.aggregations.students.buckets]
         usernames = self.get_user_name(users=users, group_name=self.group_name)
         for item in data.aggregations.students.buckets:
@@ -255,7 +256,7 @@ class StudentPostTopStat(BaseHandler):
                 "user_name": usernames.get(int(item.key), "")
             }
 
-        query = self.es_query(index='tap', doc_type='discussion_daily') \
+        query = self.es_query(index='tap2.0', doc_type='discussion_daily') \
                 .filter('term', course_id=self.course_id) \
                 .filter('terms', user_id=students.keys())
         data = self.es_execute(query[:0])
@@ -268,8 +269,6 @@ class StudentPostTopStat(BaseHandler):
                     'comment_number': item.reply_num,
                     'date': item.date
                 }
-            # TODO
-            # students[item.user_id].setdefault('user_name', item.user_name)
             students[item.user_id].setdefault('group_id', item.group_id)
             students[item.user_id].setdefault('user_id', int(item.user_id))
 
