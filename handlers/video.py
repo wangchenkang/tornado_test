@@ -11,7 +11,7 @@ class ChapterVideo(BaseHandler):
         course_id = self.course_id
         chapter_id = self.chapter_id
 
-        query = self.es_query(index='rollup', doc_type='video_student_num_ds') \
+        query = self.es_query(index='tap2.0', doc_type='study_video_rollup') \
                 .filter('term', course_id=course_id) \
                 .filter('term', chapter_id=chapter_id) \
                 .filter('term', video_id='-1')
@@ -166,7 +166,7 @@ class ChapterVideoStat(DispatchHandler):
 
     def mooc(self):
         result = {}
-        query = self.es_query(index='rollup', doc_type='video_student_num_ds') \
+        query = self.es_query(index='tap2.0', doc_type='study_video_rollup') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', chapter_id=self.chapter_id) \
                 .filter('term', seq_id='-1') \
@@ -189,7 +189,7 @@ class ChapterVideoStat(DispatchHandler):
     def spoc(self):
         result = {}
         users = self.get_users()
-        query = self.search(index='tap',doc_type='video') \
+        query = self.search(index='tap2.0',doc_type='study_video') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', chapter_id=self.chapter_id) \
                 .filter('terms', user_id=users)

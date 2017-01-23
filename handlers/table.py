@@ -25,20 +25,11 @@ class TableHandler(BaseHandler):
         query = self.get_query(course_id, user_ids, page, num, sort, sort_type, fields)
         if fields:
             query = query.source(fields)
-        
-        
+                
         size = self.es_execute(query[:0]).hits.total
         data = self.es_execute(query[page*num:(page+1)*num])
-
         final = {}
-        result = [item.to_dict() for item in data.hits]
-    
-        for i in result:
-            for j in i.keys():
-                try:
-                     i[i[j]["block_id"]]= i[j]["study_rate"]
-                except Exception as e:
-                    pass
+        result = [item.to_dict() for item in data.hits] 
 
         final['total'] = size
         final['data'] = result
@@ -86,12 +77,12 @@ class VideoDetail(TableHandler):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
-            query = self.es_query(index='tap5_test', doc_type='video_overview') \
+            query = self.es_query(index='tap5_test', doc_type='video_overview2') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids) \
                         .sort(sort)
         else:
-            query = self.es_query(index='tap5_test', doc_type='video_overview') \
+            query = self.es_query(index='tap5_test', doc_type='video_overview2') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids)
 

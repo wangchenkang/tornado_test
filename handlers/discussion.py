@@ -103,7 +103,7 @@ class ChapterDiscussion(BaseHandler):
     def get(self):
         chapter_id = self.get_argument('chapter_id')
         users = self.get_users()
-        query = self.es_query(index='tap', doc_type='discussion') \
+        query = self.es_query(index='tap2.0', doc_type='study_discussion') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', chapter_id=chapter_id) \
                 .filter('terms', user_id=users)[:0]
@@ -132,7 +132,7 @@ class ChapterStudentDiscussion(BaseHandler):
         uid = self.get_param('user_id')
         students = [u.strip() for u in uid.split(',') if u.strip()]
 
-        query = self.es_query(index='tap', doc_type='discussion') \
+        query = self.es_query(index='tap2.0', doc_type='study_discussion') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', chapter_id=chapter_id) \
                 .filter('terms', user_id=students)
@@ -331,12 +331,12 @@ class StudentRelation(BaseHandler):
 class CourseRankStat(BaseHandler):
     def get(self):
         # 获得所有相同group_key的课程
-        query = self.es_query(doc_type='course') \
+        query = self.es_query(index='tap2.0', doc_type='course_community') \
             .filter('term', course_id=self.course_id) \
             .filter('term', group_key=self.group_key)
         current_course = self.es_execute(query).hits[0]
 
-        query = self.es_query(doc_type='course') \
+        query = self.es_query(index='tap2.0', doc_type='course_community') \
             .filter('range', status={'gte': 0}) \
             .filter('term', group_key=self.group_key)
         courses = self.es_execute(query).hits
@@ -413,7 +413,7 @@ class CourseDiscussionStat(DispatchHandler):
 
     def mooc(self):
         result = {}
-        query = self.es_query(index='api1', doc_type='comment_problem') \
+        query = self.es_query(index='tap2.0', doc_type='study_comment_problem') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', chapter_id=self.chapter_id) \
                 .sort('-date')[:1]
@@ -432,7 +432,7 @@ class CourseDiscussionStat(DispatchHandler):
 
         result = {}
         users = self.get_users()
-        query = self.es_query(index='tap', doc_type='discussion') \
+        query = self.es_query(index='tap2.0', doc_type='study_discussion') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', chapter_id=self.chapter_id) \
                 .filter('terms', user_id=users)
@@ -454,7 +454,7 @@ class CourseChapterDiscussionDetail(BaseHandler):
 
     def get(self):
         users = self.get_users()
-        query = self.es_query(index='tap', doc_type='discussion') \
+        query = self.es_query(index='tap2.0', doc_type='study_discussion') \
                 .filter('term', course_id=self.course_id) \
                 .filter('terms', user_id=users)\
                 .filter('term', chapter_id=self.chapter_id)[:0]

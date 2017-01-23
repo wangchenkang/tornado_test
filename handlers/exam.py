@@ -14,7 +14,7 @@ class ExamedStudent(BaseHandler):
         users = self.get_users()
         sequential_id = self.get_param('sequential_id')
 
-        query = self.es_query(index='tap', doc_type='seq_problem') \
+        query = self.es_query(index='tap2.0', doc_type='exam_seq_grade') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', seq_id=sequential_id) \
                 .filter('terms', user_id=users)

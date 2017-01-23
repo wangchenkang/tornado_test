@@ -152,7 +152,7 @@ class DetailHomeworkGrade(BaseHandler):
     """
     def get(self):
         users = self.get_users()
-        query = self.es_query(index='tap', doc_type='seq_problem') \
+        query = self.es_query(index='tap2.0', doc_type='exam_seq_grade') \
             .filter('term', course_id=self.course_id) \
             .filter('terms', user_id=users)
 

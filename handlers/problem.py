@@ -97,7 +97,7 @@ class ChapterGradeStat(DispatchHandler):
     def mooc(self):
         chapter_id = self.chapter_id
 
-        query = self.es_query(index='main', doc_type='grade_group_stu_num') \
+        query = self.es_query(index='tap2.0', doc_type='study_grade_group_all') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', chapter_id=chapter_id) \
                 .filter('term', seq_id='-1')
@@ -108,7 +108,7 @@ class ChapterGradeStat(DispatchHandler):
         for item in data.hits:
             groups[item.group_id] = item.user_num
 
-        query = self.es_query(index='main', doc_type='grade_stu_num') \
+        query = self.es_query(index='tap2.0', doc_type='study_grade_stu_num') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', chapter_id=chapter_id) \
                 .filter('term', seq_id='-1')
@@ -123,7 +123,7 @@ class ChapterGradeStat(DispatchHandler):
     def spoc(self):
         chapter_id = self.chapter_id
         users = self.get_problem_users()
-        query = self.search(index='tap',doc_type="seq_problem")\
+        query = self.search(index='tap2.0',doc_type="exam_seq_grade")\
                 .filter('term', course_id=self.course_id)\
                 .filter('term', chapter_id=chapter_id)\
                 .filter('terms', user_id=users)
@@ -185,7 +185,7 @@ class ChapterProblemDetail(BaseHandler):
                 "incorrect": incorrect
                 })
         # 计算成绩超过60%的人
-        query = self.es_query(index='tap', doc_type='seq_problem')\
+        query = self.es_query(index='tap2.0', doc_type='exam_seq_grade')\
                 .filter('term', course_id=self.course_id)\
                 .filter('terms', user_id=users)\
                 .filter('range', grade_ratio={'gt': 60})\
