@@ -27,7 +27,12 @@ class TableHandler(BaseHandler):
             query = query.source(fields)
                 
         size = self.es_execute(query[:0]).hits.total
-        data = self.es_execute(query[page*num:(page+1)*num])
+
+        if num == -1:
+            data = self.es_execute(query[:size])
+        else:
+            data = self.es_execute(query[page*num:(page+1)*num])
+
         final = {}
         result = [item.to_dict() for item in data.hits] 
 

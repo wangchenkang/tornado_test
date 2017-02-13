@@ -364,7 +364,8 @@ class GradeDetail(BaseHandler):
         # fields = self.get_param('fields')
         # elective = self.get_param('elective')
         query = self.es_query(index='tap2.0', doc_type='problem_course') \
-            .filter('term', course_id=self.course_id)
+            .filter('term', course_id=self.course_id) \
+            .filter("term", group_key=self.group_key)
         size = self.es_execute(query[:0]).hits.total
         header = ['昵称','学堂号','姓名','学号','院系','专业','成绩','课程_得分','课程_得分率']
         data = self.es_execute(query[:size])
@@ -379,8 +380,9 @@ class GradeDetail(BaseHandler):
                 'current_grade': item.current_grade
             }
         headerl = ['nickname','xid','rname','binding_uid','faculty','major','final_grade','current_grade','grade_ratio']
-        query = self.es_query(index='tap', doc_type='student') \
+        query = self.es_query(index='tap2.0', doc_type='student_enrollment_info') \
                 .filter('term', course_id=self.course_id) \
+                .filter("term", group_key=self.group_key) \
                 .filter('terms', user_id=grade.keys())
         data = self.es_execute(query[:data.hits.total])
         print len(data.hits)
@@ -427,8 +429,9 @@ class OverviewDetail(BaseHandler):
         seqs = header['seq_names'].split(',_,')
         header = h1 + types + seqs
 
-        query = self.es_query(index='tap', doc_type='student') \
+        query = self.es_query(index='tap2.0', doc_type='student_enrollment_info') \
             .filter('term', course_id=self.course_id)\
+            .filter("term", group_key=self.group_key) \
             .filter('terms', user_id=users)
         size = self.es_execute(query[:0]).hits.total
         data = self.es_execute(query[:size])

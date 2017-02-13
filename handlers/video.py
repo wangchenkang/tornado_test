@@ -191,6 +191,7 @@ class ChapterVideoStat(DispatchHandler):
         users = self.get_users()
         query = self.search(index='tap2.0',doc_type='study_video') \
                 .filter('term', course_id=self.course_id) \
+                .filter("term", group_key=self.group_key) \
                 .filter('term', chapter_id=self.chapter_id) \
                 .filter('terms', user_id=users)
 

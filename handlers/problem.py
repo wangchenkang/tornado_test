@@ -69,8 +69,9 @@ class CourseProblemDetail(BaseHandler):
     获取课程解析后的习题
     """
     def get(self):
-        query = self.es_query(index='tap', doc_type='problem_detail') \
+        query = self.es_query(index='tap2.0', doc_type='study_problem_detail') \
                 .filter('term', course_id=self.course_id) \
+                .filter("term", group_key=self.group_key)
 
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total])
@@ -92,13 +93,14 @@ class CourseProblemDetail(BaseHandler):
 
 
 @route('/problem/chapter_grade_stat')
-class ChapterGradeStat(DispatchHandler):
+class ChapterGradeStat(BaseHandler):
 
-    def mooc(self):
+    def get(self):
         chapter_id = self.chapter_id
 
         query = self.es_query(index='tap2.0', doc_type='study_grade_group_all') \
                 .filter('term', course_id=self.course_id) \
+                .filter("term", group_key=self.group_key) \
                 .filter('term', chapter_id=chapter_id) \
                 .filter('term', seq_id='-1')
         data = self.es_execute(query[:0])
@@ -110,6 +112,7 @@ class ChapterGradeStat(DispatchHandler):
 
         query = self.es_query(index='tap2.0', doc_type='study_grade_stu_num') \
                 .filter('term', course_id=self.course_id) \
+                .filter("term", group_key=self.group_key) \
                 .filter('term', chapter_id=chapter_id) \
                 .filter('term', seq_id='-1')
         data = self.es_execute(query[:1])
@@ -120,38 +123,38 @@ class ChapterGradeStat(DispatchHandler):
 
         self.success_response({'graded_student_num': graded_num, 'groups': groups})
 
-    def spoc(self):
-        chapter_id = self.chapter_id
-        users = self.get_problem_users()
-        query = self.search(index='tap2.0',doc_type="exam_seq_grade")\
-                .filter('term', course_id=self.course_id)\
-                .filter('term', chapter_id=chapter_id)\
-                .filter('terms', user_id=users)
-        hits = self.es_execute(query[:0]).hits
-        if hits.total == 0:
-            self.success_response({'graded_student_num': 0, 'groups': {
-                '1':0,
-                '2':0,
-                '3':0, 
-                '4':0,
-                '5':0,
-                '6':0
-                }})
+    #def spoc(self):
+    #    chapter_id = self.chapter_id
+    #    users = self.get_problem_users()
+    #    query = self.search(index='tap2.0',doc_type="exam_seq_grade")\
+    #            .filter('term', course_id=self.course_id)\
+    #            .filter('term', chapter_id=chapter_id)\
+    #            .filter('terms', user_id=users)
+    #    hits = self.es_execute(query[:0]).hits
+    #    if hits.total == 0:
+    #        self.success_response({'graded_student_num': 0, 'groups': {
+    #            '1':0,
+    #            '2':0,
+    #            '3':0, 
+    #            '4':0,
+    #            '5':0,
+    #            '6':0
+    #            }})
 
-        hits = self.es_execute(query[:hits.total]).hits
-        user_dic = defaultdict(list)
-        max_len = 0
-        for hit in hits:
-            user_id, grade_ratio = hit.user_id, hit.grade_ratio
-            user_dic[user_id].append(grade_ratio/100.0)
-            if max_len < len(user_dic[user_id]):
-                max_len = len(user_dic[user_id])
-        user_group = [sum(item)/float(max_len) for item in user_dic.values()]
-        groups = defaultdict(int)
-        for item in user_group:
-            group_id = int(item*5) + 1
-            groups[str(group_id)] += 1
-        self.success_response({'graded_student_num': sum(groups.values()), 'groups': groups})
+    #    hits = self.es_execute(query[:hits.total]).hits
+    #    user_dic = defaultdict(list)
+    #    max_len = 0
+    #    for hit in hits:
+    #        user_id, grade_ratio = hit.user_id, hit.grade_ratio
+    #        user_dic[user_id].append(grade_ratio/100.0)
+    #        if max_len < len(user_dic[user_id]):
+    #            max_len = len(user_dic[user_id])
+    #    user_group = [sum(item)/float(max_len) for item in user_dic.values()]
+    #    groups = defaultdict(int)
+    #    for item in user_group:
+    #        group_id = int(item*5) + 1
+    #        groups[str(group_id)] += 1
+    #    self.success_response({'graded_student_num': sum(groups.values()), 'groups': groups})
 
 
 @route('/problem/chapter_problem_detail')
@@ -160,8 +163,9 @@ class ChapterProblemDetail(BaseHandler):
     def get(self):
         result = []
         users = self.get_users()
-        query = self.es_query(index='tap', doc_type='problem')\
+        query = self.es_query(index='tap2.0', doc_type='study_problem')\
                 .filter('term', course_id=self.course_id)\
+                .filter("term", group_key=self.group_key) \
                 .filter('terms', user_id=users)\
                 .filter('term', chapter_id=self.chapter_id)[:0]
         query.aggs.bucket("pid_dim", "terms", field="pid", size=1000)\
@@ -187,6 +191,7 @@ class ChapterProblemDetail(BaseHandler):
         # 计算成绩超过60%的人
         query = self.es_query(index='tap2.0', doc_type='exam_seq_grade')\
                 .filter('term', course_id=self.course_id)\
+                .filter('term', group_key=self.group_key)\
                 .filter('terms', user_id=users)\
                 .filter('range', grade_ratio={'gt': 60})\
                 .filter('term', chapter_id=self.chapter_id)[:0]
@@ -207,8 +212,9 @@ class ChapterProblemDetailStat(BaseHandler):
         result = []
         uid_str = self.get_argument('uid', "")
         uid = uid_str.split(',')
-        query = self.es_query(index='tap', doc_type='problem')\
+        query = self.es_query(index='tap2.0', doc_type='study_problem')\
                 .filter("term", course_id=self.course_id)\
+                .filter("term", group_key=self.group_key) \
                 .filter("term", chapter_id=self.chapter_id)\
                 .filter("terms", user_id=uid)[:0]
         results = self.es_execute(query)

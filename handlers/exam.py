@@ -38,6 +38,7 @@ class StudentStat(BaseHandler):
         query = self.es_query(index='tap2.0', doc_type='exam_seq_grade') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', seq_id=sequential_id) \
+                .filter("term", group_key=self.group_key) \
                 .filter('terms', user_id=users)[:len(users)]
         data = self.es_execute(query)
 
@@ -60,6 +61,7 @@ class ContentStudentStat(BaseHandler):
         query = self.es_query(index='tap2.0', doc_type='exam_seq_libc_grade') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', seq_id=sequential_id) \
+                .filter("term", group_key=self.group_key) \
                 .filter('terms', user_id=users)
         data = self.es_execute(query[:0]).hits
         data = self.es_execute(query[:data.total])
@@ -83,6 +85,7 @@ class StudentGrade(BaseHandler):
 
         query = self.es_query(index='tap2.0', doc_type='exam_seq_libc_grade') \
                 .filter('term', course_id=self.course_id) \
+                .filter("term", group_key=self.group_key) \
                 .filter('term', seq_id=sequential_id)
 
         if user_id is not None:

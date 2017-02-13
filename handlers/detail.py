@@ -19,19 +19,18 @@ class DetailCourseGradeRatio(BaseHandler):
         users = self.get_users()
         query = self.es_query(index='tap2.0', doc_type='problem_course') \
                 .filter('term', course_id=self.course_id) \
-                .filter('range', grade_ratio={'gte': 0}) \
-                .filter('range', final_grade={'gte': 0}) \
+                .filter('term', group_key=self.group_key) \
+                .filter('range', grade_ratio={'gt': 0}) \
                 .filter('terms', user_id=users)
-
         result = self.es_execute(query)
         result = self.es_execute(query[:result.hits.total])
         hits = result.hits
 
-        grade_list = [hit.final_grade for hit in hits]
+        grade_list = [hit.grade_ratio for hit in hits]
 
         grade_overview = {'mean': 0, 'variance': 0}
         if hits.total:
-            grade_list = [float(grade) / 100 for grade in grade_list]
+            grade_list = [float(grade) for grade in grade_list]
             grade_overview['mean'] = round(sum(grade_list) / hits.total, 4)
             grade_overview['variance'] = round(var(grade_list), 4)
 
@@ -48,6 +47,7 @@ class DetailCourseGradeRatioDetail(BaseHandler):
         problem_users = self.get_problem_users()
         query = self.es_query(index='tap2.0', doc_type='problem_course') \
                 .filter('term', course_id=self.course_id) \
+                .filter('term', group_key=self.group_key) \
                 .filter('terms', user_id=problem_users) \
                 .filter('range', **{'final_grade': {'gte': 0}})
 
@@ -123,7 +123,7 @@ class DetailCourseDiscussion(BaseHandler):
     """
     def get(self):
         users = self.get_users()
-        query = self.es_query(index='tap', doc_type='discussion_aggs') \
+        query = self.es_query(index='tap2.0', doc_type='discussion_aggs') \
                 .filter('term', course_id=self.course_id) \
                 .filter("term", group_key=self.group_key) \
                 .filter('terms', user_id=users)
@@ -137,8 +137,8 @@ class DetailCourseDiscussion(BaseHandler):
         result['post_total'] = response.aggregations.post_total.value or 0
         result['comment_total'] = response.aggregations.comment_total.value or 0
         result['total'] = result['post_total'] + result['comment_total']
-        result['post_mean'] = round(result['post_total'], 4)
-        result['comment_mean'] = round(result['comment_total'], 4)
+        result['post_mean'] = round(response.aggregations.post_mean.value or 0 , 4)
+        result['comment_mean'] = round(response.aggregations.comment_mean.value or 0, 4)
         result['total_mean'] = round(float(result['total']) / response.hits.total, 4) if response.hits.total else 0
 
         self.success_response({'data': result})
@@ -187,7 +187,7 @@ class DetailStudentDiscussion(BaseHandler):
     """
     def get(self):
         users = self.get_users()
-        query = self.es_query(index='tap', doc_type='discussion_aggs') \
+        query = self.es_query(index='tap2.0', doc_type='discussion_aggs') \
                 .filter('term', course_id=self.course_id) \
                 .filter("term", group_key=self.group_key) \
                 .filter('terms', user_id=users)
@@ -213,7 +213,7 @@ class DetailStudentDiscussionStat(BaseHandler):
     """
     def get(self):
         users = self.get_users()
-        query = self.es_query(index='tap', doc_type='discussion_aggs') \
+        query = self.es_query(index='tap2.0', doc_type='discussion_aggs') \
                 .filter('term', course_id=self.course_id) \
                 .filter("term", group_key=self.group_key) \
                 .filter('terms', user_id=users)

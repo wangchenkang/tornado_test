@@ -17,6 +17,7 @@ class CourseDiscussion(BaseHandler):
     def get(self):
         users = self.get_users()
         query = self.es_query(index='tap2.0', doc_type='discussion_aggs') \
+                .filter("term", group_key=self.group_key) \
                 .filter('terms', user_id=users)\
                 .filter('term', course_id=self.course_id)[:0]
         query.aggs.bucket('groups', 'terms', field='group_id', size=1000) \
@@ -66,6 +67,7 @@ class CourseDailyStat(BaseHandler):
         users = self.get_users()
         query = self.es_query(index='tap2.0', doc_type='discussion_daily') \
                 .filter('term', course_id=self.course_id) \
+                .filter("term", group_key=self.group_key) \
                 .filter('terms', user_id=users)\
                 .filter('range', **{'date': {'gte': start, 'lte': end}})
         # data = self.es_execute(query[:0])
@@ -105,6 +107,7 @@ class ChapterDiscussion(BaseHandler):
         users = self.get_users()
         query = self.es_query(index='tap2.0', doc_type='study_discussion') \
                 .filter('term', course_id=self.course_id) \
+                .filter("term", group_key=self.group_key) \
                 .filter('term', chapter_id=chapter_id) \
                 .filter('terms', user_id=users)[:0]
         query.aggs.metric('sequentials', 'terms', field='seq_id')
@@ -134,6 +137,7 @@ class ChapterStudentDiscussion(BaseHandler):
 
         query = self.es_query(index='tap2.0', doc_type='study_discussion') \
                 .filter('term', course_id=self.course_id) \
+                .filter("term", group_key=self.group_key) \
                 .filter('term', chapter_id=chapter_id) \
                 .filter('terms', user_id=students)
         data = self.es_execute(query[:0])
@@ -174,6 +178,7 @@ class CoursePostsNoCommentDaily(BaseHandler):
         users = self.get_users()
         query = self.es_query(index='tap2.0', doc_type='discussion_daily') \
                 .filter('term', course_id=self.course_id) \
+                .filter("term", group_key=self.group_key) \
                 .filter('terms', user_id=users)\
                 .filter('range', **{'date': {'gte': start, 'lte': end}})[:size]
         query.aggs.bucket('date', 'terms', field='date', size=1000)\
@@ -208,6 +213,7 @@ class CoursePostsNoComment(BaseHandler):
         users = self.get_users()
         query = self.es_query(index='tap2.0', doc_type='discussion_aggs') \
                 .filter('term', course_id=self.course_id) \
+                .filter("term", group_key=self.group_key) \
                 .filter('terms', user_id=users) \
                 .filter('term', group_key=self.group_key)
 
@@ -258,6 +264,7 @@ class StudentPostTopStat(BaseHandler):
 
         query = self.es_query(index='tap2.0', doc_type='discussion_daily') \
                 .filter('term', course_id=self.course_id) \
+                .filter("term", group_key=self.group_key) \
                 .filter('terms', user_id=students.keys())
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total])
@@ -284,6 +291,7 @@ class StudentDetail(BaseHandler):
     def get(self):
         query = self.es_query(index='tap2.0', doc_type='discussion_aggs') \
                 .filter('term', course_id=self.course_id) \
+                .filter("term", group_key=self.group_key) \
                 .query(Q('range', **{'post_num': {'gt': 0}}) | Q('range', **{'reply_num': {'gt': 0}}))
         if self.group_key:
             query = query.filter('term', group_key=self.group_key)
@@ -409,12 +417,13 @@ class CourseRankStat(BaseHandler):
 
 
 @route('/discussion/chapter_discussion_stat')
-class CourseDiscussionStat(DispatchHandler):
+class CourseDiscussionStat(BaseHandler):
 
-    def mooc(self):
+    def get(self):
         result = {}
         query = self.es_query(index='tap2.0', doc_type='study_comment_problem') \
                 .filter('term', course_id=self.course_id) \
+                .filter("term", group_key=self.group_key) \
                 .filter('term', chapter_id=self.chapter_id) \
                 .sort('-date')[:1]
         data = self.es_execute(query)
@@ -428,25 +437,25 @@ class CourseDiscussionStat(DispatchHandler):
 
         self.success_response(result)
 
-    def spoc(self):
+    #def spoc(self):
 
-        result = {}
-        users = self.get_users()
-        query = self.es_query(index='tap2.0', doc_type='study_discussion') \
-                .filter('term', course_id=self.course_id) \
-                .filter('term', chapter_id=self.chapter_id) \
-                .filter('terms', user_id=users)
-                # .sort('-date')[:1]
-        data = self.es_execute(query)
-        hit = data.hits
-        result['course_id'] = self.course_id
-        result['chapter_id'] = self.chapter_id
-        # if hit:
-        #     result['students_num'] = int(hit[0].num)
-        # else:
-        result['students_num'] = len(hit)
+    #    result = {}
+    #    users = self.get_users()
+    #    query = self.es_query(index='tap2.0', doc_type='study_discussion') \
+    #            .filter('term', course_id=self.course_id) \
+    #            .filter('term', chapter_id=self.chapter_id) \
+    #            .filter('terms', user_id=users)
+    #            # .sort('-date')[:1]
+    #    data = self.es_execute(query)
+    #    hit = data.hits
+    #    result['course_id'] = self.course_id
+    #    result['chapter_id'] = self.chapter_id
+    #    # if hit:
+    #    #     result['students_num'] = int(hit[0].num)
+    #    # else:
+    #    result['students_num'] = len(hit)
 
-        self.success_response(result)
+    #    self.success_response(result)
 
 
 @route('/discussion/chapter_discussion_detail')
@@ -456,6 +465,7 @@ class CourseChapterDiscussionDetail(BaseHandler):
         users = self.get_users()
         query = self.es_query(index='tap2.0', doc_type='study_discussion') \
                 .filter('term', course_id=self.course_id) \
+                .filter("term", group_key=self.group_key) \
                 .filter('terms', user_id=users)\
                 .filter('term', chapter_id=self.chapter_id)[:0]
         query.aggs.bucket('value', "terms", field="item_id", size=1000)
