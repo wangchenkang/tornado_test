@@ -194,7 +194,6 @@ class DetailStudentDiscussion(BaseHandler):
         
         response = self.es_execute(query[:0])
         response = self.es_execute(query[:response.hits.total])
-
         result = {}
         for item in response.hits:
             result[item.user_id] = {}
@@ -226,6 +225,8 @@ class DetailStudentDiscussionStat(BaseHandler):
             post_num = hit['post_num'] or 0
             reply_num = hit['reply_num'] or 0
             total_num = post_num + reply_num
+            if total_num == 0:
+                continue
             if total_num not in result:
                 result[total_num] = 0
             result[total_num] += 1
