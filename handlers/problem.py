@@ -71,7 +71,6 @@ class CourseProblemDetail(BaseHandler):
     def get(self):
         query = self.es_query(index='tap2.0', doc_type='study_problem_detail') \
                 .filter('term', course_id=self.course_id) \
-                .filter("term", group_key=self.group_key)
 
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total])
@@ -83,12 +82,11 @@ class CourseProblemDetail(BaseHandler):
             problems.setdefault(problem_id, {})
             problems[problem_id][problem_num] = {
                 'detail': item.detail,
-                'answer': item.answer_detail.to_dict(),
+                'answer': item.answers.to_dict(),
                 'problem_type': item.problem_type,
                 'problem_id': item.problem_id,
                 'problem_num': item.problem_num,
             }
-
         self.success_response({'problems': problems})
 
 
