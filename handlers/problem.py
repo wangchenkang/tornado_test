@@ -179,9 +179,9 @@ class ChapterProblemDetail(BaseHandler):
             correct = 0
             incorrect = 0
             for item in count:
-                if item["key"] == "1":
+                if item["key"] == 1:
                     correct = item["doc_count"]
-                if item["key"] == "0":
+                if item["key"] == 0:
                     incorrect = item["doc_count"]
             result.append({
                 "subproblem": pid,

@@ -21,6 +21,7 @@ class TableHandler(BaseHandler):
         fields = fields.split(',') if fields else []
         course_id = self.course_id
         user_ids = self.get_users()
+        
 
         query = self.get_query(course_id, user_ids, page, num, sort, sort_type, fields)
         if fields:

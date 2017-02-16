@@ -37,10 +37,10 @@ class CourseActivity(BaseHandler):
         for hit in hits:
             if hit.course_id == self.course_id:
                 continue
-            course_activity_rate = float(hit.active_user_num) / course_enrolls.get(self.course_id, 0.001)
+            course_activity_rate = float(hit.active_user_num) / course_enrolls.get(hit.course_id, 0.001)
             if course_activity_rate < result['percent']:
                 overcome += 1
-        result['overcome'] = float(overcome) / len(courses)
+        result['overcome'] = float(overcome) / (len(hits) or 0.001)
         self.success_response({'data': result})
 
 
@@ -54,7 +54,7 @@ class CourseRegisterRank(BaseHandler):
         courses_student_num = self.get_enroll(self.group_key)
         overcome = 0
         for course_id, value in courses_student_num.items():
-            if course_id != self.course_id and value > student_num:
+            if course_id != self.course_id and student_num > value:
                 overcome += 1
         overcome = float(overcome) / len(courses_student_num)
         result = {
@@ -79,14 +79,14 @@ class CourseStudentNum(BaseHandler):
         self.success_response({"data": result})
 
 @route('/course/grade_distribution')
-class CourseGradeDistribution(DispatchHandler):
+class CourseGradeDistribution(BaseHandler):
     """
     课程成绩分布统计
     """
-    def mooc(self):
-        #query = self.es_query(index="api1", doc_type="course_grade_distribution")
+    def get(self):
         query = self.es_query(index="tap2.0", doc_type="course_grade_distribution")
-        query = query.filter("term", course_id=self.course_id).sort("-date")[:1]
+        query = query.filter("term", course_id=self.course_id).sort("-date") \
+                     .filter("term", group_key=self.group_key)[:1]
         result = self.es_execute(query)
         hits = result.hits
         data = {}
@@ -103,33 +103,33 @@ class CourseGradeDistribution(DispatchHandler):
             data["date"] = ''
         self.success_response({'data': data})
 
-    def spoc(self):
-        users = self.get_problem_users()
-        query = self.es_query(index="tap2.0", doc_type="course_grade_distribution")\
-                .filter("term", course_id=self.course_id)\
-                .filter("terms", user_id=users)
-        result = self.es_execute(query)
-        result = self.es_execute(query[:result.hits.total])
-        hits = result.hits
-        data = {
-                "distribution":[0]*50,
-                "student_num": 0,
-                "above_average": 0}
-        avg = 0
-        for hit in hits:
-            if hit.current_grade < 0:
-                continue
-            index = int(hit.current_grade/2)
-            if index >= 50:
-                index = 49
-            data["distribution"][index] += 1
-            data["student_num"] += 1
-            avg += index
-        if data["student_num"] > 0:
-            avg /= float(data["student_num"])
-            above_avg = sum(data["distribution"][int(avg+1):])
-            data["above_average"] = above_avg
-        self.success_response({'data': data})
+    #def spoc(self):
+    #    users = self.get_problem_users()
+    #    query = self.es_query(index="tap2.0", doc_type="course_grade_distribution")\
+    #            .filter("term", course_id=self.course_id)\
+    #            .filter("terms", user_id=users)
+    #    result = self.es_execute(query)
+    #    result = self.es_execute(query[:result.hits.total])
+    #    hits = result.hits
+    #    data = {
+    #            "distribution":[0]*50,
+    #            "student_num": 0,
+    #            "above_average": 0}
+    #    avg = 0
+    #    for hit in hits:
+    #        if hit.current_grade < 0:
+    #            continue
+    #        index = int(hit.current_grade/2)
+    #        if index >= 50:
+    #            index = 49
+    #        data["distribution"][index] += 1
+    #        data["student_num"] += 1
+    #        avg += index
+    #    if data["student_num"] > 0:
+    #        avg /= float(data["student_num"])
+    #        above_avg = sum(data["distribution"][int(avg+1):])
+    #        data["above_average"] = above_avg
+    #    self.success_response({'data': data})
 
 
 @route('/course/enrollments/count')
@@ -175,9 +175,8 @@ class CourseEnrollmentsDate(BaseHandler):
         
         query = self.es_query(index="tap2.0", doc_type="student_courseenrollment")
         query = query.filter("range", **{'event_time': {'lte': end, 'gte': start}}) \
+                    .filter('term', group_key=self.group_key) \
                     .filter("term", course_id=self.course_id)[:0]
-        if self.group_key:
-            query = query.filter('term', group_key=self.group_key)
         query.aggs.bucket('value', A("date_histogram", field="event_time", interval="day")) \
                 .metric('count', "terms", field="is_active", size=2)
         results = self.es_execute(query)
@@ -213,6 +212,7 @@ class CourseEnrollmentsDate(BaseHandler):
         # 取end的数据
         query = self.es_query(index="tap2.0", doc_type="student_courseenrollment")
         query = query.filter("range", **{'event_time': {'lt': start}})
+        query = query.filter('term', group_key=self.group_key)
         query = query.filter("term", course_id=self.course_id)
         query = query[:0]
         query.aggs.bucket('value', "terms", field="is_active", size=2)
@@ -346,8 +346,7 @@ class CourseDistribution(BaseHandler):
     获取用户省份统计
     """
     def get(self):
-        query = self.es_query(index="main", doc_type="student")
-        #query = self.es_query(index="tap2.0", doc_type="course_student_location")
+        query = self.es_query(index="tap2.0", doc_type="course_student_location")
         if self.group_key:
             query = query.filter("term", group_key=self.group_key)
         top = int(self.get_argument("top", 10))
@@ -373,7 +372,6 @@ class CourseVideoWatch(BaseHandler):
         start = self.get_param("start")
         end = self.get_param("end")
         group_key = self.group_key
-
         query = self.es_query(index="tap2.0", doc_type="course_video_learning")
         query = query.filter("term", course_id=self.course_id)
         if group_key:
@@ -442,8 +440,8 @@ class CourseDetail(BaseHandler):
         course_ids = self.course_id.split(",")
         query = self.es_query(index='tap2_test', doc_type='course')\
                             .filter('terms', course_id=course_ids)
-        data = self.es_execute(query)
-        
+        size = self.es_execute(query[:0]).hits.total
+        data = self.es_execute(query[:size])
         course_data = []
         for i in range(len(data.hits)):
             course_data.append(data.hits[i].to_dict())

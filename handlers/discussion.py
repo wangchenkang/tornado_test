@@ -394,6 +394,9 @@ class CourseRankStat(BaseHandler):
         discussion_users_overcome = 0
         for course in courses:
             if course.course_id == self.course_id:
+                avg_discussion_overcome += 1
+                reply_rate_overcome += 1
+                discussion_users_overcome += 1
                 continue
             if course.avg_discussion < current_course.avg_discussion:
                 avg_discussion_overcome += 1

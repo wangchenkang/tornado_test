@@ -185,12 +185,12 @@ class BaseHandler(RequestHandler):
             return result
 
     def get_users(self, is_active=True):
-        hashstr = "student" + self.course_id + (str(self.group_key) or "") + str(is_active)
-        hashcode = hashlib.md5(hashstr).hexdigest()
-        users = self.memcache.get(hashcode)
-        if users:
-            return users
-        query = self.es_query(doc_type='student')#\
+        #hashstr = "student" + self.course_id + (str(self.group_key) or "") + str(is_active)
+        #hashcode = hashlib.md5(hashstr).hexdigest()
+        #users = self.memcache.get(hashcode)
+        #if users:
+        #    return users
+        query = self.es_query(index='tap2.0', doc_type='student_enrollment_info')#\
                 # .fields(fields="user_id")
         if self.group_key:
             query = query.filter('term', group_key=self.group_key)
@@ -210,15 +210,15 @@ class BaseHandler(RequestHandler):
         # print len(hits), hits
         # users = [hit.user_id[0] for hit in hits]
         users = [hit.user_id for hit in hits]
-        self.memcache.set(hashcode, users, 60*60)
+        #self.memcache.set(hashcode, users, 60*60)
         return users
 
     def get_problem_users(self):
-        hashstr = "problem_student" + self.course_id + (str(self.group_key) or "")
-        hashcode = hashlib.md5(hashstr).hexdigest()
-        users = self.memcache.get(hashcode)
-        if users:
-            return users
+        #hashstr = "problem_student" + self.course_id + (str(self.group_key) or "")
+        #hashcode = hashlib.md5(hashstr).hexdigest()
+        #users = self.memcache.get(hashcode)
+        #if users:
+        #    return users
         users = self.get_users()
         query = self.es_query(index='tap2.0', doc_type='study_problem')\
                 .filter("term", course_id=self.course_id)\
@@ -228,7 +228,7 @@ class BaseHandler(RequestHandler):
         results = self.es_execute(query[:0])
         aggs = results.aggregations["p"]["buckets"]
         users = [item["key"] for item in aggs]
-        self.memcache.set(hashcode, users, 60*60)
+        #self.memcache.set(hashcode, users, 60*60)
         return users
 
     def get_video_users(self):
