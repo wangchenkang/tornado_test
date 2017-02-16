@@ -219,7 +219,7 @@ class ChapterProblemDetailStat(BaseHandler):
         total = results.hits.total
         results = self.es_execute(query[:total])
         for hit in results.hits:
-            correct = 'correct' if hit.correctness == "1" else "uncorrect"
+            correct = 'correct' if hit.correctness == 1 else "uncorrect"
             answer = hit.answer
             try:
                 answer = ast.literal_eval(answer)
