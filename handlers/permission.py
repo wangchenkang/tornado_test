@@ -5,6 +5,7 @@ from utils.tools import var
 from utils.log import Log
 from .base import BaseHandler
 import settings
+import datetime
 
 Log.create('permission')
 
@@ -17,27 +18,56 @@ class TeacherPermission(BaseHandler):
         #获取page,size,因为tap层已经有默认值，所以此处不必再设默认值
         page = int(self.get_argument("page"))
         size = int(self.get_argument("size"))
-        query = self.es_query(index='tap', doc_type='teacher_power') \
-                .filter('term', user_id=str(self.user_id)) \
-                #.filter('terms', course_id=['course-v1:TsinghuaX+00690092X+2016_T1','YunTech/YunTech001/2015_T1'])
         
-        query_test = self.es_query(index='tap', doc_type='teacher_power')\
-                     .filter('term', user_id=str(self.user_id))\
-                     .filter('term', course_id='course-v1:TsinghuaX+00690092X+2016_T1')
-        result_test = self.es_execute(query_test[(page-1)*size:page*size])
-        hits_test = result_test.hits
+        now = datetime.datetime.utcnow()
+        status = self.get_argument("status")
+        
+        query = self.es_query(index='tap', doc_type='teacher_power')\
+                .filter('term', user_id=str(self.user_id)).sort("-start")
+        #开课
+        if status == "process":
+            query = query.filter('range', **{'start': {'lt': now}})\
+                    .filter('range', **{'end': {'gt': now}}).sort("-start")
+        #结课
+        if status == "close":
+            query = query.filter('range', **{'end': {'lte': now}}).sort("-end")
+        #即将开课
+        if status == "unopen":
+            query = query.filter('range', **{'start': {'gt': now}}).sort("start")
 
-        result = self.es_execute(query[(page-1)*size:page*size])
-        hits = result.hits
-        hits.insert(0, result_test.hits[0])
+        total = self.es_execute(query[:0]).hits.total
+        if total%size != 0:
+            total_page = total/size + 1
+        else:
+            total_page = total/size
 
+        if page*size >= total:
+            load_more = 0
+        else:
+            load_more = 1
+
+        result_size = self.es_execute(query[:0]).hits.total
+        query_results = self.es_execute(query[:result_size])
+        query_results = query_results.hits
+        
+        powers_dict  = {}
+        course_ids = []
+        for query_result in query_results:
+            if query_result.course_id not in powers_dict:
+                course_ids.append(query_result.course_id)
+                powers_dict[query_result.course_id] = []
+            power = query_result.group_key
+            powers_dict[query_result.course_id].append(power)
+        
         powers = {}
-        for hit in hits:
-            if hit.course_id not in powers:
-                powers[hit.course_id] = []
-            if settings.MOOC_GROUP_KEY == hit.group_key:
-                power = {'group_key': hit.group_key, 'type': 'mooc'}
-            else:
-                power = {'group_key': hit.group_key, 'type': 'mooc_org'}
-            powers[hit.course_id].append(power)
-        self.success_response({'powers': powers})
+        for course_id in course_ids[(page-1)*size:page*size]:
+            powers[course_id]=powers_dict[course_id]
+        powers['course-v1:TsinghuaX+00690092X+2016_T1'] = powers_dict['course-v1:TsinghuaX+00690092X+2016_T1']
+        
+        course_result = {}
+        course_result['powers'] = powers
+        course_result['total'] = total
+        course_result['total_page'] = total_page
+        course_result['load_more'] = load_more
+        
+        self.success_response({'powers': course_result})

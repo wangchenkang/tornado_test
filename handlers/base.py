@@ -165,24 +165,25 @@ class BaseHandler(RequestHandler):
     
     def get_student_num(self, course_group_key=None):
     
-        if course_group_key:
-            course_group_key=eval(course_group_key)
-            result = {}
-            for i in course_group_key:
-                for k,v in i.items():
-                    group_key = {}
-                    for j in v:
-                        query = self.es_query(doc_type='course')\
-                                    .filter('term', course_id=k)\
-                                    .filter('term', group_key=j)
-                        hits = self.es_execute(query).hits
-                        if hits.total > 0:
-                            hits = hits.hits[0]
-                            group_key[j] = hits["_source"]["enroll_num"] if hits["_source"]["enroll_num"] else 0
-                        else:
-                            group_key[j] = 0    
-                    result[k] = group_key
+        result = {}
+        if not course_group_key:
             return result
+        else:
+            for course_id, group_key_list in eval(course_group_key).items():
+                if course_id not in result.keys():
+                    result[course_id] = []
+                for group_key in group_key_list:
+                    course_depend_group_key = {}
+                    query = self.es_query(index='tap2_test', doc_type='course')\
+                            .filter('term', course_id=course_id)\
+                            .filter('term', group_key=group_key)
+                    hits = self.es_execute(query).hits
+                    if hits.total > 0:
+                        course_depend_group_key["enroll_num"] = hits[0].enroll_num or 0
+                        course_depend_group_key["course_type"] = hits[0].course_type
+                        course_depend_group_key["group_key"] = group_key
+                    result[course_id].append(course_depend_group_key)
+        return result
 
     def get_users(self, is_active=True):
         #hashstr = "student" + self.course_id + (str(self.group_key) or "") + str(is_active)

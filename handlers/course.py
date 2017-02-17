@@ -434,7 +434,7 @@ class CourseTsinghuaStudent(BaseHandler):
 @route('/course/detail')
 class CourseDetail(BaseHandler):
     """
-    ??????
+    课程详情页
     """
     def get(self):
         course_ids = self.course_id.split(",")
