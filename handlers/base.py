@@ -155,13 +155,12 @@ class BaseHandler(RequestHandler):
             query = query.filter('term', course_id=course_id)
             hits = self.es_execute(query).hits
             return hits.total if hits.total else 0
-        else:
-            query.aggs.bucket('course', 'terms', field='course_id', size=10000)
-            result = self.es_execute(query)
-            course_num = {}
-            for course in result.aggregations.course.buckets:
-                course_num[course.key] = course.doc_count
-            return course_num
+        query.aggs.bucket('course', 'terms', field='course_id', size=10000)
+        result = self.es_execute(query)
+        course_num = {}
+        for course in result.aggregations.course.buckets:
+            course_num[course.key] = course.doc_count
+        return course_num
     
     def get_student_num(self, course_group_key=None):
     
