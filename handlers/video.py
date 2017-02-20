@@ -41,8 +41,9 @@ class ChapterStudentVideo(BaseHandler):
         chapter_id = self.chapter_id
         uid = self.get_param('user_id')
         students = [u.strip() for u in uid.split(',') if u.strip()]
-        video_query = self.es_query(index='tap', doc_type='video') \
+        video_query = self.es_query(index='tap2.0', doc_type='study_video') \
                 .filter('term', course_id=course_id) \
+                .filter('term', group_key=self.group_key) \
                 .filter('term', chapter_id=chapter_id) \
                 .filter('terms', user_id=students)
 
@@ -218,9 +219,10 @@ class CourseChapterVideoDetail(BaseHandler):
         users = self.get_users()
         # TODO
         # 将main该为tap，uid改为user_id
-        query = self.es_query(index='tap', doc_type='video')\
+        query = self.es_query(index='tap2.0', doc_type='study_video')\
                 .filter('term', course_id=self.course_id)\
                 .filter('term', chapter_id=self.chapter_id)\
+                .filter('term', group_key=self.group_key)\
                 .filter('terms', user_id=users)\
                 .filter('exists', field='watch_num')[:0]
         query.aggs.bucket("video_watch", "terms", field="item_id", size=1000)\
