@@ -114,6 +114,8 @@ class DiscussionDetail(TableHandler):
 @route('/table/enroll_overview')
 class EnrollDetail(TableHandler):
     def get_query(self, course_id, user_ids, page, num, sort, sort_type, fields):
+        user_ids.extend(self.get_users(is_active=False))
+
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
