@@ -9,6 +9,7 @@ import datetime
 
 Log.create('permission')
 
+
 @route('/permission/teacher_permission')
 class TeacherPermission(BaseHandler):
     """

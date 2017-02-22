@@ -15,7 +15,7 @@ class StudentOrg(BaseHandler):
     def get(self):
         org = self.get_param('org')
 
-        query = self.es_query(index='main', doc_type='student') \
+        query = self.es_query(index='tap2.0', doc_type='course_student_location') \
                 .filter('term', courses=self.course_id) \
                 .filter('term', binding_org=org)
         data = self.es_execute(query[:0])
@@ -42,6 +42,18 @@ class CourseStudent(BaseHandler):
 
         self.success_response({'students': students})
 
+
+@route('/student/course_student_user_name')
+class CourseStudentUerName(BaseHandler):
+    """
+    获取课程的学生姓名列表    
+    """
+    def get(self):
+
+        owner = self.get_owner()
+        user_names = self.get_user_name(self.get_users(), self.group_key, owner)
+
+        self.success_response({'user_name': user_names})
 
 @route('/student/course_grade')
 class StudentCourseGrade(BaseHandler):
@@ -165,7 +177,7 @@ class StudentInformation(BaseHandler):
         post_total = int(data.aggregations.post_total.value)
         comment_total = int(data.aggregations.comment_total.value)
 
-        enrollment_query = self.es_query(index='main', doc_type='enrollment') \
+        enrollment_query = self.es_query(index='tap2.0', doc_type='student_courseenrollment') \
                 .filter('term', uid=user_id).filter('term', is_active=True)[:10000]
         enrollment_data = self.es_execute(enrollment_query)
 
@@ -234,7 +246,7 @@ class StudentCourses(BaseHandler):
 
         data = self.es_execute(user_sum_query)
 
-        enrollment_query = self.es_query(index='main', doc_type='enrollment') \
+        enrollment_query = self.es_query(index='tap2.0', doc_type='student_courseenrollment') \
                 .filter('term', uid=user_id).filter('term', is_active=True)[:10000]
         enrollment_data = self.es_execute(enrollment_query)
         video_rate_query = self.es_query(index='rollup', doc_type='course_video_rate') \
@@ -341,10 +353,10 @@ class UserAverage(BaseHandler):
 
         staff_avg_comments_num = staff_comments_num / staff_data.hits.total
 
-        enrollments_query = self.es_query(index='main', doc_type='enrollment') \
+        enrollments_query = self.es_query(index='tap2.0', doc_type='student_courseenrollment') \
                 .filter('term', is_active=True)[:0]
         enrollments_data = self.es_execute(enrollments_query)
-        students_query = self.es_query(index='main',doc_type='student') \
+        students_query = self.es_query(index='tap2.0',doc_type='course_student_location') \
                 .filter('exists', field='courses')[:0]
         students_data = self.es_execute(students_query)
 
@@ -355,230 +367,3 @@ class UserAverage(BaseHandler):
             'students_avg_enrollment': students_avg_enrollment
         })
 
-@route('/student/grade_detail')
-class GradeDetail(BaseHandler):
-    def get(self):
-        sort_field = self.get_param('sort_field')
-
-        # sort_type = self.get_param('sort_type')
-        # fields = self.get_param('fields')
-        # elective = self.get_param('elective')
-        query = self.es_query(index='tap2.0', doc_type='problem_course') \
-            .filter('term', course_id=self.course_id) \
-            .filter("term", group_key=self.group_key)
-        size = self.es_execute(query[:0]).hits.total
-        header = ['昵称','学堂号','姓名','学号','院系','专业','成绩','课程_得分','课程_得分率']
-        data = self.es_execute(query[:size])
-        print len(data.hits)
-        grade = {}
-        for item in data.hits:
-            # print item.to_dict()
-            grade[item.user_id] = {
-                'user_id': item.user_id,
-                'final_grade': item.final_grade,
-                'grade_ratio': item.grade_ratio,
-                'current_grade': item.current_grade
-            }
-        headerl = ['nickname','xid','rname','binding_uid','faculty','major','final_grade','current_grade','grade_ratio']
-        query = self.es_query(index='tap2.0', doc_type='student_enrollment_info') \
-                .filter('term', course_id=self.course_id) \
-                .filter("term", group_key=self.group_key) \
-                .filter('terms', user_id=grade.keys())
-        data = self.es_execute(query[:data.hits.total])
-        print len(data.hits)
-        for item in data.hits:
-            # print type(item.user_id)
-            # print item.to_dict()
-            u = str(item.user_id)
-            grade[u]['xid'] = item.xid
-            grade[u]['nickname'] = item.nickname
-            grade[u]['rname'] = item.rname
-            grade[u]['binding_uid'] = item.binding_uid
-            grade[u]['faculty'] = item.faculty
-            grade[u]['major'] = item.major
-        hDict = dict(zip(header, headerl))
-        result = []
-        for i in grade:
-            print sorted(grade[i].items())
-            result.append(grade[i])
-        # print result
-        result = sorted(result, key=lambda x: x[sort_field], reverse=True)
-        self.success_response({'header': header, 'data': result})
-
-@route('/student/overview_detail')
-class OverviewDetail(BaseHandler):
-    #def get(self):
-    def post(self):
-        print self.course_id
-        t_beg = time.time()
-        print self.course_id
-        pn = int(self.get_argument('page', 0))
-        num = int(self.get_argument('num', 10))
-        sort_field = self.get_argument('sort', None)
-        remove_field = self.get_argument('filter', None)
-        users = self.get_users()
-        """昵称, 学堂号, 姓名 *, 学号 *, 院系 *, 专业 *, 课程_学习比例, 讨论区_发回帖数, 课程_得分率, 课程_得分, 成绩, nickname, xid, rname, binding_uid, faculty, major, video, discussion, grade_ratio, current_grade, final_grade"""
-        result = {}
-        struct = self.es_query(index='tap', doc_type='grade_struct') \
-            .filter('term', course_id=self.course_id)
-        struct_d = self.es_execute(struct)
-        header = struct_d.hits[0].to_dict()['doc']
-        h1 = ['xid', 'nickname', 'rname', 'binding_uid', 'faculty', 'major', 'is_active', 'enroll_time',
-              'unenroll_time', 'video_course', 'post', 'reply', 'discussion', 'grade_ratio', 'current_grade', 'final_grade' ]
-        types = header['type_header'].split(',_,')
-        seqs = header['seq_names'].split(',_,')
-        header = h1 + types + seqs
-
-        query = self.es_query(index='tap2.0', doc_type='student_enrollment_info') \
-            .filter('term', course_id=self.course_id)\
-            .filter("term", group_key=self.group_key) \
-            .filter('terms', user_id=users)
-        size = self.es_execute(query[:0]).hits.total
-        data = self.es_execute(query[:size])
-        for item in data.hits:
-            item = item.to_dict()
-            result[str(item['user_id'])] = [item['xid'], item['nickname'], item['rname'], item['binding_uid'], item['faculty'], item['major'],item['is_active'], item['enroll_time'], item['unenroll_time']] + [0] * (7 + len(types + seqs))
-
-
-        query = self.es_query(index='tap', doc_type='video_course') \
-            .filter('term', course_id=self.course_id) \
-            .filter('terms', user_id=users)
-        chapter_video = self.es_execute(query[:size])
-        for item in chapter_video.hits:
-            item = item.to_dict()
-            result[str(item['user_id'])][9] = item['study_rate']
-
-        query = self.es_query(index='tap', doc_type='discussion_aggs') \
-            .filter('term', course_id=self.course_id) \
-            .filter('terms', user_id=users)
-        discussion = self.es_execute(query[:size])
-        for item in discussion.hits:
-            item = item.to_dict()
-            post = item['post_num'] or 0
-            reply = item['reply_num'] or 0
-            result[str(item['user_id'])][10:13] = [post, reply, post + reply]
-
-        query = self.es_query(index='tap2.0', doc_type='problem_course') \
-            .filter('term', course_id=self.course_id) \
-            .filter('terms', user_id=users)
-        score = self.es_execute(query[:size])
-        for item in score.hits:
-            item = item.to_dict()
-            result[str(item['user_id'])][13:16] = [item['final_grade'], item['grade_ratio'], item['current_grade']]
-
-        query = self.es_query(index='tap', doc_type='grade_overview') \
-            .filter('terms', user_id=users)\
-            .filter('term', course_id = self.course_id)
-        size = self.es_execute(query[:0]).hits.total
-        data = self.es_execute(query[:size])
-        for item in data.hits:
-            item = item.to_dict()['doc']
-            type_grade = item['type_grade'].split(',')
-            seq_grade = item['seq_grade'].split(',')
-            result[str(item['user_id'])][16:] = type_grade + seq_grade
-        #
-        print len(result)
-        # def fil(l):
-        #     f = False
-        #     for i in l[9:]:
-        #         if i != 0:
-        #             f = True
-        #             break
-        #     return f
-        # filtered = filter(lambda x: fil(x), result.values())
-        t_beg1 = time.time()
-        if sort_field:
-            index = header.index(sort_field)
-            if index < 0:
-                self.error_response(200, 'sort_field error')
-            filtered = sorted(result.values(), key=lambda x: x[index], reverse=True)
-        else:
-            filtered = sorted(result.values(), key=lambda x: x[15], reverse=True)
-        print time.time() - t_beg1
-        if remove_field:
-            index = header.index(remove_field)
-            del header[index]
-            for li in filtered:
-                del li[index]
-        final = {}
-        if num == -1:
-            final['data'] = filtered
-        else:
-            final['data'] = filtered[num * pn: num * pn + num]
-        final['header'] = header
-        final['total'] = len(filtered)
-        t_elapse = time.time() - t_beg
-        final['time'] = "%.0f" % (float(t_elapse) * 1000)
-        self.success_response(final)
-
-@route('/student/discussion_detail')
-class DiscussDetail(BaseHandler):
-    def get(self):
-        t_beg = time.time()
-        users = self.get_users()
-        # print self.course_id, users
-        pn = int(self.get_argument('page', 0))
-        num = int(self.get_argument('num', 10))
-        sort_field = self.get_argument('sort', None)
-        if sort_field:
-            query = self.es_query(index='tap', doc_type='grade_overview') \
-            .filter('term', course_id=self.course_id).sort(sort_field)[num * pn: num * pn + num]
-        else:
-            query = self.es_query(index='tap', doc_type='grade_overview') \
-            .filter('term', course_id=self.course_id)[num * pn: num * pn + num]
-            # q = Q("match", course_id=self.course_id)
-            # query = query.query(q)
-        size = self.es_execute(query[:0]).hits.total
-        print self.course_id, size
-        data = self.es_execute(query)
-        # data = self.es_execute(query)
-        final = {}
-        result = [item.to_dict() for item in data.hits]
-        final['total'] = size
-        final['data'] = result
-        t_elapse = time.time() - t_beg
-        final['time'] = "%.0f" % (float(t_elapse) * 1000)
-        self.success_response(final)
-
-        """昵称
-学堂号
-姓名 *
-学号 *
-院系 *
-专业 *
-成绩
-课程_得分
-课程_得分率
-讨论区发回帖数	发帖数	回帖数
-nickname	xid	rname	binding_uid	faculty	major	final_grade	current_grade	grade_ratio	discussion	post	reply"""
-
-@route('/student/video_detail')
-class GradeDetail(BaseHandler):
-    def get(self):
-        """昵称
-学堂号
-姓名 *
-学号 *
-院系 *
-专业 *
-成绩
-课程_得分
-课程_得分率
-章学习比例
-nickname	xid	rname	binding_uid	faculty	major	final_grade	current_grade	grade_ratio	chapter_video"""
-
-@route('/student/student_detail')
-class GradeDetail(BaseHandler):
-    def get(self):
-        """昵称
-学堂号
-姓名 *
-学号 *
-院系 *
-专业 *
-成绩
-课程_得分
-课程_得分率
-选课状态	最后选课时间	最后退课时间
-nickname	xid	rname	binding_uid	faculty	major	final_grade	current_grade	grade_ratio	status	enroll_time	unenroll_time
-"""

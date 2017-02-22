@@ -253,13 +253,17 @@ class StudentPostTopStat(BaseHandler):
         students = {}
 
         users = [item.key for item in data.aggregations.students.buckets]
-        usernames = self.get_user_name(users=users, group_name=self.group_name)
-        for item in data.aggregations.students.buckets:
+        usernames = self.get_user_name(users=users, group_key=self.group_key)
+        for item in data.aggregations.students.buckets:    
+            if usernames.get(int(item.key))[1] == "--":
+                user_name = usernames.get(int(item.key))[0]
+            else:
+                user_name = usernames.get(int(item.key))[1]
             students[item.key] = {
                 'user_id': int(item.key),
                 'posts_total': int(item.posts_total.value),
                 'comments_total': int(item.comments_total.value),
-                "user_name": usernames.get(int(item.key), "")
+                "user_name": user_name
             }
 
         query = self.es_query(index='tap2.0', doc_type='discussion_daily') \
@@ -299,17 +303,21 @@ class StudentDetail(BaseHandler):
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total])
         users = [item.user_id for item in data.hits]
-        usernames = self.get_user_name(users=users, group_name=self.group_name)
+        usernames = self.get_user_name(users=users, group_key=self.group_key)
         grades = self.get_grade(users=users)
         students_detail = {}
         for item in data.hits:
+            if usernames.get(int(item.user_id))[1] == "--":
+                user_name = usernames.get(int(item.user_id))[0]
+            else:
+                user_name = usernames.get(int(item.user_id))[1]
             students_detail[item.user_id] = {
                 'user_id': int(item.user_id),
                 'post_number': item.post_num,
                 'comment_number': item.reply_num,
                 'grade_percent': grades.get(str(item.user_id), 0),
                 'group_id': item.group_id,
-                'user_name': usernames.get(int(item.user_id), "")
+                'user_name': user_name
             }
 
         self.success_response({'students': students_detail})

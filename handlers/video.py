@@ -128,7 +128,7 @@ class CourseStudyDetail(BaseHandler):
         user_id = self.get_argument('user_id', None)
         users = self.get_users()
 
-        query = self.es_query(index='tap', doc_type='video') \
+        query = self.es_query(index='tap2.0', doc_type='study_video') \
                 .filter('term', course_id=course_id) \
                 .filter('exists', field='duration') \
                 .filter('terms', user_id=users)

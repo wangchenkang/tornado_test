@@ -438,8 +438,9 @@ class CourseDetail(BaseHandler):
     """
     def get(self):
         course_ids = self.course_id.split(",")
-        query = self.es_query(index='tap2_test', doc_type='course')\
-                            .filter('terms', course_id=course_ids)
+        query = self.es_query(index='tap2.0', doc_type='course_community')\
+                            .filter('terms', course_id=course_ids)\
+                            .filter('term', group_key=self.group_key)
         size = self.es_execute(query[:0]).hits.total
         data = self.es_execute(query[:size])
         course_data = []

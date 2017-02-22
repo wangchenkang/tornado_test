@@ -90,7 +90,7 @@ class BaseHandler(RequestHandler):
 
     @property
     def group_name(self):
-        query = self.es_query(doc_type='course') \
+        query = self.es_query(index='tap', doc_type='course') \
             .filter('term', course_id=self.course_id) \
             .filter('term', group_key=self.group_key)
         result = self.es_execute(query)
@@ -212,6 +212,14 @@ class BaseHandler(RequestHandler):
         users = [hit.user_id for hit in hits]
         #self.memcache.set(hashcode, users, 60*60)
         return users
+    
+    def get_owner(self):
+        query = self.es_query(index="tap2.0", doc_type="course_community")\
+                            .filter('term', course_id=self.course_id)\
+                            .filter('term', group_key=self.group_key)
+        hits = self.es_execute(query[:1]).hits
+        owner = hits[0].owner
+        return owner
 
     def get_problem_users(self):
         #hashstr = "problem_student" + self.course_id + (str(self.group_key) or "")
@@ -246,7 +254,7 @@ class BaseHandler(RequestHandler):
         response = Search(using=self.es, **kwargs)
         return response
 
-    def get_user_name(self, users=None, group_name='xuetangx'):
+    def get_user_name(self, users=None, group_key=None, owner="xuetangX"):
         if not users:
             users = self.get_users()
         query = self.es_query(index='tap2.0', doc_type='student_enrollment_info')\
@@ -261,13 +269,18 @@ class BaseHandler(RequestHandler):
         result = {}
         for item in results:
             user_id = item.user_id
-            if group_name == 'xuetangx':
-                name = item.nickname
+            # 改成判断group_key
+            name = []
+            if owner == "xuetangX" and group_key == settings.MOOC_GROUP_KEY:
+                nickname = item.nickname
+                rname = "--"
+                name.append(nickname)
+                name.append(rname)
             else:
-                if item.rname:
-                    name = item.rname
-                else:
-                    name = item.nickname
+                nickname = item.nickname
+                rname = item.rname
+                name.append(nickname)
+                name.append(rname)
             result[int(user_id)] = name
         return result
 
