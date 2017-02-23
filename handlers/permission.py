@@ -63,7 +63,6 @@ class TeacherPermission(BaseHandler):
         powers = {}
         for course_id in course_ids[(page-1)*size:page*size]:
             powers[course_id]=powers_dict[course_id]
-        powers['course-v1:TsinghuaX+00690092X+2016_T1'] = powers_dict['course-v1:TsinghuaX+00690092X+2016_T1']
         
         course_result = {}
         course_result['powers'] = powers

@@ -184,7 +184,6 @@ class ChapterVideoStat(DispatchHandler):
         else:
             result['study_num'] = 0
             result['review_num'] = 0
-        print result
         self.success_response(result)
 
     def spoc(self):
@@ -251,6 +250,5 @@ class CourseChapterVideoDetail(BaseHandler):
         seq_result = {}
         for bucket in seq_buckets:
             seq_result[bucket['key']] = bucket.doc_count
-
         self.success_response({"vid_result": result, "seq_result": seq_result})
 

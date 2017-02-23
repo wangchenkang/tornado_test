@@ -22,6 +22,11 @@ class TableHandler(BaseHandler):
         course_id = self.course_id
         user_ids = self.get_users()
         
+        
+        #查询改课程的owner
+        query_owner = self.es_query(index='tap2.0', doc_type='course_community')\
+                            .filter('term', course_id=course_id)
+        owner = self.es_execute(query_owner[:1]).hits[0].owner
 
         query = self.get_query(course_id, user_ids, page, num, sort, sort_type, fields)
         if fields:
@@ -41,6 +46,7 @@ class TableHandler(BaseHandler):
         final['data'] = result
         time_elapse = time.time() - time_begin
         final['time'] = "%.0f" % (float(time_elapse) * 1000)
+        final['owner'] = owner
 
         self.success_response(final)
 
