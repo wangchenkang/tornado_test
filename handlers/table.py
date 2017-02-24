@@ -72,12 +72,12 @@ class QuestionDetail(TableHandler):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
-            query = self.es_query(index='tap6_test', doc_type='question_overview') \
+            query = self.es_query(index='tap7_test', doc_type='question_overview') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids) \
                         .sort(sort)
         else:
-            query = self.es_query(index='tap6_test', doc_type='question_overview') \
+            query = self.es_query(index='tap7_test', doc_type='question_overview') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids)
 
