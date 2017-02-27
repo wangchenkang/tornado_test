@@ -72,7 +72,7 @@ class DetailCourseStudyRatioDetail(BaseHandler):
     """
     def get(self):
         users = self.get_video_users()
-        query = self.es_query(index='tap', doc_type='video_course') \
+        query = self.es_query(index='tap2.0', doc_type='video_course') \
             .filter('term', course_id=self.course_id) \
             .filter('terms', user_id=users)
 
@@ -99,7 +99,7 @@ class DetailCourseStudyRatio(BaseHandler):
         #video_overview = self.memcache.get(hash_key)
         hash_key, video_overview = self.get_memcache_data(key)
         if not video_overview:
-            query = self.es_query(index='tap', doc_type='video_course') \
+            query = self.es_query(index='tap2.0', doc_type='video_course') \
                         .filter('term', course_id=self.course_id)
             video_users = self.get_video_users()
             query = query.filter('terms', user_id=video_users)
@@ -253,7 +253,7 @@ class DetailChapterStudyRatio(BaseHandler):
     """
     def get(self):
         users = self.get_users()
-        query = self.es_query(index='tap', doc_type='video_chapter') \
+        query = self.es_query(index='tap2.0', doc_type='video_chapter') \
                 .filter('term', course_id=self.course_id) \
                 .filter('terms', user_id=users)
 
@@ -281,7 +281,7 @@ class DetailChapterStudyRatioDetail(BaseHandler):
     """
     def get(self):
         users = self.get_users()
-        query = self.es_query(index='tap', doc_type='video_chapter') \
+        query = self.es_query(index='tap2.0', doc_type='video_chapter') \
                 .filter('term', course_id=self.course_id) \
                 .filter('terms', user_id=users)
         ranges = [{'from': i*0.1, 'to': i*0.1+0.1 } for i in range(0, 10)]

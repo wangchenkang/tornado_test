@@ -508,7 +508,7 @@ class CourseAssistantActivity(BaseHandler):
         start = self.get_argument('start', default_date)
         end = self.get_argument('end', default_date)
 
-        query = self.es_query(index='api1', doc_type='ta_result') \
+        query = self.es_query(index='tap2.0', doc_type='ta_result') \
                 .filter('term', course_id=self.course_id) \
                 .filter('range', **{'date': {'gte': start, 'lte': end}})
 

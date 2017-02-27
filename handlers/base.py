@@ -104,7 +104,7 @@ class BaseHandler(RequestHandler):
 
     @property
     def group_name(self):
-        query = self.es_query(index='tap', doc_type='course') \
+        query = self.es_query(index='tap2.0', doc_type='course_community') \
             .filter('term', course_id=self.course_id) \
             .filter('term', group_key=self.group_key)
         result = self.es_execute(query)

@@ -64,7 +64,7 @@ class StudentCourseGrade(BaseHandler):
         course_id = self.course_id
         user_id = self.get_argument('user_id', None)
 
-        query = self.es_query(index='main', doc_type='student_course_grade') \
+        query = self.es_query(index='tap2.0', doc_type='course_grade') \
                 .filter('term', course_id=course_id)
 
         if user_id:
@@ -167,7 +167,7 @@ class StudentInformation(BaseHandler):
     def get(self):
         user_id = self.get_param('user_id')
 
-        user_sum_query = self.es_query(index='main', doc_type='user_sum') \
+        user_sum_query = self.es_query(index='tap2.0', doc_type='user_sum') \
                 .filter('term', user_id=user_id)[:0]
         user_sum_query.aggs.metric('post_total', 'sum', field='post_number')
         user_sum_query.aggs.metric('comment_total', 'sum', field='comment_number')
@@ -238,7 +238,7 @@ class StudentCourses(BaseHandler):
     def get(self):
         user_id = self.get_param('user_id')
 
-        user_sum_query = self.es_query(index='main', doc_type='user_sum') \
+        user_sum_query = self.es_query(index='tap2.0', doc_type='user_sum') \
                 .filter('term', user_id=user_id)[:0]
         user_sum_query.aggs.bucket('course', 'terms', field='course_id') \
                 .metric('post_total', 'sum', field='post_number') \
