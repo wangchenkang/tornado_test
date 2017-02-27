@@ -18,26 +18,25 @@ class DetailCourseGradeRatio(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.2关键指标
     """
     def get(self):
-        #key = 'grade_%s_%s' %(self.course_id, self.group_key)
-        #hash_key = hashlib.md5(key).hexdigest()
-        #grade_overview = self.memcache.get(hash_key)
-        #if not grade_overview:
-        query = self.es_query(index='tap2.0', doc_type='problem_course') \
-                .filter('term', course_id=self.course_id) \
-                .filter('term', group_key=self.group_key) \
-                .filter('range', grade_ratio={'gt': 0})
-        result = self.es_execute(query)
-        result = self.es_execute(query[:result.hits.total])
-        hits = result.hits
+        key = 'grade_%s_%s' %(self.course_id, self.group_key)
+        hash_key, grade_overview = self.get_memcache_data(hash_key)
+        if not grade_overview:
+            query = self.es_query(index='tap2.0', doc_type='problem_course') \
+                    .filter('term', course_id=self.course_id) \
+                    .filter('term', group_key=self.group_key) \
+                    .filter('range', grade_ratio={'gt': 0})
+            result = self.es_execute(query)
+            result = self.es_execute(query[:result.hits.total])
+            hits = result.hits
     
-        grade_list = [hit.grade_ratio for hit in hits]
+            grade_list = [hit.grade_ratio for hit in hits]
     
-        grade_overview = {'mean': 0, 'variance': 0}
-        if hits.total:
-            grade_list = [float(grade) for grade in grade_list]
-            grade_overview['mean'] = round(sum(grade_list) / hits.total, 4)
-            grade_overview['variance'] = round(var(grade_list), 4)
-        #self.memcache.set(hash_key, grade_overview, 60*60)
+            grade_overview = {'mean': 0, 'variance': 0}
+            if hits.total:
+                grade_list = [float(grade) for grade in grade_list]
+                grade_overview['mean'] = round(sum(grade_list) / hits.total, 4)
+                grade_overview['variance'] = round(var(grade_list), 4)
+            self.set_memcache_data(hash_key, grade_overview)
 
         self.success_response({'data': grade_overview})
 
@@ -93,10 +92,12 @@ class DetailCourseStudyRatio(BaseHandler):
     课程学习比例的均值和方差
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.1关键指标
     """
+
     def get(self):
         key = 'course_study_%s_%s' %(self.course_id, self.group_key)
-        hash_key = hashlib.md5(key).hexdigest()
-        video_overview = self.memcache.get(hash_key)
+        #hash_key = hashlib.md5(key).hexdigest()
+        #video_overview = self.memcache.get(hash_key)
+        hash_key, video_overview = self.get_memcache_data(key)
         if not video_overview:
             query = self.es_query(index='tap', doc_type='video_course') \
                         .filter('term', course_id=self.course_id)
@@ -118,7 +119,8 @@ class DetailCourseStudyRatio(BaseHandler):
             if video_user_count:
                 video_overview['mean'] = round(sum(video_user_ratio_list) / video_user_count, 4)
                 video_overview['variance'] = round(var(video_user_ratio_list), 4)
-            self.memcache.set(hash_key, video_overview, 60*60)
+            #self.memcache.set(hash_key, video_overview, 60*60)
+            self.set_memcache_data(hash_key, video_overview)
 
         self.success_response({'data': video_overview})
 
@@ -132,8 +134,9 @@ class DetailCourseDiscussion(BaseHandler):
     """
     def get(self):
         key = 'discussion_%s_%s' %(self.course_id, self.group_key)
-        hash_key = hashlib.md5(key).hexdigest()
-        result = self.memcache.get(hash_key)
+        #hash_key = hashlib.md5(key).hexdigest()
+        #result = self.memcache.get(hash_key)
+        hash_key, result = self.get_memcache_data(key)
         if not result:
             query = self.es_query(index='tap2.0', doc_type='discussion_aggs') \
                     .filter('term', course_id=self.course_id) \
@@ -151,7 +154,9 @@ class DetailCourseDiscussion(BaseHandler):
             result['post_mean'] = round(response.aggregations.post_mean.value or 0 , 4)
             result['comment_mean'] = round(response.aggregations.comment_mean.value or 0, 4)
             result['total_mean'] = round(float(result['total']) / response.hits.total, 4) if response.hits.total else 0
-            self.memcache.set(hash_key, result, 60*60)
+            #self.memcache.set(hash_key, result, 60*60)
+            self.set_memcache_data(hash_key, result)
+
         self.success_response({'data': result})
 
 

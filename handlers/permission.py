@@ -73,3 +73,21 @@ class TeacherPermission(BaseHandler):
         course_result['load_more'] = load_more
         
         self.success_response({'powers': course_result})
+
+
+@route('/permission/course_permission')
+class CoursePermission(BaseHandler):
+    """
+    教师是否有某门课的权限
+    """
+    def get(self):
+        query = self.es_query(index='tap', doc_type='teacher_power')\
+                .filter('term', user_id=str(self.user_id)) \
+                .filter('term', course_id=self.course_id) \
+                .filter('term', group_key=self.group_key)
+
+        results = self.es_execute(query)
+
+        if results.hits:
+            self.success_response({'has_permission': True})
+        self.success_response({'has_permission': False})

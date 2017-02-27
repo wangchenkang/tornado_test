@@ -10,6 +10,7 @@ from utils.tools import fix_course_id
 import settings
 
 class BaseHandler(RequestHandler):
+
     def write_error(self, status_code, **kwargs):
         error_msg = '{}:{}'.format(status_code, self._reason)
         self.set_status(200)
@@ -23,22 +24,18 @@ class BaseHandler(RequestHandler):
     def memcache(self):
         return self.application.memcache
 
-    def get_memcache_hash_key(self, key):
+    def get_hash_key(self, key):
         hash_key = hashlib.md5(key).hexdigest()
         return hash_key
 
     def get_memcache_data(self, key):
-        hash_key = self.get_memcache_hash_key(key)
+        hash_key = self.get_hash_key(key)
         result = self.memcache.get(hash_key)
-        if not result :
-            return False, ''
-        return True, result
+        return hash_key, result
 
-    def set_memcache_data(self, key, result):
-        hash_key = self.get_memcache_hash_key(key)
+    def set_memcache_data(self, hash_key, result):
         self.memcache.set(hash_key, result, 60*60)
         return True
-
 
     def write_json(self, data):
         self.set_header("Content-Type", "application/json; charset=utf-8")
@@ -222,7 +219,7 @@ class BaseHandler(RequestHandler):
             query = query.filter('term', course_id=self.course_id)
 
         size = self.es_execute(query[:0]).hits.total
-        size = 10000
+        size = 100000
         hits = self.es_execute(query[:size]).hits
         # print len(hits), hits
         # users = [hit.user_id[0] for hit in hits]
@@ -249,7 +246,7 @@ class BaseHandler(RequestHandler):
                 .filter("term", course_id=self.course_id)\
                 .filter("term", group_key=self.group_key) \
                 .filter("terms", user_id=users)
-        query.aggs.bucket("p", "terms", field="user_id", size=10000)
+        query.aggs.bucket("p", "terms", field="user_id", size=100000)
         results = self.es_execute(query[:0])
         aggs = results.aggregations["p"]["buckets"]
         users = [item["key"] for item in aggs]
@@ -262,7 +259,7 @@ class BaseHandler(RequestHandler):
                 .filter("term", course_id=self.course_id)\
                 .filter("term", group_key=self.group_key) \
                 .filter("terms", user_id=users)
-        query.aggs.bucket("p", "terms", field="user_id", size=10000)
+        query.aggs.bucket("p", "terms", field="user_id", size=100000)
         results = self.es_execute(query[:0])
         aggs = results.aggregations["p"]["buckets"]
         return [item["key"] for item in aggs]
@@ -288,7 +285,7 @@ class BaseHandler(RequestHandler):
             user_id = item.user_id
             # 改成判断group_key
             name = []
-            if owner == "xuetangX" and group_key == settings.MOOC_GROUP_KEY:
+            if owner.lower() == "xuetangx" and group_key == settings.MOOC_GROUP_KEY:
                 nickname = item.nickname
                 rname = "--"
                 name.append(nickname)
