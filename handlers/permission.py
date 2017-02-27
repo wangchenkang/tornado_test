@@ -16,12 +16,13 @@ class TeacherPermission(BaseHandler):
     教师权限接口
     """
     def get(self):
-        #获取page,size,因为tap层已经有默认值，所以此处不必再设默认值
+
+        #获取page,size,status因为tap层已经有默认值，所以此处不必再设默认值
         page = int(self.get_argument("page"))
         size = int(self.get_argument("size"))
-        
-        now = datetime.datetime.utcnow()
         status = self.get_argument("status")
+
+        now = datetime.datetime.utcnow()
         
         query = self.es_query(index='tap', doc_type='teacher_power')\
                 .filter('term', user_id=str(self.user_id)).sort("-start")
@@ -47,19 +48,20 @@ class TeacherPermission(BaseHandler):
         else:
             load_more = 1
 
-        result_size = self.es_execute(query[:0]).hits.total
-        query_results = self.es_execute(query[:result_size])
-        query_results = query_results.hits
+        results = self.es_execute(query[:total])
+        results = results.hits
         
+        #得到课程ID列表和每个课程对应group_key list
         powers_dict  = {}
         course_ids = []
-        for query_result in query_results:
-            if query_result.course_id not in powers_dict:
-                course_ids.append(query_result.course_id)
-                powers_dict[query_result.course_id] = []
-            power = query_result.group_key
-            powers_dict[query_result.course_id].append(power)
+        for result in results:
+            if result.course_id not in powers_dict:
+                course_ids.append(result.course_id)
+                powers_dict[result.course_id] = []
+            power = result.group_key
+            powers_dict[result.course_id].append(power)
         
+        #获取指定数量的课程id dict
         powers = {}
         for course_id in course_ids[(page-1)*size:page*size]:
             powers[course_id]=powers_dict[course_id]

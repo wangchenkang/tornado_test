@@ -1,5 +1,7 @@
 #! -*- coding: utf-8 -*-
 
+import hashlib
+import memcache
 from utils.routes import route
 from utils.tools import var
 from utils.log import Log
@@ -16,23 +18,26 @@ class DetailCourseGradeRatio(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.2关键指标
     """
     def get(self):
-        users = self.get_users()
+        #key = 'grade_%s_%s' %(self.course_id, self.group_key)
+        #hash_key = hashlib.md5(key).hexdigest()
+        #grade_overview = self.memcache.get(hash_key)
+        #if not grade_overview:
         query = self.es_query(index='tap2.0', doc_type='problem_course') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', group_key=self.group_key) \
-                .filter('range', grade_ratio={'gt': 0}) \
-                .filter('terms', user_id=users)
+                .filter('range', grade_ratio={'gt': 0})
         result = self.es_execute(query)
         result = self.es_execute(query[:result.hits.total])
         hits = result.hits
-
+    
         grade_list = [hit.grade_ratio for hit in hits]
-
+    
         grade_overview = {'mean': 0, 'variance': 0}
         if hits.total:
             grade_list = [float(grade) for grade in grade_list]
             grade_overview['mean'] = round(sum(grade_list) / hits.total, 4)
             grade_overview['variance'] = round(var(grade_list), 4)
+        #self.memcache.set(hash_key, grade_overview, 60*60)
 
         self.success_response({'data': grade_overview})
 
@@ -57,7 +62,6 @@ class DetailCourseGradeRatioDetail(BaseHandler):
         result = {}
         for hit in response.hits:
             result[hit.user_id] = hit.final_grade
-
         self.success_response({'data': result})
 
 
@@ -90,26 +94,31 @@ class DetailCourseStudyRatio(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.1关键指标
     """
     def get(self):
-        query = self.es_query(index='tap', doc_type='video_course') \
-                    .filter('term', course_id=self.course_id)
-        video_users = self.get_video_users()
-        query = query.filter('terms', user_id=video_users)
+        key = 'course_study_%s_%s' %(self.course_id, self.group_key)
+        hash_key = hashlib.md5(key).hexdigest()
+        video_overview = self.memcache.get(hash_key)
+        if not video_overview:
+            query = self.es_query(index='tap', doc_type='video_course') \
+                        .filter('term', course_id=self.course_id)
+            video_users = self.get_video_users()
+            query = query.filter('terms', user_id=video_users)
 
-        result = self.es_execute(query)
-        result = self.es_execute(query[:result.hits.total])
-        hits = result.hits
+            result = self.es_execute(query)
+            result = self.es_execute(query[:result.hits.total])
+            hits = result.hits
 
-        video_user_count = 0
-        video_user_ratio_list = []
-        for hit in hits:
-            if float(hit.study_rate) <= 0:
-                continue
-            video_user_count += 1
-            video_user_ratio_list.append(float(hit.study_rate))
-        video_overview = {'mean': 0, 'variance': 0}
-        if video_user_count:
-            video_overview['mean'] = round(sum(video_user_ratio_list) / video_user_count, 4)
-            video_overview['variance'] = round(var(video_user_ratio_list), 4)
+            video_user_count = 0
+            video_user_ratio_list = []
+            for hit in hits:
+                if float(hit.study_rate) <= 0:
+                    continue
+                video_user_count += 1
+                video_user_ratio_list.append(float(hit.study_rate))
+            video_overview = {'mean': 0, 'variance': 0}
+            if video_user_count:
+                video_overview['mean'] = round(sum(video_user_ratio_list) / video_user_count, 4)
+                video_overview['variance'] = round(var(video_user_ratio_list), 4)
+            self.memcache.set(hash_key, video_overview, 60*60)
 
         self.success_response({'data': video_overview})
 
@@ -122,25 +131,27 @@ class DetailCourseDiscussion(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.3关键指标
     """
     def get(self):
-        users = self.get_users()
-        query = self.es_query(index='tap2.0', doc_type='discussion_aggs') \
-                .filter('term', course_id=self.course_id) \
-                .filter("term", group_key=self.group_key) \
-                .filter('terms', user_id=users)
-        query.aggs.metric('post_total', 'sum', field='post_num') \
-                .aggs.metric('comment_total', 'sum', field='reply_num') \
-                .aggs.metric('post_mean', 'avg', field='post_num') \
-                .aggs.metric('comment_mean', 'avg', field='reply_num')
+        key = 'discussion_%s_%s' %(self.course_id, self.group_key)
+        hash_key = hashlib.md5(key).hexdigest()
+        result = self.memcache.get(hash_key)
+        if not result:
+            query = self.es_query(index='tap2.0', doc_type='discussion_aggs') \
+                    .filter('term', course_id=self.course_id) \
+                    .filter("term", group_key=self.group_key)
+            query.aggs.metric('post_total', 'sum', field='post_num') \
+                    .aggs.metric('comment_total', 'sum', field='reply_num') \
+                    .aggs.metric('post_mean', 'avg', field='post_num') \
+                    .aggs.metric('comment_mean', 'avg', field='reply_num')
 
-        response = self.es_execute(query)
-        result = {}
-        result['post_total'] = response.aggregations.post_total.value or 0
-        result['comment_total'] = response.aggregations.comment_total.value or 0
-        result['total'] = result['post_total'] + result['comment_total']
-        result['post_mean'] = round(response.aggregations.post_mean.value or 0 , 4)
-        result['comment_mean'] = round(response.aggregations.comment_mean.value or 0, 4)
-        result['total_mean'] = round(float(result['total']) / response.hits.total, 4) if response.hits.total else 0
-
+            response = self.es_execute(query)
+            result = {}
+            result['post_total'] = response.aggregations.post_total.value or 0
+            result['comment_total'] = response.aggregations.comment_total.value or 0
+            result['total'] = result['post_total'] + result['comment_total']
+            result['post_mean'] = round(response.aggregations.post_mean.value or 0 , 4)
+            result['comment_mean'] = round(response.aggregations.comment_mean.value or 0, 4)
+            result['total_mean'] = round(float(result['total']) / response.hits.total, 4) if response.hits.total else 0
+            self.memcache.set(hash_key, result, 60*60)
         self.success_response({'data': result})
 
 
@@ -151,10 +162,9 @@ class DetailHomeworkGrade(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.2关键指标 图
     """
     def get(self):
-        users = self.get_users()
         query = self.es_query(index='tap2.0', doc_type='exam_seq_grade') \
             .filter('term', course_id=self.course_id) \
-            .filter('terms', user_id=users)
+            .filter('term', group_key=self.group_key)
 
         response = self.es_execute(query[:0])
         response = self.es_execute(query[:response.hits.total])
@@ -186,11 +196,9 @@ class DetailStudentDiscussion(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.1图
     """
     def get(self):
-        users = self.get_users()
         query = self.es_query(index='tap2.0', doc_type='discussion_aggs') \
                 .filter('term', course_id=self.course_id) \
-                .filter("term", group_key=self.group_key) \
-                .filter('terms', user_id=users)
+                .filter("term", group_key=self.group_key)
         
         response = self.es_execute(query[:0])
         response = self.es_execute(query[:response.hits.total])
@@ -200,7 +208,7 @@ class DetailStudentDiscussion(BaseHandler):
             result[item.user_id]['post_num'] = item.post_num or 0
             result[item.user_id]['reply_num'] = item.reply_num or 0
             result[item.user_id]['total_num'] = result[item.user_id]['post_num'] + result[item.user_id]['reply_num']
-
+        
         self.success_response({'data': result})
 
 
@@ -211,11 +219,9 @@ class DetailStudentDiscussionStat(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.3图
     """
     def get(self):
-        users = self.get_users()
         query = self.es_query(index='tap2.0', doc_type='discussion_aggs') \
                 .filter('term', course_id=self.course_id) \
-                .filter("term", group_key=self.group_key) \
-                .filter('terms', user_id=users)
+                .filter("term", group_key=self.group_key)
 
         response = self.es_execute(query[:0])
         response = self.es_execute(query[:response.hits.total])

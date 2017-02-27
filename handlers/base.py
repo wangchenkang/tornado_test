@@ -23,6 +23,23 @@ class BaseHandler(RequestHandler):
     def memcache(self):
         return self.application.memcache
 
+    def get_memcache_hash_key(self, key):
+        hash_key = hashlib.md5(key).hexdigest()
+        return hash_key
+
+    def get_memcache_data(self, key):
+        hash_key = self.get_memcache_hash_key(key)
+        result = self.memcache.get(hash_key)
+        if not result :
+            return False, ''
+        return True, result
+
+    def set_memcache_data(self, key, result):
+        hash_key = self.get_memcache_hash_key(key)
+        self.memcache.set(hash_key, result, 60*60)
+        return True
+
+
     def write_json(self, data):
         self.set_header("Content-Type", "application/json; charset=utf-8")
         if options.debug:
