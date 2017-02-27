@@ -19,7 +19,7 @@ class DetailCourseGradeRatio(BaseHandler):
     """
     def get(self):
         key = 'grade_%s_%s' %(self.course_id, self.group_key)
-        hash_key, grade_overview = self.get_memcache_data(hash_key)
+        hash_key, grade_overview = self.get_memcache_data(key)
         if not grade_overview:
             query = self.es_query(index='tap2.0', doc_type='problem_course') \
                     .filter('term', course_id=self.course_id) \
