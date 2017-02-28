@@ -91,3 +91,17 @@ class CoursePermission(BaseHandler):
         if results.hits:
             self.success_response({'has_permission': True})
         self.success_response({'has_permission': False})
+
+@route('/permission/group_key')
+class GroupKey(BaseHandler):
+    """
+    教师某门课的group_key    
+    """
+    def get(self):
+        query = self.es_query(index='tap', doc_type='teacher_power')\
+                    .filter('term', user_id=str(self.user_id))\
+                    .filter('term', course_id=self.course_id)
+
+        results = self.es_execute(query)
+        data = [result.to_dict() for result in results.hits]
+        self.success_response({'data': data[0]})
