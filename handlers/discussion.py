@@ -16,7 +16,7 @@ class CourseDiscussion(BaseHandler):
     """
     def get(self):
         users = self.get_users()
-        query = self.es_query(index='tap2.0', doc_type='discussion_aggs') \
+        query = self.es_query(doc_type='discussion_aggs') \
                 .filter("term", group_key=self.group_key) \
                 .filter('terms', user_id=users)\
                 .filter('term', course_id=self.course_id)[:0]
@@ -65,7 +65,7 @@ class CourseDailyStat(BaseHandler):
         end = date_from_query(end)
         days = (end - start).days + 1
         users = self.get_users()
-        query = self.es_query(index='tap2.0', doc_type='discussion_daily') \
+        query = self.es_query(doc_type='discussion_daily') \
                 .filter('term', course_id=self.course_id) \
                 .filter("term", group_key=self.group_key) \
                 .filter('terms', user_id=users)\
@@ -105,7 +105,7 @@ class ChapterDiscussion(BaseHandler):
     def get(self):
         chapter_id = self.get_argument('chapter_id')
         users = self.get_users()
-        query = self.es_query(index='tap2.0', doc_type='study_discussion') \
+        query = self.es_query(doc_type='study_discussion') \
                 .filter('term', course_id=self.course_id) \
                 .filter("term", group_key=self.group_key) \
                 .filter('term', chapter_id=chapter_id) \
@@ -135,7 +135,7 @@ class ChapterStudentDiscussion(BaseHandler):
         uid = self.get_param('user_id')
         students = [u.strip() for u in uid.split(',') if u.strip()]
 
-        query = self.es_query(index='tap2.0', doc_type='study_discussion') \
+        query = self.es_query(doc_type='study_discussion') \
                 .filter('term', course_id=self.course_id) \
                 .filter("term", group_key=self.group_key) \
                 .filter('term', chapter_id=chapter_id) \
@@ -176,7 +176,7 @@ class CoursePostsNoCommentDaily(BaseHandler):
         end = date_from_query(end)
         size = (end - start).days + 1
         users = self.get_users()
-        query = self.es_query(index='tap2.0', doc_type='discussion_daily') \
+        query = self.es_query(doc_type='discussion_daily') \
                 .filter('term', course_id=self.course_id) \
                 .filter("term", group_key=self.group_key) \
                 .filter('terms', user_id=users)\
@@ -211,7 +211,7 @@ class CoursePostsNoComment(BaseHandler):
     """
     def get(self):
         users = self.get_users()
-        query = self.es_query(index='tap2.0', doc_type='discussion_aggs') \
+        query = self.es_query(doc_type='discussion_aggs') \
                 .filter('term', course_id=self.course_id) \
                 .filter("term", group_key=self.group_key) \
                 .filter('terms', user_id=users) \
@@ -242,7 +242,7 @@ class StudentPostTopStat(BaseHandler):
         order = self.get_argument('order', 'post')
         order_field = 'comments_total' if order == 'comment' else 'posts_total'
 
-        query = self.es_query(index='tap2.0', doc_type='discussion_aggs') \
+        query = self.es_query(doc_type='discussion_aggs') \
                 .filter('term', group_key=self.group_key)\
                 .filter('term', course_id=self.course_id)[:0]
         query.aggs.bucket('students', 'terms', field='user_id', size=top, order={order_field: 'desc'}) \
@@ -266,7 +266,7 @@ class StudentPostTopStat(BaseHandler):
                 "user_name": user_name
             }
 
-        query = self.es_query(index='tap2.0', doc_type='discussion_daily') \
+        query = self.es_query(doc_type='discussion_daily') \
                 .filter('term', course_id=self.course_id) \
                 .filter("term", group_key=self.group_key) \
                 .filter('terms', user_id=students.keys())
@@ -293,7 +293,7 @@ class StudentDetail(BaseHandler):
     获取所有参与讨论学生统计
     """
     def get(self):
-        query = self.es_query(index='tap2.0', doc_type='discussion_aggs') \
+        query = self.es_query(doc_type='discussion_aggs') \
                 .filter('term', course_id=self.course_id) \
                 .filter("term", group_key=self.group_key) \
                 .query(Q('range', **{'post_num': {'gt': 0}}) | Q('range', **{'reply_num': {'gt': 0}}))
@@ -327,7 +327,7 @@ class StudentDetail(BaseHandler):
 class StudentRelation(BaseHandler):
     def get(self):
 
-        query = self.es_query(index='tap2.0', doc_type='discussion_relation') \
+        query = self.es_query(doc_type='discussion_relation') \
                 .filter('term', course_id=self.course_id)
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total])
@@ -347,12 +347,12 @@ class StudentRelation(BaseHandler):
 class CourseRankStat(BaseHandler):
     def get(self):
         # 获得所有相同group_key的课程
-        query = self.es_query(index='tap2.0', doc_type='course_community') \
+        query = self.es_query(doc_type='course_community') \
             .filter('term', course_id=self.course_id) \
             .filter('term', group_key=self.group_key)
         current_course = self.es_execute(query).hits[0]
 
-        query = self.es_query(index='tap2.0', doc_type='course_community') \
+        query = self.es_query(doc_type='course_community') \
             .filter('range', status={'gte': 0}) \
             .filter('term', group_key=self.group_key)
         courses = self.es_execute(query).hits
@@ -362,7 +362,7 @@ class CourseRankStat(BaseHandler):
         course_ids = [course.course_id for course in courses]
 
         # 获得这些课程的帖子数据
-        query = self.es_query(index='tap2.0', doc_type='discussion_aggs') \
+        query = self.es_query(doc_type='discussion_aggs') \
             .filter('terms', course_id=course_ids) \
             .filter('term', group_key=self.group_key)
         query.aggs.bucket('course_id', 'terms', field='course_id', size=100000) \
@@ -432,7 +432,7 @@ class CourseDiscussionStat(BaseHandler):
 
     def get(self):
         result = {}
-        query = self.es_query(index='tap2.0', doc_type='study_comment_problem') \
+        query = self.es_query(doc_type='study_comment_problem') \
                 .filter('term', course_id=self.course_id) \
                 .filter("term", group_key=self.group_key) \
                 .filter('term', chapter_id=self.chapter_id) \
@@ -474,7 +474,7 @@ class CourseChapterDiscussionDetail(BaseHandler):
 
     def get(self):
         users = self.get_users()
-        query = self.es_query(index='tap2.0', doc_type='study_discussion') \
+        query = self.es_query(doc_type='study_discussion') \
                 .filter('term', course_id=self.course_id) \
                 .filter("term", group_key=self.group_key) \
                 .filter('terms', user_id=users)\
@@ -508,7 +508,7 @@ class CourseAssistantActivity(BaseHandler):
         start = self.get_argument('start', default_date)
         end = self.get_argument('end', default_date)
 
-        query = self.es_query(index='tap2.0', doc_type='ta_result') \
+        query = self.es_query(doc_type='ta_result') \
                 .filter('term', course_id=self.course_id) \
                 .filter('range', **{'date': {'gte': start, 'lte': end}})
 

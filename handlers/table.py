@@ -24,7 +24,7 @@ class TableHandler(BaseHandler):
         
         
         #查询改课程的owner
-        query_owner = self.es_query(index='tap2.0', doc_type='course_community')\
+        query_owner = self.es_query(doc_type='course_community')\
                             .filter('term', course_id=course_id)
         owner = self.es_execute(query_owner[:1]).hits[0].owner
 

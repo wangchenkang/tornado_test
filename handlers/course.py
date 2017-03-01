@@ -18,7 +18,7 @@ class CourseActivity(BaseHandler):
         course_enrolls = self.get_enroll(group_key=self.group_key)
         courses = course_enrolls.keys()
         # 查询该group的所有课程活跃数据
-        query = self.es_query(index='tap2.0', doc_type = 'course_active_num') \
+        query = self.es_query(doc_type = 'course_active_num') \
             .filter('term', time_d=date) \
             .filter('terms', course_id=courses) \
             .filter('term', group_key=self.group_key)
@@ -84,7 +84,7 @@ class CourseGradeDistribution(BaseHandler):
     课程成绩分布统计
     """
     def get(self):
-        query = self.es_query(index="tap2.0", doc_type="course_grade_distribution")
+        query = self.es_query(doc_type="course_grade_distribution")
         query = query.filter("term", course_id=self.course_id).sort("-date") \
                      .filter("term", group_key=self.group_key)[:1]
         result = self.es_execute(query)
@@ -147,7 +147,7 @@ class CourseEnrollments(BaseHandler):
     """
     def get(self):
         is_active = self.get_argument("is_active", "")
-        query = self.search(index="tap2.0", doc_type="student_courseenrollment")
+        query = self.search(doc_type="student_courseenrollment")
         if is_active == "true":
             query = query.filter("term", is_active=True)
         elif is_active == "false":
@@ -173,7 +173,7 @@ class CourseEnrollmentsDate(BaseHandler):
         start = self.get_param("start")
         end = self.get_param("end")
         
-        query = self.es_query(index="tap2.0", doc_type="student_courseenrollment")
+        query = self.es_query(doc_type="student_courseenrollment")
         query = query.filter("range", **{'event_time': {'lte': end, 'gte': start}}) \
                     .filter('term', group_key=self.group_key) \
                     .filter("term", course_id=self.course_id)[:0]
@@ -210,7 +210,7 @@ class CourseEnrollmentsDate(BaseHandler):
                 }
             item = datedelta(item, 1)
         # 取end的数据
-        query = self.es_query(index="tap2.0", doc_type="student_courseenrollment")
+        query = self.es_query(doc_type="student_courseenrollment")
         query = query.filter("range", **{'event_time': {'lt': start}})
         query = query.filter('term', group_key=self.group_key)
         query = query.filter("term", course_id=self.course_id)
@@ -308,7 +308,7 @@ class CourseActive(BaseHandler):
         end = self.get_param("end")
         start = self.get_param("start")
 
-        query = self.es_query(index="tap2.0", doc_type="course_active_num") \
+        query = self.es_query(doc_type="course_active_num") \
                 .filter("range", **{'time_d': {'lte': end, 'gte': start}}) \
                 .filter("term", course_id=self.course_id)
         if self.group_key:
@@ -346,7 +346,7 @@ class CourseDistribution(BaseHandler):
     获取用户省份统计
     """
     def get(self):
-        query = self.es_query(index="tap2.0", doc_type="course_student_location")
+        query = self.es_query(doc_type="course_student_location")
         if self.group_key:
             query = query.filter("term", group_key=self.group_key)
         top = int(self.get_argument("top", 10))
@@ -372,7 +372,7 @@ class CourseVideoWatch(BaseHandler):
         start = self.get_param("start")
         end = self.get_param("end")
         group_key = self.group_key
-        query = self.es_query(index="tap2.0", doc_type="course_video_learning")
+        query = self.es_query(doc_type="course_video_learning")
         query = query.filter("term", course_id=self.course_id)
         if group_key:
             query = query.filter("term", group_key=group_key)
@@ -423,7 +423,7 @@ class CourseTsinghuaStudent(BaseHandler):
     课程绑定清华账号学生数
     """
     def get(self):
-        query = self.es_query(index='tap2.0', doc_type='course_student_location') \
+        query = self.es_query(doc_type='course_student_location') \
                 .filter('term', courses=self.course_id) \
                 .filter('term', binding_org='tsinghua')[:0]
         if self.group_key:
@@ -438,7 +438,7 @@ class CourseDetail(BaseHandler):
     """
     def get(self):
         course_ids = self.course_id.split(",")
-        query = self.es_query(index='tap2.0', doc_type='course_community')\
+        query = self.es_query(doc_type='course_community')\
                             .filter('terms', course_id=course_ids)\
                             .filter('term', group_key=self.group_key)
         size = self.es_execute(query[:0]).hits.total

@@ -15,7 +15,7 @@ class StudentOrg(BaseHandler):
     def get(self):
         org = self.get_param('org')
 
-        query = self.es_query(index='tap2.0', doc_type='course_student_location') \
+        query = self.es_query(doc_type='course_student_location') \
                 .filter('term', courses=self.course_id) \
                 .filter('term', binding_org=org)
         data = self.es_execute(query[:0])
@@ -64,7 +64,7 @@ class StudentCourseGrade(BaseHandler):
         course_id = self.course_id
         user_id = self.get_argument('user_id', None)
 
-        query = self.es_query(index='tap2.0', doc_type='course_grade') \
+        query = self.es_query(doc_type='course_grade') \
                 .filter('term', course_id=course_id)
 
         if user_id:
@@ -167,7 +167,7 @@ class StudentInformation(BaseHandler):
     def get(self):
         user_id = self.get_param('user_id')
 
-        user_sum_query = self.es_query(index='tap2.0', doc_type='user_sum') \
+        user_sum_query = self.es_query(doc_type='user_sum') \
                 .filter('term', user_id=user_id)[:0]
         user_sum_query.aggs.metric('post_total', 'sum', field='post_number')
         user_sum_query.aggs.metric('comment_total', 'sum', field='comment_number')
@@ -177,7 +177,7 @@ class StudentInformation(BaseHandler):
         post_total = int(data.aggregations.post_total.value)
         comment_total = int(data.aggregations.comment_total.value)
 
-        enrollment_query = self.es_query(index='tap2.0', doc_type='student_courseenrollment') \
+        enrollment_query = self.es_query(doc_type='student_courseenrollment') \
                 .filter('term', uid=user_id).filter('term', is_active=True)[:10000]
         enrollment_data = self.es_execute(enrollment_query)
 
@@ -238,7 +238,7 @@ class StudentCourses(BaseHandler):
     def get(self):
         user_id = self.get_param('user_id')
 
-        user_sum_query = self.es_query(index='tap2.0', doc_type='user_sum') \
+        user_sum_query = self.es_query(doc_type='user_sum') \
                 .filter('term', user_id=user_id)[:0]
         user_sum_query.aggs.bucket('course', 'terms', field='course_id') \
                 .metric('post_total', 'sum', field='post_number') \
@@ -246,7 +246,7 @@ class StudentCourses(BaseHandler):
 
         data = self.es_execute(user_sum_query)
 
-        enrollment_query = self.es_query(index='tap2.0', doc_type='student_courseenrollment') \
+        enrollment_query = self.es_query(doc_type='student_courseenrollment') \
                 .filter('term', uid=user_id).filter('term', is_active=True)[:10000]
         enrollment_data = self.es_execute(enrollment_query)
         video_rate_query = self.es_query(index='rollup', doc_type='course_video_rate') \
@@ -353,10 +353,10 @@ class UserAverage(BaseHandler):
 
         staff_avg_comments_num = staff_comments_num / staff_data.hits.total
 
-        enrollments_query = self.es_query(index='tap2.0', doc_type='student_courseenrollment') \
+        enrollments_query = self.es_query(doc_type='student_courseenrollment') \
                 .filter('term', is_active=True)[:0]
         enrollments_data = self.es_execute(enrollments_query)
-        students_query = self.es_query(index='tap2.0',doc_type='course_student_location') \
+        students_query = self.es_query(doc_type='course_student_location') \
                 .filter('exists', field='courses')[:0]
         students_data = self.es_execute(students_query)
 

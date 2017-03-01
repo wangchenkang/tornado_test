@@ -21,7 +21,7 @@ class DetailCourseGradeRatio(BaseHandler):
         key = 'grade_%s_%s' %(self.course_id, self.group_key)
         hash_key, grade_overview = self.get_memcache_data(key)
         if not grade_overview:
-            query = self.es_query(index='tap2.0', doc_type='problem_course') \
+            query = self.es_query(doc_type='problem_course') \
                     .filter('term', course_id=self.course_id) \
                     .filter('term', group_key=self.group_key) \
                     .filter('range', grade_ratio={'gt': 0})
@@ -49,7 +49,7 @@ class DetailCourseGradeRatioDetail(BaseHandler):
     """
     def get(self):
         problem_users = self.get_problem_users()
-        query = self.es_query(index='tap2.0', doc_type='problem_course') \
+        query = self.es_query(doc_type='problem_course') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', group_key=self.group_key) \
                 .filter('terms', user_id=problem_users) \
@@ -72,7 +72,7 @@ class DetailCourseStudyRatioDetail(BaseHandler):
     """
     def get(self):
         users = self.get_video_users()
-        query = self.es_query(index='tap2.0', doc_type='video_course') \
+        query = self.es_query(doc_type='video_course') \
             .filter('term', course_id=self.course_id) \
             .filter('terms', user_id=users)
 
@@ -99,7 +99,7 @@ class DetailCourseStudyRatio(BaseHandler):
         #video_overview = self.memcache.get(hash_key)
         hash_key, video_overview = self.get_memcache_data(key)
         if not video_overview:
-            query = self.es_query(index='tap2.0', doc_type='video_course') \
+            query = self.es_query(doc_type='video_course') \
                         .filter('term', course_id=self.course_id)
             video_users = self.get_video_users()
             query = query.filter('terms', user_id=video_users)
@@ -138,7 +138,7 @@ class DetailCourseDiscussion(BaseHandler):
         #result = self.memcache.get(hash_key)
         hash_key, result = self.get_memcache_data(key)
         if not result:
-            query = self.es_query(index='tap2.0', doc_type='discussion_aggs') \
+            query = self.es_query(doc_type='discussion_aggs') \
                     .filter('term', course_id=self.course_id) \
                     .filter("term", group_key=self.group_key)
             query.aggs.metric('post_total', 'sum', field='post_num') \
@@ -167,7 +167,7 @@ class DetailHomeworkGrade(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.2关键指标 图
     """
     def get(self):
-        query = self.es_query(index='tap2.0', doc_type='exam_seq_grade') \
+        query = self.es_query(doc_type='exam_seq_grade') \
             .filter('term', course_id=self.course_id) \
             .filter('term', group_key=self.group_key)
 
@@ -201,7 +201,7 @@ class DetailStudentDiscussion(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.1图
     """
     def get(self):
-        query = self.es_query(index='tap2.0', doc_type='discussion_aggs') \
+        query = self.es_query(doc_type='discussion_aggs') \
                 .filter('term', course_id=self.course_id) \
                 .filter("term", group_key=self.group_key)
         
@@ -224,7 +224,7 @@ class DetailStudentDiscussionStat(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.3图
     """
     def get(self):
-        query = self.es_query(index='tap2.0', doc_type='discussion_aggs') \
+        query = self.es_query(doc_type='discussion_aggs') \
                 .filter('term', course_id=self.course_id) \
                 .filter("term", group_key=self.group_key)
 
@@ -253,7 +253,7 @@ class DetailChapterStudyRatio(BaseHandler):
     """
     def get(self):
         users = self.get_users()
-        query = self.es_query(index='tap2.0', doc_type='video_chapter') \
+        query = self.es_query(doc_type='video_chapter') \
                 .filter('term', course_id=self.course_id) \
                 .filter('terms', user_id=users)
 
@@ -281,7 +281,7 @@ class DetailChapterStudyRatioDetail(BaseHandler):
     """
     def get(self):
         users = self.get_users()
-        query = self.es_query(index='tap2.0', doc_type='video_chapter') \
+        query = self.es_query(doc_type='video_chapter') \
                 .filter('term', course_id=self.course_id) \
                 .filter('terms', user_id=users)
         ranges = [{'from': i*0.1, 'to': i*0.1+0.1 } for i in range(0, 10)]

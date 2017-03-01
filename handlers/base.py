@@ -104,7 +104,7 @@ class BaseHandler(RequestHandler):
 
     @property
     def group_name(self):
-        query = self.es_query(index='tap2.0', doc_type='course_community') \
+        query = self.es_query(doc_type='course_community') \
             .filter('term', course_id=self.course_id) \
             .filter('term', group_key=self.group_key)
         result = self.es_execute(query)
@@ -147,7 +147,7 @@ class BaseHandler(RequestHandler):
 
     def es_query(self, **kwargs):
         if 'index' not in kwargs:
-            kwargs['index'] = 'tap'
+            kwargs['index'] = 'tap2.0'
         return Search(using=self.es, **kwargs)
 
     def es_execute(self, query):
@@ -161,7 +161,7 @@ class BaseHandler(RequestHandler):
         return response
 
     def get_enroll(self, group_key=None, course_id=None):
-        query = self.es_query(index='tap2.0', doc_type='student_enrollment_info') \
+        query = self.es_query(doc_type='student_enrollment_info') \
             .filter('term', is_active=1)
         if group_key:
             query = query.filter('term', group_key=group_key)
@@ -204,7 +204,7 @@ class BaseHandler(RequestHandler):
         #users = self.memcache.get(hashcode)
         #if users:
         #    return users
-        query = self.es_query(index='tap2.0', doc_type='student_enrollment_info')#\
+        query = self.es_query(doc_type='student_enrollment_info')#\
                 # .fields(fields="user_id")
         if self.group_key:
             query = query.filter('term', group_key=self.group_key)
@@ -228,7 +228,7 @@ class BaseHandler(RequestHandler):
         return users
     
     def get_owner(self):
-        query = self.es_query(index="tap2.0", doc_type="course_community")\
+        query = self.es_query(doc_type="course_community")\
                             .filter('term', course_id=self.course_id)\
                             .filter('term', group_key=self.group_key)
         hits = self.es_execute(query[:1]).hits
@@ -242,7 +242,7 @@ class BaseHandler(RequestHandler):
         #if users:
         #    return users
         users = self.get_users()
-        query = self.es_query(index='tap2.0', doc_type='study_problem')\
+        query = self.es_query(doc_type='study_problem')\
                 .filter("term", course_id=self.course_id)\
                 .filter("term", group_key=self.group_key) \
                 .filter("terms", user_id=users)
@@ -255,7 +255,7 @@ class BaseHandler(RequestHandler):
 
     def get_video_users(self):
         users = self.get_users()
-        query = self.es_query(index='tap2.0', doc_type='study_video')\
+        query = self.es_query(doc_type='study_video')\
                 .filter("term", course_id=self.course_id)\
                 .filter("term", group_key=self.group_key) \
                 .filter("terms", user_id=users)
@@ -271,7 +271,7 @@ class BaseHandler(RequestHandler):
     def get_user_name(self, users=None, group_key=None, owner="xuetangX"):
         if not users:
             users = self.get_users()
-        query = self.es_query(index='tap2.0', doc_type='student_enrollment_info')\
+        query = self.es_query(doc_type='student_enrollment_info')\
                 .filter("term", course_id=self.course_id)\
                 .filter("terms", user_id=users)\
                 .source(fields=["rname", "nickname", "user_id"])
@@ -301,7 +301,7 @@ class BaseHandler(RequestHandler):
     def get_grade(self, users=None):
         if not users:
             users = self.get_users()
-        query = self.es_query(index='tap2.0', doc_type='problem_course')\
+        query = self.es_query(doc_type='problem_course')\
                 .filter("term", course_id=self.course_id)\
                 .filter("term", group_key=self.group_key) \
                 .filter("terms", user_id=users)

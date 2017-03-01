@@ -142,7 +142,7 @@ class DataWeeklyReport(BaseHandler):
         num = int(self.get_argument('psize', 10))
         data_type = "weekly_report"
 
-        query = self.es_query(index='dataimport', doc_type='org_data')\
+        query = self.es_query(doc_type='org_data')\
                 .filter('term', data_type=data_type)
         if org:
             query = query.filter('term', binding_org=org)
@@ -208,7 +208,7 @@ class DataDownload(BaseHandler):
             file_format = 'xlsx'
 
         try:
-            record = self.es.get(index='dataimport', doc_type='course_data', id=data_id)
+            record = self.es.get(doc_type='course_data', id=data_id)
         except NotFoundError:
             raise HTTPError(404)
 

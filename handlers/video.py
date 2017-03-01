@@ -11,7 +11,7 @@ class ChapterVideo(BaseHandler):
         course_id = self.course_id
         chapter_id = self.chapter_id
 
-        query = self.es_query(index='tap2.0', doc_type='study_video_rollup') \
+        query = self.es_query(doc_type='study_video_rollup') \
                 .filter('term', course_id=course_id) \
                 .filter('term', chapter_id=chapter_id) \
                 .filter('term', video_id='-1')
@@ -41,7 +41,7 @@ class ChapterStudentVideo(BaseHandler):
         chapter_id = self.chapter_id
         uid = self.get_param('user_id')
         students = [u.strip() for u in uid.split(',') if u.strip()]
-        video_query = self.es_query(index='tap2.0', doc_type='study_video') \
+        video_query = self.es_query(doc_type='study_video') \
                 .filter('term', course_id=course_id) \
                 .filter('term', group_key=self.group_key) \
                 .filter('term', chapter_id=chapter_id) \
@@ -81,7 +81,7 @@ class CourseVideo(BaseHandler):
     def get(self):
         user_id = self.get_argument('user_id', None)
 
-        query = self.es_query(index='rollup', doc_type='course_video_rate') \
+        query = self.es_query(doc_type='course_video_rate') \
                 .filter('term', course_id=self.course_id)
 
         if user_id is not None:
@@ -128,7 +128,7 @@ class CourseStudyDetail(BaseHandler):
         user_id = self.get_argument('user_id', None)
         users = self.get_users()
 
-        query = self.es_query(index='tap2.0', doc_type='study_video') \
+        query = self.es_query(doc_type='study_video') \
                 .filter('term', course_id=course_id) \
                 .filter('exists', field='duration') \
                 .filter('terms', user_id=users)
@@ -167,7 +167,7 @@ class ChapterVideoStat(DispatchHandler):
 
     def mooc(self):
         result = {}
-        query = self.es_query(index='tap2.0', doc_type='study_video_rollup') \
+        query = self.es_query(doc_type='study_video_rollup') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', chapter_id=self.chapter_id) \
                 .filter('term', seq_id='-1') \
@@ -189,7 +189,7 @@ class ChapterVideoStat(DispatchHandler):
     def spoc(self):
         result = {}
         users = self.get_users()
-        query = self.search(index='tap2.0',doc_type='study_video') \
+        query = self.search(doc_type='study_video') \
                 .filter('term', course_id=self.course_id) \
                 .filter("term", group_key=self.group_key) \
                 .filter('term', chapter_id=self.chapter_id) \
@@ -218,7 +218,7 @@ class CourseChapterVideoDetail(BaseHandler):
         users = self.get_users()
         # TODO
         # 将main该为tap，uid改为user_id
-        query = self.es_query(index='tap2.0', doc_type='study_video')\
+        query = self.es_query(doc_type='study_video')\
                 .filter('term', course_id=self.course_id)\
                 .filter('term', chapter_id=self.chapter_id)\
                 .filter('term', group_key=self.group_key)\

@@ -14,7 +14,7 @@ class ChapterProblem(BaseHandler):
         chapter_id = self.chapter_id
         grade_gte = self.get_argument('grade_gte', 60)
 
-        query = self.es_query(index='main', doc_type='student_grade') \
+        query = self.es_query(doc_type='student_grade') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', chapter_id=chapter_id) \
                 .filter('range', **{'grade_rate': {'gte': grade_gte}})[:0]
@@ -39,7 +39,7 @@ class ChapterStudentProblem(BaseHandler):
         uid = self.get_param('user_id')
         students = [u.strip() for u in uid.split(',') if u.strip()]
 
-        query = self.es_query(index='main', doc_type='student_grade') \
+        query = self.es_query(doc_type='student_grade') \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', chapter_id=chapter_id) \
                 .filter('terms', user_id=students)
@@ -69,7 +69,7 @@ class CourseProblemDetail(BaseHandler):
     获取课程解析后的习题
     """
     def get(self):
-        query = self.es_query(index='tap2.0', doc_type='study_problem_detail') \
+        query = self.es_query(doc_type='study_problem_detail') \
                 .filter('term', course_id=self.course_id) \
 
         data = self.es_execute(query[:0])
@@ -98,7 +98,7 @@ class ChapterGradeStat(BaseHandler):
     def get(self):
         chapter_id = self.chapter_id
 
-        query = self.es_query(index='tap2.0', doc_type='study_grade_group_all') \
+        query = self.es_query(doc_type='study_grade_group_all') \
                 .filter('term', course_id=self.course_id) \
                 .filter("term", group_key=self.group_key) \
                 .filter('term', chapter_id=chapter_id) \
@@ -110,7 +110,7 @@ class ChapterGradeStat(BaseHandler):
         for item in data.hits:
             groups[item.group_id] = item.user_num
 
-        query = self.es_query(index='tap2.0', doc_type='study_grade_stu_num') \
+        query = self.es_query(doc_type='study_grade_stu_num') \
                 .filter('term', course_id=self.course_id) \
                 .filter("term", group_key=self.group_key) \
                 .filter('term', chapter_id=chapter_id) \
@@ -163,7 +163,7 @@ class ChapterProblemDetail(BaseHandler):
     def get(self):
         result = []
         users = self.get_users()
-        query = self.es_query(index='tap2.0', doc_type='study_problem')\
+        query = self.es_query(doc_type='study_problem')\
                 .filter('term', course_id=self.course_id)\
                 .filter("term", group_key=self.group_key) \
                 .filter('terms', user_id=users)\
@@ -189,7 +189,7 @@ class ChapterProblemDetail(BaseHandler):
                 "incorrect": incorrect
                 })
         # 计算成绩超过60%的人
-        query = self.es_query(index='tap2.0', doc_type='exam_seq_grade')\
+        query = self.es_query(doc_type='exam_seq_grade')\
                 .filter('term', course_id=self.course_id)\
                 .filter('term', group_key=self.group_key)\
                 .filter('terms', user_id=users)\
@@ -212,7 +212,7 @@ class ChapterProblemDetailStat(BaseHandler):
         result = []
         uid_str = self.get_argument('uid', "")
         uid = uid_str.split(',')
-        query = self.es_query(index='tap2.0', doc_type='study_problem')\
+        query = self.es_query(doc_type='study_problem')\
                 .filter("term", course_id=self.course_id)\
                 .filter("term", group_key=self.group_key) \
                 .filter("term", chapter_id=self.chapter_id)\

@@ -10,8 +10,13 @@ COOKIE_SECRET = "11a0f5a5df09021b09ae9811ee0c2c11e64c781b"
 
 MOOC_GROUP_KEY = 2
 DISPATCH_OPTIMIZE = True
+ES_INDEX = 'tapgo'
 
 with open(CONFIG_FILE) as f:
     document = f.read()
     locals().update(yaml.load(document))
 
+try:
+    from private_settings import *
+except:
+    pass
