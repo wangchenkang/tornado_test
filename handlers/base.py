@@ -147,7 +147,7 @@ class BaseHandler(RequestHandler):
 
     def es_query(self, **kwargs):
         if 'index' not in kwargs:
-            kwargs['index'] = 'tap2.0'
+            kwargs['index'] = settings.ES_INDEX
         return Search(using=self.es, **kwargs)
 
     def es_execute(self, query):
