@@ -87,8 +87,6 @@ class CourseProblemDetail(BaseHandler):
                 'problem_id': item.problem_id,
                 'problem_num': item.problem_num,
             }
-            print item.answers
-            print item.answers.to_dict()
         self.success_response({'problems': problems})
 
 

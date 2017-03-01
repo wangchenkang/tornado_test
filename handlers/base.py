@@ -221,7 +221,6 @@ class BaseHandler(RequestHandler):
         size = self.es_execute(query[:0]).hits.total
         size = 100000
         hits = self.es_execute(query[:size]).hits
-        # print len(hits), hits
         # users = [hit.user_id[0] for hit in hits]
         users = [hit.user_id for hit in hits]
         #self.memcache.set(hashcode, users, 60*60)
