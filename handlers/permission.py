@@ -103,5 +103,7 @@ class GroupKey(BaseHandler):
                     .filter('term', course_id=self.course_id)
 
         results = self.es_execute(query)
-        data = [result.to_dict() for result in results.hits]
-        self.success_response({'data': data[0]})
+        if results.hits:
+            data = [result.to_dict() for result in results.hits]
+            self.success_response({'data': data[0]})
+        self.success_response({'data': {}})
