@@ -12,7 +12,7 @@ class DataDateConfig(BaseHandler):
     获取数据有效时间
     """
     def get(self):
-        query = self.es_query(index='tap2.0', doc_type='data_conf')
+        query = self.es_query(doc_type='data_conf')
         response = self.es_execute(query)
 
         try:

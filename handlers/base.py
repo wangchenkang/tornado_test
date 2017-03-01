@@ -187,7 +187,7 @@ class BaseHandler(RequestHandler):
                     result[course_id] = []
                 for group_key in group_key_list:
                     course_depend_group_key = {}
-                    query = self.es_query(index='tap2_test', doc_type='course')\
+                    query = self.es_query(doc_type='course_community')\
                             .filter('term', course_id=course_id)\
                             .filter('term', group_key=group_key)
                     hits = self.es_execute(query).hits
@@ -221,7 +221,7 @@ class BaseHandler(RequestHandler):
         size = self.es_execute(query[:0]).hits.total
         size = 100000
         hits = self.es_execute(query[:size]).hits
-        # users = [hit.user_id[0] for hit in hits]
+        #index='tap2.0',  users = [hit.user_id[0] for hit in hits]
         users = [hit.user_id for hit in hits]
         #self.memcache.set(hashcode, users, 60*60)
         return users
