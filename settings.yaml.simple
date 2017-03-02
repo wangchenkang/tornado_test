@@ -1,6 +1,8 @@
 logging:
   log_file: /var/log/tapapi.log
 
+memcache_host:
+    - 127.0.0.1:11211
 es_cluster:
     - 10.0.0.227:9200
     - 10.0.0.228:9200
