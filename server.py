@@ -37,7 +37,7 @@ class Application(tornado.web.Application):
                 tornado.web.url(r'/static/(.*)', tornado.web.StaticFileHandler, {'path': app_settings['static_path']}))
 
         self.es = Elasticsearch(settings.es_cluster)
-        self.memcache = memcache.Client("127.0.0.1")
+        self.memcache = memcache.Client(settings.memcache_host)
         super(Application, self).__init__(routed_handlers, **app_settings)
 
 def main():
