@@ -356,3 +356,15 @@ class CourseDetail(BaseHandler):
             course_data.append(data.hits[i].to_dict())
 
         self.success_response({'data': course_data})
+
+@route('/course/group_detail')
+class CourseQueryDate(BaseHandler):
+    def get(self):
+        query = self.es_query(doc_type='course_community')\
+                            .filter('term', course_id=self.course_id)\
+                            .filter('term', group_key=self.group_key)
+        data = self.es_execute(query[:1])
+        course_data = []
+        course_data.append(data.hits[0].to_dict())
+
+        self.success_response({'data': course_data})

@@ -6,6 +6,7 @@ import tornado.options
 import tornado.web
 from tornado.options import define, options
 from elasticsearch import Elasticsearch
+from elasticsearch_dsl.connections import connections
 import settings
 from utils.routes import route
 from utils.log import Log
@@ -36,7 +37,8 @@ class Application(tornado.web.Application):
             routed_handlers.append(
                 tornado.web.url(r'/static/(.*)', tornado.web.StaticFileHandler, {'path': app_settings['static_path']}))
 
-        self.es = Elasticsearch(settings.es_cluster)
+        #self.es = Elasticsearch(settings.es_cluster)
+        self.es = connections.create_connection(hosts=settings.es_cluster, timeout=30)
         self.memcache = memcache.Client(settings.memcache_host)
         super(Application, self).__init__(routed_handlers, **app_settings)
 
