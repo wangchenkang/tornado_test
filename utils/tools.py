@@ -3,6 +3,7 @@ import pytz
 from datetime import datetime, timedelta
 from tornado.escape import url_unescape
 import math
+import settings
 
 timezone = 'Asia/Chongqing'
 
@@ -29,3 +30,16 @@ def var(data, total=None):
     data += [0]*(total-len(data))
     avg = sum(data)/total
     return math.sqrt(sum([(i-avg)*(i-avg) for i in data])/total)
+
+def get_group_type(group_key):
+    course_group_key = group_key
+    group_keys = [('elective', settings.ELECTIVE_GROUP_KEY), \
+                  ('cohort', settings.COHORT_GROUP_KEY), \
+                  ('tsinghua', settings.TSINGHUA_GROUP_KEY), \
+                  ('spoc', settings.SPOC_GROUP_KEY), \
+                  ('mooc', settings.MOOC_GROUP_KEY)]
+
+    for group_key in group_keys:
+        if course_group_key >= group_key[1]:
+            return group_key[0]
+

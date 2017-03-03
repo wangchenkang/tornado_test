@@ -1,7 +1,7 @@
 #! -*- coding: utf-8 -*-
 from datetime import datetime, timedelta
 from elasticsearch_dsl import Q
-from .base import BaseHandler, DispatchHandler
+from .base import BaseHandler
 from utils.routes import route
 from utils.log import Log
 from utils.tools import date_from_query, date_to_str, utc_to_cst
@@ -447,27 +447,6 @@ class CourseDiscussionStat(BaseHandler):
             result['students_num'] = 0
 
         self.success_response(result)
-
-    #def spoc(self):
-
-    #    result = {}
-    #    users = self.get_users()
-    #    query = self.es_query(index='tap2.0', doc_type='study_discussion') \
-    #            .filter('term', course_id=self.course_id) \
-    #            .filter('term', chapter_id=self.chapter_id) \
-    #            .filter('terms', user_id=users)
-    #            # .sort('-date')[:1]
-    #    data = self.es_execute(query)
-    #    hit = data.hits
-    #    result['course_id'] = self.course_id
-    #    result['chapter_id'] = self.chapter_id
-    #    # if hit:
-    #    #     result['students_num'] = int(hit[0].num)
-    #    # else:
-    #    result['students_num'] = len(hit)
-
-    #    self.success_response(result)
-
 
 @route('/discussion/chapter_discussion_detail')
 class CourseChapterDiscussionDetail(BaseHandler):

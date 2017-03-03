@@ -1,5 +1,5 @@
 #! -*- coding: utf-8 -*-
-
+from elasticsearch_dsl import Q
 from utils.routes import route
 from utils.tools import var
 from utils.log import Log
@@ -24,7 +24,7 @@ class TeacherPermission(BaseHandler):
 
         now = datetime.datetime.utcnow()
         
-        query = self.es_query(index='tap', doc_type='teacher_power')\
+        query = self.es_query(doc_type='teacher_power')\
                 .filter('term', user_id=str(self.user_id)).sort("-start")
         #开课
         if status == "process":
@@ -36,6 +36,8 @@ class TeacherPermission(BaseHandler):
         #即将开课
         if status == "unopen":
             query = query.filter('range', **{'start': {'gt': now}}).sort("start")
+
+        query = query.filter(Q('range', **{'group_key': {'lt': settings.COHORT_GROUP_KEY}}) | Q('range', **{'group_key': {'gte': settings.ELECTIVE_GROUP_KEY}}))
 
         total = self.es_execute(query[:0]).hits.total
         if total%size != 0:
@@ -81,7 +83,7 @@ class CoursePermission(BaseHandler):
     教师是否有某门课的权限
     """
     def get(self):
-        query = self.es_query(index='tap', doc_type='teacher_power')\
+        query = self.es_query(doc_type='teacher_power')\
                 .filter('term', user_id=str(self.user_id)) \
                 .filter('term', course_id=self.course_id) \
                 .filter('term', group_key=self.group_key)
@@ -98,7 +100,7 @@ class GroupKey(BaseHandler):
     教师某门课的group_key    
     """
     def get(self):
-        query = self.es_query(index='tap', doc_type='teacher_power')\
+        query = self.es_query(doc_type='teacher_power')\
                     .filter('term', user_id=str(self.user_id))\
                     .filter('term', course_id=self.course_id)
 

@@ -127,10 +127,10 @@ class StudyPeriod(BaseHandler):
         user_id = self.get_param('user_id')
 
         if role == 'staff':
-            query = self.es_query(index='rollup', doc_type='user_staff_period') \
+            query = self.es_query(doc_type='user_staff_period') \
                 .filter('term', user_id=user_id)
         else:
-            query = self.es_query(index='rollup', doc_type='user_study_period') \
+            query = self.es_query(doc_type='user_study_period') \
                 .filter('term', user_id=user_id)
 
         periods = {
@@ -178,7 +178,7 @@ class StudentInformation(BaseHandler):
                 .filter('term', uid=user_id).filter('term', is_active=True)[:10000]
         enrollment_data = self.es_execute(enrollment_query)
 
-        comment_len_query = self.es_query(index='rollup', doc_type='user_average_comment_length') \
+        comment_len_query = self.es_query(doc_type='user_average_comment_length') \
                 .filter('term', user_id=user_id)[:1]
         comment_len_data = self.es_execute(comment_len_query)
         try:
@@ -186,7 +186,7 @@ class StudentInformation(BaseHandler):
         except IndexError:
             comment_avg_length = 0
 
-        first_course_query = self.es_query(index='rollup', doc_type='user_first_course') \
+        first_course_query = self.es_query(doc_type='user_first_course') \
                 .filter('term', user_id=user_id)[:1]
         first_course_data = self.es_execute(first_course_query)
         try:
@@ -204,13 +204,13 @@ class StudentInformation(BaseHandler):
 
 
         # if staff
-        staff_query = self.es_query(index='rollup', doc_type='user_staff_statistics') \
+        staff_query = self.es_query(doc_type='user_staff_statistics') \
                 .filter('term', user_id=user_id)[:0]
         staff_data = self.es_execute(staff_query)
         is_staff = True if staff_data.hits.total else False
 
         # video length per online days
-        video_avg_query = self.es_query(index='rollup', doc_type='user_avg_video_time_per_day') \
+        video_avg_query = self.es_query(doc_type='user_avg_video_time_per_day') \
                 .filter('term', user_id=user_id)[:1]
         video_avg_data = self.es_execute(video_avg_query)
         try:
@@ -246,11 +246,11 @@ class StudentCourses(BaseHandler):
         enrollment_query = self.es_query(doc_type='student_courseenrollment') \
                 .filter('term', uid=user_id).filter('term', is_active=True)[:10000]
         enrollment_data = self.es_execute(enrollment_query)
-        video_rate_query = self.es_query(index='rollup', doc_type='course_video_rate') \
+        video_rate_query = self.es_query(doc_type='course_video_rate') \
                 .filter('term', uid=user_id)[:10000]
         video_rate_data = self.es_execute(video_rate_query)
 
-        video_query = self.es_query(index='rollup', doc_type='course_video_study_length') \
+        video_query = self.es_query(doc_type='course_video_study_length') \
                 .filter('term', user_id=user_id)
         video_data = self.es_execute(video_query[:0])
         video_data = self.es_execute(video_query[:video_data.hits.total])
@@ -297,7 +297,7 @@ class StaffInformation(BaseHandler):
     def get(self):
         user_id = self.get_param('user_id')
 
-        staff_query = self.es_query(index='rollup', doc_type='user_staff_statistics') \
+        staff_query = self.es_query(doc_type='user_staff_statistics') \
                 .filter('term', user_id=user_id)[:1]
         staff_data = self.es_execute(staff_query)
 
@@ -305,7 +305,7 @@ class StaffInformation(BaseHandler):
             staff = staff_data.hits[0]
             courses = [str(c) for c in staff.staff_course_list]
 
-            video_query = self.es_query(index='rollup', doc_type='course_video_study_length') \
+            video_query = self.es_query(doc_type='course_video_study_length') \
                     .filter('terms', course_id=courses)
             video_data = self.es_execute(video_query[:0])
             video_data = self.es_execute(video_query[:video_data.hits.total])
@@ -313,7 +313,7 @@ class StaffInformation(BaseHandler):
             for item in video_data.hits:
                 total_study_length += item.study_length
 
-            comment_query = self.es_query(index='rollup', doc_type='staff_avg_comment_num_per_day') \
+            comment_query = self.es_query(doc_type='staff_avg_comment_num_per_day') \
                     .filter('term', user_id=user_id)[:1]
             comment_data = self.es_execute(comment_query)
             try:
@@ -341,7 +341,7 @@ class StaffInformation(BaseHandler):
 @route('/user/average')
 class UserAverage(BaseHandler):
     def get(self):
-        staff_query = self.es_query(index='rollup', doc_type='user_staff_statistics')
+        staff_query = self.es_query(doc_type='user_staff_statistics')
         staff_data = self.es_execute(staff_query[:0])
         staff_data = self.es_execute(staff_query[:staff_data.hits.total])
         staff_comments_num = 0

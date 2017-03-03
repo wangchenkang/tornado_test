@@ -7,6 +7,7 @@ from tornado.escape import url_unescape, json_encode
 from elasticsearch import ConnectionError, ConnectionTimeout, RequestError
 from elasticsearch_dsl import Search, Q
 from utils.tools import fix_course_id
+from utils.tools import get_group_type
 import settings
 
 class BaseHandler(RequestHandler):
@@ -103,6 +104,10 @@ class BaseHandler(RequestHandler):
         return group_key
 
     @property
+    def group_type(self):
+        return get_group_type(self.group_key)
+
+    @property
     def group_name(self):
         query = self.es_query(doc_type='course_community') \
             .filter('term', course_id=self.course_id) \
@@ -110,12 +115,6 @@ class BaseHandler(RequestHandler):
         result = self.es_execute(query)
         return result.hits[0].group_name if result.hits else 'xuetangx'
 
-    @property
-    def course_type(self):
-        if settings.MOOC_GROUP_KEY == self.group_key:
-            return 'mooc'
-        return 'mooc_org'
-    
     @property
     def course_group_key(self):
         course_group_key = self.get_argument("course_group_key", None)
@@ -146,8 +145,10 @@ class BaseHandler(RequestHandler):
         return response
 
     def es_query(self, **kwargs):
+        
         if 'index' not in kwargs:
             kwargs['index'] = settings.ES_INDEX
+
         return Search(using=self.es, **kwargs)
 
     def es_execute(self, query):
@@ -221,7 +222,6 @@ class BaseHandler(RequestHandler):
         size = self.es_execute(query[:0]).hits.total
         size = 100000
         hits = self.es_execute(query[:size]).hits
-        #index='tap2.0',  users = [hit.user_id[0] for hit in hits]
         users = [hit.user_id for hit in hits]
         #self.memcache.set(hashcode, users, 60*60)
         return users
@@ -268,6 +268,7 @@ class BaseHandler(RequestHandler):
         return response
 
     def get_user_name(self, users=None, group_key=None, owner="xuetangX"):
+      
         if not users:
             users = self.get_users()
         query = self.es_query(doc_type='student_enrollment_info')\
@@ -282,9 +283,8 @@ class BaseHandler(RequestHandler):
         result = {}
         for item in results:
             user_id = item.user_id
-            # 改成判断group_key
             name = []
-            if owner.lower() == "xuetangx" and group_key == settings.MOOC_GROUP_KEY:
+            if self.group_type == 'mooc':
                 nickname = item.nickname
                 rname = "--"
                 name.append(nickname)
@@ -313,24 +313,3 @@ class BaseHandler(RequestHandler):
         return result
 
 
-class DispatchHandler(BaseHandler):
-
-    def get(self, *args, **kwargs):
-        if settings.DISPATCH_OPTIMIZE:
-            try:
-                group_key = int(self.get_argument('group_key'))
-            except MissingArgumentError:
-                self.error_response(200, u'参数错误')
-
-            mooc_func = getattr(self, 'mooc', None)
-            spoc_func = getattr(self, 'spoc', None)
-            if not (mooc_func and spoc_func):
-                self.error_response(200, u'没有定义mooc() 或 spoc()')
-
-            if group_key == settings.MOOC_GROUP_KEY:
-                return mooc_func(*args, **kwargs)
-            else:
-                return spoc_func(*args, **kwargs)
-        else:
-            spoc_func = getattr(self, 'spoc', None)
-            return spoc_func(*args, **kwargs)

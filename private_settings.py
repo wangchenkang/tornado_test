@@ -1,1 +1,1 @@
-ES_INDEX = 'tap2.0'
+ES_INDEX = 'tapgo'

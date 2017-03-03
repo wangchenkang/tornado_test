@@ -1,6 +1,6 @@
 #! -*- coding: utf-8 -*-
 from __future__ import division
-from .base import BaseHandler, DispatchHandler
+from .base import BaseHandler
 from utils.routes import route
 from utils.tools import utc_to_cst, date_to_str, datedelta
 from elasticsearch_dsl import A
@@ -102,34 +102,6 @@ class CourseGradeDistribution(BaseHandler):
             data["student_num"] = 0
             data["date"] = ''
         self.success_response({'data': data})
-
-    #def spoc(self):
-    #    users = self.get_problem_users()
-    #    query = self.es_query(index="tap2.0", doc_type="course_grade_distribution")\
-    #            .filter("term", course_id=self.course_id)\
-    #            .filter("terms", user_id=users)
-    #    result = self.es_execute(query)
-    #    result = self.es_execute(query[:result.hits.total])
-    #    hits = result.hits
-    #    data = {
-    #            "distribution":[0]*50,
-    #            "student_num": 0,
-    #            "above_average": 0}
-    #    avg = 0
-    #    for hit in hits:
-    #        if hit.current_grade < 0:
-    #            continue
-    #        index = int(hit.current_grade/2)
-    #        if index >= 50:
-    #            index = 49
-    #        data["distribution"][index] += 1
-    #        data["student_num"] += 1
-    #        avg += index
-    #    if data["student_num"] > 0:
-    #        avg /= float(data["student_num"])
-    #        above_avg = sum(data["distribution"][int(avg+1):])
-    #        data["above_average"] = above_avg
-    #    self.success_response({'data': data})
 
 
 @route('/course/enrollments/count')
@@ -234,70 +206,6 @@ class CourseEnrollmentsDate(BaseHandler):
             item["total_unenroll"] = unenroll
             item["enrollment"] = enroll
         self.success_response({"data": data})
-
-    #def spoc(self):
-    #    start = self.get_param("start")
-    #    end = self.get_param("end")
-    #    query = self.es_query(index="tap2.0", doc_type="student_enrollment_info")\
-    #            .filter("term", course_id=self.course_id)
-    #    if self.group_key:
-    #        query = query.filter('term', group_key=self.group_key)
-    #    query = query.fields(fields=["user_id", "unenroll_time", "enroll_time", "is_active"])
-
-    #    size = self.es_execute(query[:0]).hits.total
-    #    hits = self.es_execute(query[:size]).hits
-    #    ret = {}
-    #    def default(date):
-    #        return {
-    #            "enroll": 0,    # 当天选课量
-    #            "unenroll": 0,  # 当天退课量
-    #            "date_enrollment": -1, # 当天净选课量
-    #            "total_enroll": 0, # 截止当天总选课量
-    #            "total_unenroll": 0, # 截止当天总退课量
-    #            "enrollment": 0,     # 截止当天正在选课量
-    #            "date": date
-    #            }
-    #    total_enroll, total_unenroll = 0, 0
-    #    for hit in hits:
-    #        total_enroll += 1
-    #        if hit.is_active and hit.is_active[0] == 0:
-    #            total_unenroll += 1
-    #        if getattr(hit, "enroll_time", None):
-    #            enroll_time = hit.enroll_time[0][:10]
-    #        else:
-    #            enroll_time = None
-    #        if getattr(hit, "unenroll_time", None):
-    #            unenroll_time = hit.unenroll_time[0][:10]
-    #        else:
-    #            unenroll_time = None
-    #        if enroll_time >= start and enroll_time <= end:
-    #            if enroll_time not in ret:
-    #                ret[enroll_time] = default(enroll_time)
-    #            ret[enroll_time]["enroll"] += 1
-    #        if unenroll_time and unenroll_time >= start and unenroll_time <= end:
-    #            if unenroll_time not in ret:
-    #                ret[unenroll_time] = default(unenroll_time)
-    #            ret[unenroll_time]["unenroll"] += 1
-    #    if end not in ret:
-    #        ret[end] = default(end)
-
-    #    ret[end]["total_enroll"] = total_enroll
-    #    ret[end]["total_unenroll"] = total_unenroll
-    #    ret[end]["enrollment"] = total_enroll - total_unenroll
-    #    ret[end]["date_enrollment"] = ret[end]["enroll"] - ret[end]["unenroll"]
-    #    prev = datedelta(end, -1)
-    #    curr = end
-    #    yesterday = datedelta(start, -1)
-    #    while prev != yesterday:
-    #        if prev not in ret:
-    #            ret[prev] = default(prev)
-    #        ret[prev]["total_enroll"] = ret[curr]["total_enroll"] - ret[curr]["enroll"]
-    #        ret[prev]["total_unenroll"] = ret[curr]["total_unenroll"] - ret[curr]["unenroll"]
-    #        ret[prev]["enrollment"] = ret[prev]["total_enroll"] - ret[prev]["total_unenroll"]
-    #        ret[prev]["date_enrollment"] = ret[prev]["enroll"] - ret[prev]["unenroll"]
-    #        curr = prev
-    #        prev = datedelta(prev, -1)
-    #    self.success_response({"data": sorted(ret.values(), key=lambda x: x["date"])})
 
 @route('/course/active_num')
 class CourseActive(BaseHandler):
@@ -405,7 +313,7 @@ class CourseTopicKeywords(BaseHandler):
     获取课程提取关键字
     """
     def get(self):
-        query = self.es_query(index='rollup', doc_type='course_keywords') \
+        query = self.es_query(doc_type='course_keywords') \
                 .filter('term', course_id=self.course_id)[:1]
 
         data = self.es_execute(query)
@@ -439,8 +347,8 @@ class CourseDetail(BaseHandler):
     def get(self):
         course_ids = self.course_id.split(",")
         query = self.es_query(doc_type='course_community')\
-                            .filter('terms', course_id=course_ids)\
-                            .filter('term', group_key=self.group_key)
+                            .filter('terms', course_id=course_ids)
+                            #.filter('term', group_key=self.group_key)
         size = self.es_execute(query[:0]).hits.total
         data = self.es_execute(query[:size])
         course_data = []

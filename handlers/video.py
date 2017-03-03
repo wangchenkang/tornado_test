@@ -1,5 +1,5 @@
 #! -*- coding: utf-8 -*-
-from .base import BaseHandler, DispatchHandler
+from .base import BaseHandler
 from utils.routes import route
 from utils.log import Log
 
@@ -163,9 +163,9 @@ class CourseStudyDetail(BaseHandler):
 
 
 @route('/video/chapter_video_stat')
-class ChapterVideoStat(DispatchHandler):
+class ChapterVideoStat(BaseHandler):
 
-    def mooc(self):
+    def get(self):
         result = {}
         query = self.es_query(doc_type='study_video_rollup') \
                 .filter('term', course_id=self.course_id) \
@@ -186,29 +186,6 @@ class ChapterVideoStat(DispatchHandler):
             result['review_num'] = 0
         self.success_response(result)
 
-    def spoc(self):
-        result = {}
-        users = self.get_users()
-        query = self.search(doc_type='study_video') \
-                .filter('term', course_id=self.course_id) \
-                .filter("term", group_key=self.group_key) \
-                .filter('term', chapter_id=self.chapter_id) \
-                .filter('terms', user_id=users)
-
-        hits = self.es_execute(query[:0]).hits
-        hits = self.es_execute(query[:hits.total]).hits
-        for hit in hits:
-            user_id, review_num = hit.user_id, int(hit.watch_num)
-            if user_id in result:
-                if result[user_id] < review_num:
-                    result[user_id] = review_num
-            else:
-                result[user_id] = review_num
-        data = {}
-        data["study_num"] = len(result)
-        data["review_num"] = len([item for item in result.values() if item > 1])
-
-        self.success_response(data)
 
 @route('/video/chapter_video_detail')
 class CourseChapterVideoDetail(BaseHandler):
