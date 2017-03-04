@@ -220,7 +220,7 @@ class BaseHandler(RequestHandler):
             query = query.filter('term', course_id=self.course_id)
 
         size = self.es_execute(query[:0]).hits.total
-        size = 1000000
+        size = 500000
         hits = self.es_execute(query[:size]).hits
         users = [hit.user_id for hit in hits]
         #self.memcache.set(hashcode, users, 60*60)
@@ -245,7 +245,7 @@ class BaseHandler(RequestHandler):
                 .filter("term", course_id=self.course_id)\
                 .filter("term", group_key=self.group_key) \
                 .filter("terms", user_id=users)
-        query.aggs.bucket("p", "terms", field="user_id", size=1000000)
+        query.aggs.bucket("p", "terms", field="user_id", size=500000)
         results = self.es_execute(query[:0])
         aggs = results.aggregations["p"]["buckets"]
         users = [item["key"] for item in aggs]
@@ -258,7 +258,7 @@ class BaseHandler(RequestHandler):
                 .filter("term", course_id=self.course_id)\
                 .filter("term", group_key=self.group_key) \
                 .filter("terms", user_id=users)
-        query.aggs.bucket("p", "terms", field="user_id", size=1000000)
+        query.aggs.bucket("p", "terms", field="user_id", size=500000)
         results = self.es_execute(query[:0])
         aggs = results.aggregations["p"]["buckets"]
         return [item["key"] for item in aggs]
