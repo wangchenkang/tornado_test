@@ -102,7 +102,7 @@ class GroupKey(BaseHandler):
     def get(self):
         query = self.es_query(doc_type='teacher_power')\
                     .filter('term', user_id=str(self.user_id))\
-                    .filter('term', course_id=self.course_id)
+                    .filter('term', course_id=self.course_id).sort('group_key')
 
         results = self.es_execute(query)
         if results.hits:
