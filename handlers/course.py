@@ -332,10 +332,10 @@ class CourseTsinghuaStudent(BaseHandler):
     """
     def get(self):
         query = self.es_query(doc_type='course_student_location') \
-                .filter('term', courses=self.course_id) \
-                .filter('term', binding_org='清华大学')[:0]
-        if self.group_key:
-            query = query.filter('term', group_key=self.group_key)
+                .filter('term', course_id=self.course_id) \
+                .filter('term', binding_org=u'清华大学') \
+                .filter('term', group_key=self.group_key)
+
         data = self.es_execute(query)
         self.success_response({'data': data.hits.total})
 
