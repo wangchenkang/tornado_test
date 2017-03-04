@@ -208,7 +208,7 @@ class DataDownload(BaseHandler):
             file_format = 'xlsx'
 
         try:
-            record = self.es.get(doc_type='course_data', id=data_id)
+            record = self.es.get(index='tapgo', doc_type='course_data', id=data_id)
         except NotFoundError:
             raise HTTPError(404)
 
