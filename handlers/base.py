@@ -200,11 +200,11 @@ class BaseHandler(RequestHandler):
         return result
 
     def get_users(self, is_active=True):
-        #hashstr = "student" + self.course_id + (str(self.group_key) or "") + str(is_active)
-        #hashcode = hashlib.md5(hashstr).hexdigest()
-        #users = self.memcache.get(hashcode)
-        #if users:
-        #    return users
+        hashstr = "student" + self.course_id + (str(self.group_key) or "") + str(is_active)
+        hashcode = hashlib.md5(hashstr).hexdigest()
+        users = self.memcache.get(hashcode)
+        if users:
+            return users
         query = self.es_query(doc_type='student_enrollment_info')#\
                 # .fields(fields="user_id")
         if self.group_key:
@@ -223,7 +223,7 @@ class BaseHandler(RequestHandler):
         size = 50000
         hits = self.es_execute(query[:size]).hits
         users = [hit.user_id for hit in hits]
-        #self.memcache.set(hashcode, users, 60*60)
+        self.memcache.set(hashcode, users, 60*60)
         return users
     
     def get_owner(self):
