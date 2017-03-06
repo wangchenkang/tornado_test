@@ -5,6 +5,7 @@ from utils.routes import route
 from utils.log import Log
 import time
 from elasticsearch_dsl import Q
+from elasticsearch import Elasticsearch
 Log.create('student')
 
 @route('/student/binding_org')
@@ -363,4 +364,39 @@ class UserAverage(BaseHandler):
             'staff_avg_comments_num': staff_avg_comments_num,
             'students_avg_enrollment': students_avg_enrollment
         })
+
+
+@route('/student/student_info')
+class StudentInfo(BaseHandler):
+    def get(self):
+        student_keyword = self.get_argument('student_keyword')
+        if not student_keyword:
+            student_keyword = ""
+        student_info = []
+        query = self.es_query(doc_type='student_enrollment_info')\
+                     .filter('term', user_id=self.user_id)
+        size = self.es_execute(query[:0]).hits.total
+        if student_keyword == "":
+            result = self.es_execute(query[:size])
+            for i in result.hits.hits:
+                student_info.append(i["_source"])
+            self.success_response({'data': student_info})
+        import settings
+        client = Elasticsearch(settings.es_cluster)
+        result = client.search(index='tapgo',doc_type='student_enrollment_info',\
+                        size=size,\
+                        body={\
+                            "query": {\
+                            "bool": {\
+                            "must":[{"match": {"user_id": self.user_id}}],\
+                            "should": [\
+                            {"wildcard" : { "rname" : { "value" : "%s*" % student_keyword}}},
+                            {"wildcard" : { "nickname" : { "value" : "%s*" % student_keyword}}},
+                            {"wildcard" : { "binding_uid" : { "value" : "%s*" % student_keyword}}}
+                            ]}}})\
+
+        for i in result["hits"]["hits"]:
+            student_info.append(i['_source'])
+        self.success_response({'data': student_info})
+
 

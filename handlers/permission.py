@@ -22,13 +22,13 @@ class TeacherPermission(BaseHandler):
         size = int(self.get_argument("size"))
         status = self.get_argument("status")
 
-        now = datetime.datetime.utcnow()
+        now = datetime.datetime.now()
         
         query = self.es_query(doc_type='teacher_power')\
                 .filter('term', user_id=str(self.user_id)).sort("-start")
         #开课
         if status == "process":
-            query = query.filter('range', **{'start': {'lt': now}})\
+            query = query.filter('range', **{'start': {'lte': now}})\
                     .filter('range', **{'end': {'gt': now}}).sort("-start")
         #结课
         if status == "close":

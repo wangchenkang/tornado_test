@@ -138,7 +138,7 @@ class BaseHandler(RequestHandler):
         try:
             response = self.es.search(**kwargs)
         except (ConnectionError, ConnectionTimeout):
-            self.error_response(100, u'Elasticsearch 连接错误')
+            self.error_response(400, u'Elasticsearch 连接错误')
         except RequestError as e:
             self.error_response(100, u'查询错误: {} - {}'.format(e.status_code, e.error))
 
