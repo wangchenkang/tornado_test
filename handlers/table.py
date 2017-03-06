@@ -56,12 +56,12 @@ class GradeDetail(TableHandler):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
-            query = self.es_query(doc_type='grade_overview') \
+            query = self.es_query(index='tapgrade', doc_type='grade_overview') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids) \
                         .sort(sort)
         else:
-            query = self.es_query(doc_type='grade_overview') \
+            query = self.es_query(index='tapgrade', doc_type='grade_overview') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids)
         return query
@@ -72,12 +72,12 @@ class QuestionDetail(TableHandler):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
-            query = self.es_query(doc_type='question_overview') \
+            query = self.es_query(index='tapgrade', doc_type='question_overview') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids) \
                         .sort(sort)
         else:
-            query = self.es_query(doc_type='question_overview') \
+            query = self.es_query(index='tapgrade', doc_type='question_overview') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids)
 
@@ -89,12 +89,12 @@ class VideoDetail(TableHandler):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
-            query = self.es_query(doc_type='video_overview') \
+            query = self.es_query(index='tapvideo', doc_type='video_overview') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids) \
                         .sort(sort)
         else:
-            query = self.es_query(doc_type='video_overview') \
+            query = self.es_query(index='tapvideo', doc_type='video_overview') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids)
 
@@ -106,12 +106,12 @@ class DiscussionDetail(TableHandler):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
-            query = self.es_query(doc_type='discussion_overview') \
+            query = self.es_query(index='tapforum', doc_type='discussion_overview') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids) \
                         .sort(sort)
         else:
-            query = self.es_query(doc_type='discussion_overview') \
+            query = self.es_query(index='tapforum', doc_type='discussion_overview') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids)
 
@@ -125,12 +125,12 @@ class EnrollDetail(TableHandler):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
-            query = self.es_query(doc_type='enroll_overview') \
+            query = self.es_query(index='tapforum', doc_type='enroll_overview') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids) \
                         .sort(sort)
         else:
-            query = self.es_query(doc_type='enroll_overview') \
+            query = self.es_query(index='tapforum', doc_type='enroll_overview') \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids)
 
