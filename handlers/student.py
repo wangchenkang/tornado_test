@@ -394,7 +394,9 @@ class StudentInfo(BaseHandler):
                             {"wildcard" : { "nickname" : { "value" : "%s*" % student_keyword}}},
                             {"wildcard" : { "binding_uid" : { "value" : "%s*" % student_keyword}}}
                             ]}}})\
-
+        
+        if result["hits"]["total"] == 0:
+            self.success_response({'data': []})
         for i in result["hits"]["hits"]:
             student_info.append(i['_source'])
         self.success_response({'data': student_info})
