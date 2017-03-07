@@ -37,7 +37,9 @@ class TableHandler(BaseHandler):
         if student_keyword != "":
             query = query.filter(Q('bool', should=[Q('wildcard', rname='*%s*' % student_keyword)\
                                                   | Q('wildcard', binding_uid='*%s*'% student_keyword) \
-                                                  | Q('wildcard', nickname='*%s*' % student_keyword)]))
+                                                  | Q('wildcard', nickname='*%s*' % student_keyword)\
+                                                  | Q('wildcard', xid='*%s*' % student_keyword)\
+                                                  ]))
         size = self.es_execute(query[:0]).hits.total
 
         if num == -1:
