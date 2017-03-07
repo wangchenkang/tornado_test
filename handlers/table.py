@@ -2,16 +2,18 @@
 import time
 from utils.log import Log
 from utils.routes import route
+from elasticsearch_dsl import Q
 from .base import BaseHandler
 
 Log.create('student')
 
 class TableHandler(BaseHandler):
 
-    def get_query(self, course_id, page, num, sort, sort_type, fields):
+    def get_query(self, course_id, page, num, sort, sort_type, student_keyword,fields):
         pass
 
     def post(self):
+        student_keyword = self.get_argument('student_keyword')
         time_begin = time.time()
         page = int(self.get_argument('page', 0))
         num = int(self.get_argument('num', 10))
@@ -28,10 +30,14 @@ class TableHandler(BaseHandler):
                             .filter('term', course_id=course_id)
         owner = self.es_execute(query_owner[:1]).hits[0].owner
 
-        query = self.get_query(course_id, user_ids, page, num, sort, sort_type, fields)
+        query = self.get_query(course_id, user_ids, page, num, sort, sort_type, student_keyword, fields)
         if fields:
             query = query.source(fields)
-                
+        
+        if student_keyword != "":
+            query = query.filter(Q('bool', should=[Q('wildcard', rname='*%s*' % student_keyword)\
+                                                  | Q('wildcard', binding_uid='*%s*'% student_keyword) \
+                                                  | Q('wildcard', nickname='*%s*' % student_keyword)]))
         size = self.es_execute(query[:0]).hits.total
 
         if num == -1:
@@ -52,7 +58,7 @@ class TableHandler(BaseHandler):
 
 @route('/table/grade_overview')
 class GradeDetail(TableHandler):
-    def get_query(self, course_id, user_ids, page, num, sort, sort_type, fields):
+    def get_query(self, course_id, user_ids, page, num, sort, sort_type, student_keyword, fields):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
@@ -68,7 +74,7 @@ class GradeDetail(TableHandler):
 
 @route('/table/question_overview')
 class QuestionDetail(TableHandler):
-    def get_query(self, course_id, user_ids, page, num, sort, sort_type, fields):
+    def get_query(self, course_id, user_ids, page, num, sort, sort_type, student_keyword, fields):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
@@ -85,7 +91,7 @@ class QuestionDetail(TableHandler):
 
 @route('/table/video_overview')
 class VideoDetail(TableHandler):
-    def get_query(self, course_id, user_ids, page, num, sort, sort_type, fields):
+    def get_query(self, course_id, user_ids, page, num, sort, sort_type, student_keyword, fields):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
@@ -102,7 +108,7 @@ class VideoDetail(TableHandler):
 
 @route('/table/discussion_overview')
 class DiscussionDetail(TableHandler):
-    def get_query(self, course_id, user_ids, page, num, sort, sort_type, fields):
+    def get_query(self, course_id, user_ids, page, num, sort, sort_type, student_keyword,fields):
         if sort:
             reverse = True if sort_type else False
             sort = '-' + sort if reverse else sort
@@ -119,7 +125,7 @@ class DiscussionDetail(TableHandler):
 
 @route('/table/enroll_overview')
 class EnrollDetail(TableHandler):
-    def get_query(self, course_id, user_ids, page, num, sort, sort_type, fields):
+    def get_query(self, course_id, user_ids, page, num, sort, sort_type, student_keyword,fields):
         user_ids.extend(self.get_users(is_active=False))
 
         if sort:
