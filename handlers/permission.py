@@ -25,6 +25,7 @@ class TeacherPermission(BaseHandler):
         now = datetime.datetime.now()
         
         query = self.es_query(doc_type='teacher_power')\
+                .filter('term', host=host)\
                 .filter('term', user_id=str(self.user_id)).sort("-start")
         #开课
         if status == "process":
