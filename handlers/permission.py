@@ -21,10 +21,11 @@ class TeacherPermission(BaseHandler):
         page = int(self.get_argument("page"))
         size = int(self.get_argument("size"))
         status = self.get_argument("status")
-        #host = self.get_argument('host')
+        host = self.get_argument('host')
         now = datetime.datetime.now()
         
         query = self.es_query(doc_type='teacher_power')\
+                .filer('term', host=host)\
                 .filter('term', user_id=str(self.user_id)).sort("-start")
         #开课
         if status == "process":
