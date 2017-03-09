@@ -45,17 +45,15 @@ class TableHandler(BaseHandler):
         if num == -1:
             times = size/10000
             data = self.es_execute(query[:10000])
-            search_result = data.hits
+            result = [item.to_dict() for item in data.hits]
             for i in range(times+1):
                 if i != 0:
-                    search_result = search_result+self.es_execute(query[i*10000:(i+1)*10000]).hits
+                    result = result + [item.to_dict() for item in self.es_execute(query[i*10000:(i+1)*10000]).hits]
         else:
             data = self.es_execute(query[page*num:(page+1)*num])
-            search_result = data.hits
+            result = [item.to_dict() for item in data.hits]
 
         final = {}
-        result = [item.to_dict() for item in search_result] 
-
         final['total'] = size
         final['data'] = result
         time_elapse = time.time() - time_begin
