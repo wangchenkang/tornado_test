@@ -57,7 +57,6 @@ class DetailCourseGradeRatioDetail(BaseHandler):
 
         query = self.es_query(index='tapgrade', doc_type='grade_overview') \
                 .filter('term', course_id=self.course_id) \
-                .filter('term', group_key=self.group_key) \
                 .filter('terms', user_id=problem_users) \
                 .filter('range', **{'total_grade_rate': {'gte': 0}})
 
