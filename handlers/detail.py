@@ -86,7 +86,10 @@ class DetailCourseStudyRatioDetail(BaseHandler):
 
         result = {}
         for user in response.hits:
-            result[user.user_id] = float(user.study_rate)
+            study_rate = float(user.study_rate)
+            if study_rate > 1:
+                study_rate = 1
+            result[user.user_id] = study_rate
 
         self.success_response({'data': result})
 
