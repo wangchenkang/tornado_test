@@ -15,7 +15,7 @@ COHORT_GROUP_KEY = 50000
 ELECTIVE_GROUP_KEY = 80000
 
 DISPATCH_OPTIMIZE = True
-ES_INDEX = 'tapgo'
+ES_INDEX = 'tap'
 
 with open(CONFIG_FILE) as f:
     document = f.read()
