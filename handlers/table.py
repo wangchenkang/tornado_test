@@ -14,7 +14,6 @@ class TableHandler(BaseHandler):
 
     def post(self):
         student_keyword = self.get_argument('student_keyword')
-        time_begin = time.time()
         page = int(self.get_argument('page', 0))
         num = int(self.get_argument('num', 10))
         sort = self.get_argument('sort', None)
@@ -43,10 +42,10 @@ class TableHandler(BaseHandler):
         size = self.es_execute(query[:0]).hits.total
 
         if num == -1:
-            time = size/10000
+            times = size/10000
             data = self.es_execute(query[:10000])
             search_result = data.hits
-            for i in range(time+1):
+            for i in range(times+1):
                 if i != 0:
                     search_result = search_result+self.es_execute(query[i*10000:(i+1)*10000]).hits
         else:
