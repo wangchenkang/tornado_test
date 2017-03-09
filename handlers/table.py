@@ -43,12 +43,18 @@ class TableHandler(BaseHandler):
         size = self.es_execute(query[:0]).hits.total
 
         if num == -1:
-            data = self.es_execute(query[:size])
+            time = size/10000
+            data = self.es_execute(query[:10000])
+            search_result = data.hits
+            for i in range(time+1):
+                if i != 0:
+                    search_result = search_result+self.es_execute(query[i*10000:(i+1)*10000]).hits
         else:
             data = self.es_execute(query[page*num:(page+1)*num])
+            search_result = data.hits
 
         final = {}
-        result = [item.to_dict() for item in data.hits] 
+        result = [item.to_dict() for item in search_result] 
 
         final['total'] = size
         final['data'] = result
