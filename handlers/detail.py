@@ -59,7 +59,7 @@ class DetailCourseGradeRatioDetail(BaseHandler):
                 .filter('term', course_id=self.course_id) \
                 .filter('term', group_key=self.group_key) \
                 .filter('terms', user_id=problem_users) \
-                .filter('range', **{'final_grade': {'gte': 0}})
+                .filter('range', **{'total_grade_rate': {'gte': 0}})
 
         response = self.es_execute(query[:0])
         response = self.es_execute(query[:response.hits.total])
