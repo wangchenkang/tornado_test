@@ -65,7 +65,7 @@ class DetailCourseGradeRatioDetail(BaseHandler):
 
         result = {}
         for hit in response.hits:
-            result[hit.user_id] = hit.total_grade_rate
+            result[hit.user_id] = float(hit.total_grade_rate) * 100
         self.success_response({'data': result})
 
 
@@ -103,8 +103,6 @@ class DetailCourseStudyRatio(BaseHandler):
 
     def get(self):
         key = 'course_study_%s_%s' %(self.course_id, self.group_key)
-        #hash_key = hashlib.md5(key).hexdigest()
-        #video_overview = self.memcache.get(hash_key)
         hash_key, video_overview = self.get_memcache_data(key)
         if not video_overview:
             query = self.es_query(doc_type='video_course') \
@@ -127,7 +125,6 @@ class DetailCourseStudyRatio(BaseHandler):
             if video_user_count:
                 video_overview['mean'] = round(sum(video_user_ratio_list) / video_user_count, 4)
                 video_overview['variance'] = round(var(video_user_ratio_list), 4)
-            #self.memcache.set(hash_key, video_overview, 60*60)
             self.set_memcache_data(hash_key, video_overview)
 
         self.success_response({'data': video_overview})
@@ -142,8 +139,6 @@ class DetailCourseDiscussion(BaseHandler):
     """
     def get(self):
         key = 'discussion_%s_%s' %(self.course_id, self.group_key)
-        #hash_key = hashlib.md5(key).hexdigest()
-        #result = self.memcache.get(hash_key)
         hash_key, result = self.get_memcache_data(key)
         if not result:
             query = self.es_query(doc_type='discussion_aggs') \
@@ -162,7 +157,6 @@ class DetailCourseDiscussion(BaseHandler):
             result['post_mean'] = round(response.aggregations.post_mean.value or 0 , 4)
             result['comment_mean'] = round(response.aggregations.comment_mean.value or 0, 4)
             result['total_mean'] = round(float(result['total']) / response.hits.total, 4) if response.hits.total else 0
-            #self.memcache.set(hash_key, result, 60*60)
             self.set_memcache_data(hash_key, result)
 
         self.success_response({'data': result})
