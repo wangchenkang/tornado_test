@@ -14,6 +14,7 @@ class TableHandler(BaseHandler):
 
     def post(self):
         student_keyword = self.get_argument('student_keyword')
+        time_begin = time.time()
         page = int(self.get_argument('page', 0))
         num = int(self.get_argument('num', 10))
         sort = self.get_argument('sort', None)
