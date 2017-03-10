@@ -336,6 +336,17 @@ class CourseTsinghuaStudent(BaseHandler):
                 .filter('term', binding_org=u'清华大学') \
                 .filter('term', group_key=self.group_key)
 
+        size = self.es_execute(query).hits.total
+        data = self.es_execute(query[:size])
+
+        result = [item.to_dict() for item in data.hits]
+        user_ids = [item['uid'] for item in result]
+        query = self.es_query(doc_type='student_enrollment_info')\
+                        .filter('term', course_id=self.course_id)\
+                        .filter('term', group_key=self.group_key)\
+                        .filter('term', is_active=True)\
+                        .filter('terms', user_id=user_ids)
+
         data = self.es_execute(query)
         self.success_response({'data': data.hits.total})
 
