@@ -34,7 +34,8 @@ def var(data, total=None):
 def get_group_type(group_key):
     course_group_key = group_key
     group_keys = [('elective', settings.ELECTIVE_GROUP_KEY), \
-                  ('cohort', settings.COHORT_GROUP_KEY), \
+                  ('cohort', settings.COHORT_GROUP_KEY),\
+                  ('elective', settings.ELECTIVE_ALL_GROUP_KEY),\
                   ('tsinghua', settings.TSINGHUA_GROUP_KEY), \
                   ('spoc', settings.SPOC_GROUP_KEY), \
                   ('mooc', settings.MOOC_GROUP_KEY)]

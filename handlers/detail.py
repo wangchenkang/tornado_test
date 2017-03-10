@@ -65,7 +65,7 @@ class DetailCourseGradeRatioDetail(BaseHandler):
 
         result = {}
         for hit in response.hits:
-            result[hit.user_id] = float(hit.total_grade_rate) * 100
+            result[hit.user_id] = float(hit.total_grade_rate)
         self.success_response({'data': result})
 
 
