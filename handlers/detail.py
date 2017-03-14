@@ -169,30 +169,27 @@ class DetailHomeworkGrade(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.2关键指标 图
     """
     def get(self):
-        query = self.es_query(doc_type='exam_seq_grade') \
-            .filter('term', course_id=self.course_id) \
-            .filter('term', group_key=self.group_key)
 
+        from collections import Counter
+        chapter_homework_md5 = self.get_argument('chapter_homework_md5', None)
+        user_ids = self.get_problem_users()
+        query = self.es_query(index='tapgrade', doc_type='question_overview')\
+                    .filter('term', course_id=self.course_id)\
+                    .filter('terms', user_id=user_ids)
         response = self.es_execute(query[:0])
         response = self.es_execute(query[:response.hits.total])
-
+        
         result = {}
+        chapter_grade_rate = {}
         for hit in response.hits:
-            seq_id = hit['seq_id']
-            if seq_id not in result:
-                result[seq_id] = {'sum_grade': 0, 'student_num': 0}
-                result[seq_id]['distribution'] = {}
-            result[seq_id]['sum_grade'] += hit['grade']
-            result[seq_id]['student_num'] += 100
-            if hit['grade'] not in result[seq_id]['distribution']:
-                result[seq_id]['distribution'][hit['grade']] = 0
-            result[seq_id]['distribution'][hit['grade']] += 1
-
-        for seq in result.keys():
-            result[seq]['grade_ratio_mean'] = round((float(result[seq]['sum_grade']) / result[seq]['student_num']), 4)
-            del result[seq]['sum_grade']
-            del result[seq]['student_num']
-
+            for chapter_homework in chapter_homework_md5.split(","):
+                if chapter_homework in hit:
+                    if chapter_homework not in result:
+                        chapter_grade_rate[chapter_homework] = []
+                    chapter_grade_rate[chapter_homework].append(hit[chapter_homework])
+                    result[chapter_homework] = {}
+        for k,v in chapter_grade_rate.items():
+            result[k]['distribution']=Counter(chapter_grade_rate[k])
         self.success_response({'data': result})
 
 
