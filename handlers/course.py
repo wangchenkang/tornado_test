@@ -30,7 +30,11 @@ class CourseActivity(BaseHandler):
         for hit in hits:
             if hit.course_id == self.course_id:
                 result['active_user_num'] = hit.active_user_num
-                result['percent'] = float(hit.active_user_num) / course_enrolls.get(self.course_id, 0.001)
+                active_user_num = hit.active_user_num
+                course_enroll_num = course_enrolls.get(self.course_id, 0.001)
+                if active_user_num > course_enroll_num:
+                    active_user_num = course_enroll_num
+                result['percent'] = float(active_user_num) / course_enroll_num
                 break
         # 计算该group在所有课程中的7日活跃率排名
         overcome = 0
