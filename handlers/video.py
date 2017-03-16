@@ -204,7 +204,7 @@ class CourseChapterVideoDetail(BaseHandler):
         query.aggs.bucket("video_watch", "terms", field="item_id", size=1000)\
                 .metric('num', 'range', field="watch_num", ranges=[{"from": 1, "to": 2}, {"from": 2}])
         query.aggs.bucket("video_seq_watch", "terms", field="seq_id", size=1000)\
-        #        .metric('num', 'terms', field="user_id", size=0)
+                  .metric('num', 'cardinality', field="user_id")
         results = self.es_execute(query)
         aggs = results.aggregations
         buckets = aggs["video_watch"]["buckets"]
@@ -226,6 +226,6 @@ class CourseChapterVideoDetail(BaseHandler):
         seq_buckets = aggs["video_seq_watch"]["buckets"]
         seq_result = {}
         for bucket in seq_buckets:
-            seq_result[bucket['key']] = bucket.doc_count
+            seq_result[bucket['key']] = bucket.num.value
         self.success_response({"vid_result": result, "seq_result": seq_result})
 
