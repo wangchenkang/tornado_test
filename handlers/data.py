@@ -224,7 +224,7 @@ class DataDownload(BaseHandler):
         if zip_format != 'tar':
             if file_format == 'xlsx':
                 xlsx_file = StringIO()
-                workbook = xlsxwriter.Workbook(xlsx_file, {'in_memory': True})
+                workbook = xlsxwriter.Workbook(xlsx_file)
                 worksheet = workbook.add_worksheet()
                 lines = csv.reader(response.content.strip().split('\n'), dialect=csv.excel)
                 row = 0
@@ -266,7 +266,7 @@ class DataDownload(BaseHandler):
 
                 if file_format == 'xlsx':
                     xlsx_file = StringIO()
-                    workbook = xlsxwriter.Workbook(xlsx_file, {'in_memory': True})
+                    workbook = xlsxwriter.Workbook(xlsx_file)
                     for item in tar:
                         if not item.isreg():
                             continue
