@@ -238,6 +238,7 @@ class DataDownload(BaseHandler):
                 self.set_header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
                 self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
                 self.write(xlsx_file.read())
+                xlsx_file.close()
             else:
                 self.set_header('Content-Type', 'text/csv')
                 self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
@@ -288,6 +289,7 @@ class DataDownload(BaseHandler):
                     self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
 
                     self.write(xlsx_file.read())
+                    xlsx_file.close()
                 elif platform == 'windows':
                     win_tmp_tarfile = tempfile.mktemp(suffix='.tar.gz', dir=temp_dir)
                     win_tarfile = tarfile.open(win_tmp_tarfile, 'w')
