@@ -247,7 +247,7 @@ class StudentCourses(BaseHandler):
         enrollment_query = self.es_query(doc_type='student_courseenrollment') \
                 .filter('term', uid=user_id).filter('term', is_active=True)[:10000]
         enrollment_data = self.es_execute(enrollment_query)
-        video_rate_query = self.es_query(doc_type='course_video_rate') \
+        video_rate_query = self.es_query(doc_type='video_course') \
                 .filter('term', uid=user_id)[:10000]
         video_rate_data = self.es_execute(video_rate_query)
 
@@ -281,7 +281,7 @@ class StudentCourses(BaseHandler):
             if item.course_id not in courses:
                 continue
             courses[item.course_id].update({
-                'video_rate': round(float(item.study_rate_open), 4)
+                'video_rate': round(float(item.study_rate), 4)
             })
 
         for item in video_data.hits:

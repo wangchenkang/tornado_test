@@ -81,9 +81,9 @@ class CourseVideo(BaseHandler):
     def get(self):
         user_id = self.get_argument('user_id', None)
 
-        query = self.es_query(doc_type='course_video_rate') \
+        query = self.es_query(doc_type='video_course') \
                 .filter('term', course_id=self.course_id)
-
+        
         if user_id is not None:
             max_length = 1000
             user_id = [int(u.strip()) for u in user_id.split(',') if u.strip()][0:max_length]
@@ -98,12 +98,12 @@ class CourseVideo(BaseHandler):
         for item in data.hits:
             # fix uid: anonymous_id-anonymous_id-e03be04b3e8a30b74b9779ace15e1b50
             try:
-                item_uid = int(item.uid)
+                item_uid = int(item.user_id)
             except ValueError:
                 continue
             result.append({
                 'user_id': item_uid,
-                'study_rate': float(item.study_rate_open)
+                'study_rate': float(item.study_rate)
             })
             users_has_study.add(item_uid)
 
@@ -144,7 +144,7 @@ class CourseStudyDetail(BaseHandler):
         results = []
         for item in data.hits:
             try:
-                item_uid = int(item.uid)
+                item_uid = int(item.user_id)
             except ValueError:
                 continue
             results.append({
