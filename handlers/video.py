@@ -87,7 +87,7 @@ class CourseVideo(BaseHandler):
         if user_id is not None:
             max_length = 1000
             user_id = [int(u.strip()) for u in user_id.split(',') if u.strip()][0:max_length]
-            query = query.filter('terms', uid=user_id)
+            query = query.filter('terms', user_id=user_id)
             data = self.es_execute(query[:max_length])
         else:
             data = self.es_execute(query[:0])
@@ -103,10 +103,10 @@ class CourseVideo(BaseHandler):
                 continue
             result.append({
                 'user_id': item_uid,
-                'study_rate': float(item.study_rate)
+                'user_sec': round(item.user_sec,4),
+                'study_rate': round(float(item.study_rate),4)
             })
             users_has_study.add(item_uid)
-
         if user_id:
             users_not_study = set(user_id).difference(users_has_study)
             for item in users_not_study:
