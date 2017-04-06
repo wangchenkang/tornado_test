@@ -10,8 +10,8 @@ import datetime
 Log.create('education')
 
 
-@route('/education/teacher_course_overview')
-class TeacherCourseOverview(BaseHandler):
+@route('/education/course_overview')
+class EducationCourseOverview(BaseHandler):
     """
     教务数据课程概览关键参数
     """
@@ -41,8 +41,8 @@ class TeacherCourseOverview(BaseHandler):
         self.success_response({'data': course_result})
 
 
-@route('/education/teacher_course_study')
-class TeacherCourseStudy(BaseHandler):
+@route('/education/course_study')
+class EducationCourseStudy(BaseHandler):
     """
     教务数据气泡图数据
     """
@@ -71,8 +71,8 @@ class TeacherCourseStudy(BaseHandler):
 
         self.success_response({'data': result})
 
-@route('/education/teacher_course_name_search')
-class TeacherCourseNameSearch(BaseHandler):
+@route('/education/course_name_search')
+class EducationCourseNameSearch(BaseHandler):
     """
     教务数据课程概览课程名称搜索数据
     """
@@ -93,19 +93,20 @@ class TeacherCourseNameSearch(BaseHandler):
             self.success_response({'data': data[0]})
         self.success_response({'data': {}})
 
-@route('/education/teacher_course_download')
-class TeacherCourseDownload(BaseHandler):
+@route('/education/course_download')
+class EducationCourseDownload(BaseHandler):
     """
     教务数据课程下载数据
     """
     def get(self):
         #TODO
+        fields = self.fields.split(',') if self.fields else []
         query = self.es_query(doc_type='xxxx')\
                     .filter('term', user_id=self.user_id)\
                     .filter('term', host=self.host)\
                     .filter('term', course_type=self.course_type)\
                     .filter('term', course_status=self.course_status)
-
+        query = query.source(fields)
         query_result = self.es_execute(query)
         if query_result.hits:
             #TODO
