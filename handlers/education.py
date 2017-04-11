@@ -16,25 +16,28 @@ class EducationCourseOverview(BaseHandler):
     教务数据课程概览关键参数
     """
     def get(self):
-
-        #TODO
-        host = self.host
-        user_id = self.user_id
-        course_type = self.course_type
-        course_status = self.course_status
         
         #TODO doc_type
-        query = self.es_query(doc_type='xxxxx')\
-                .filter('term', host=host)\
-                .filter('term', user_id=str(self.user_id))\
-                .filter('term', course_type=course_type)\
-                .filter('term', course_status=course_status)
-
+        user_id = '8005'
+        query = self.es_query(doc_type='academics_summary')\
+                .filter('term', host=self.host)\
+                .filter('term', user_id=user_id)\
+                .filter('term', service_line=self.service_line)\
+                .filter('term', course_status=self.course_status)
+        
+        course_result = {}
+        length = self.es_execute(query).hits.total
+        if length == 0:
+            course_result['course_num'] = 0
+            course_result['active_num'] = 0
+            course_result['video_length'] = 0
+            course_result['enrollment_num'] = 0
+            self.success_response({'data': course_result})
+            return 
         result = self.es_execute(query[:1]).hits[0]
             
-        course_result = {}
         course_result['course_num'] = result.course_num
-        course_result['active_num'] = result.active_num
+        course_result['active_num'] = result.active_nums
         course_result['video_length'] = result.video_length
         course_result['enrollment_num'] = result.enrollment_num
         
@@ -49,17 +52,15 @@ class EducationCourseStudy(BaseHandler):
     def get(self):
 
         #TODO host 学校标识需要主站传给我
-        host = self.host
-        user_id = self.user_id
-        course_type = self.course_type
+        user_id = '104'
+        host = 'suzhoudaxue.xuetangx.com'
+        service_line = 'credit'
         course_status = self.course_status
-
-        query = self.es_query(doc_type='teacher_power')\
-                .filter('term', user_id=str(self.user_id)) \
+        query = self.es_query(doc_type='academics_course_dynamics')\
+                .filter('term', user_id=user_id) \
                 .filter('term', host=host)\
-                .filter('term', course_type=course_type)\
+                .filter('term', service_line=service_line)\
                 .filter('term', course_status=course_status)
-
         query_result = self.es_execute(query)
         result = []
         if course_status == '开课中':
@@ -79,19 +80,49 @@ class EducationCourseNameSearch(BaseHandler):
     def get(self):
 
         #TODO
-        query = self.es_query(doc_type='teacher_power')\
-                    .filter('term', user_id=str(self.user_id))\
+        user_id = '5446'
+        page = int(self.get_argument('page'))
+        size = int(self.get_argument('size'))
+        course_name = self.get_argument('course_name')
+        query_statics = self.es_query(doc_type='academics_course_statics')\
+                    .filter('term', user_id=user_id)\
                     .filter('term', host=self.host)\
-                    .filter('term', course_type=self.course_type)\
-                    .filter('term', course_status=self.course_status)\
-                    .filter(Q('bool', should=[Q('wildcard', course_name='*%s' % self.course_name)]))
-
-        results = self.es_execute(query)
+                    .filter('term', service_line=self.service_line)\
+                    .filter('term', course_status=self.course_status).sort('-start_time')
+        query_course_name =query_statics.filter(Q('bool', should=[Q('wildcard', course_name='%s*' % course_name)]))
+        query_dynamics = self.es_query(doc_type='academics_course_dynamics')\
+                         .filter('term', user_id=user_id)\
+                         .filter('term', host=self.host)\
+                         .filter('term', service_line=self.service_line)\
+                         .filter('term', course_status=self.course_status)
+        results = self.es_execute(query_statics[(page-1)*size:page*size])
+        if course_name == ' ':
+            pass
+        else:
+            results = self.es_execute(query_course_name)
+        load_more = 0
         if results.hits:
-            #TODO
-            data = [{''} for hits in results.hits]
-            self.success_response({'data': data[0]})
-        self.success_response({'data': {}})
+            #TODO健康度
+            if results.hits.total > page*size:
+                load_more = 1
+            course_names = []
+            for name in [hit.course_name for hit in results.hits]:
+                if name not in course_names:
+                    course_names.append(name)
+            query_dynamics = query_dynamics.filter('terms', course_name=course_names)
+            result_dynamics = self.es_execute(query_dynamics)
+            data = [{'chapter': hits.chapter_issue_num, 'chapter_avg': hits.chapter_avg_length,'course_status': self.course_status, 'course_time': '%s-%s' %(hits.start_time.replace('-', '.'),hits.end_time.replace('-', '.')), 'course_name': hits.course_name} for hits in results.hits]
+            data_dynamics = [{'enrollment_num':query_dynamic.enrollment_num, 'active_rate': query_dynamic.active_rate, \
+                            'pass_num': query_dynamic.pass_num, 'avg_grade': query_dynamic.avg_grade, 'avg_comment_num': query_dynamic.avg_comment_num,\
+                            'pass_rate': query_dynamic.pass_rate, 'course_name': query_dynamic.course_name, 'school': '%s.%s' %(query_dynamic.school, query_dynamic.service_line)} for query_dynamic in query_dynamics]
+            for i in data:
+                i['dynamics'] = []
+            for i in data_dynamics:
+                for j in data:
+                    if i['course_name'] == j['course_name']:
+                        j['dynamics'].append(i)
+            self.success_response({'data': data, 'load_more': load_more})
+        self.success_response({'data': [], 'load_more': load_more})
 
 @route('/education/course_download')
 class EducationCourseDownload(BaseHandler):
@@ -100,16 +131,23 @@ class EducationCourseDownload(BaseHandler):
     """
     def get(self):
         #TODO
-        fields = self.fields.split(',') if self.fields else []
-        query = self.es_query(doc_type='xxxx')\
-                    .filter('term', user_id=self.user_id)\
+        user_id = '5446'
+        query = self.es_query(doc_type='academics_course_statics')\
+                    .filter('term', user_id=user_id)\
                     .filter('term', host=self.host)\
-                    .filter('term', course_type=self.course_type)\
+                    .filter('term', service_line=self.service_line)\
                     .filter('term', course_status=self.course_status)
-        query = query.source(fields)
         query_result = self.es_execute(query)
         if query_result.hits:
             #TODO
-            pass
-        self.success_response({'data': {}})
-
+            query_dynamics = self.es_query(doc_type='academics_course_dynamics')\
+                                 .filter('term', user_id=user_id)\
+                                 .filter('term', host=self.host)\
+                                 .filter('term', service_line=self.service_line)\
+                                 .filter('term', course_status=self.course_status)
+            query_dynamic_result = self.es_execute(query_dynamics)
+            #TODO
+            data = [[hits.course_status, hits.course_id, hits.course_name, hits.service_line, hits.course_type, hits.start_time, hits.end_time, hits.video_length, hits.chapter_num, hits.chapter_avg_length, hits.chapter_issue_num] for hits in query_result.hits for dynamic_hits in query_dynamic_result if hits.course_id == dynamic_hits.course_id and hits.service_line == dynamic_hits.service_line and hits.user_id == dynamic_hits.user_id]
+            self.success_response({'data': data})
+        self.success_response({'data': []})
+ 

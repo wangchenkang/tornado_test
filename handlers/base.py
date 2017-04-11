@@ -311,5 +311,24 @@ class BaseHandler(RequestHandler):
                 item.grade_ratio = 0
             result[item.user_id] = item.grade_ratio
         return result
+    
+    @property
+    def host(self):
+        host = self.get_argument('host', None)
+        if not host:
+            self.error_response(u'参数错误')
+        return host
 
+    @property
+    def course_status(self):
+        course_status = self.get_argument('course_status', None)
+        if not course_status:
+            self.error_response(u'参数错误')
+        return course_status
 
+    @property
+    def service_line(self):
+        service_line = self.get_argument('service_line', None)
+        if not service_line:
+            self.error_response(u'参数错误')
+        return service_line
