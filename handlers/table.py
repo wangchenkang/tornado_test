@@ -187,6 +187,7 @@ class EnrollDetail(TableHandler):
 
         return query
 
+@route('/small_question_structure')
 class SmallQuestionStructure(BaseHandler):
     """
     返回课程的小题顺序，描述
@@ -198,6 +199,6 @@ class SmallQuestionStructure(BaseHandler):
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total])
 
-        result = [{item.compact_order_id: item.to_dict()} for item in data.hits]
+        result = {item.compact_order_id: item.to_dict() for item in data.hits}
         self.success_response({'data': result})
 
