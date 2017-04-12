@@ -8,7 +8,7 @@ import settings
 import datetime
 
 Log.create('education')
-
+COURSE_STATUS = {'process': '开课中', 'close': '已结课', 'unopen': '即将开课'}
 
 @route('/education/course_overview')
 class EducationCourseOverview(BaseHandler):
@@ -23,7 +23,7 @@ class EducationCourseOverview(BaseHandler):
                 .filter('term', host=self.host)\
                 .filter('term', user_id=user_id)\
                 .filter('term', service_line=self.service_line)\
-                .filter('term', course_status=self.course_status)
+                .filter('term', course_status=COURSE_STATUS.get(self.course_status))
         
         course_result = {}
         length = self.es_execute(query).hits.total
@@ -60,7 +60,7 @@ class EducationCourseStudy(BaseHandler):
                 .filter('term', user_id=user_id) \
                 .filter('term', host=host)\
                 .filter('term', service_line=service_line)\
-                .filter('term', course_status=course_status)
+                .filter('term', course_status=COURSE_STATUS.get(course_status))
         query_result = self.es_execute(query)
         result = []
         if course_status == '开课中':
@@ -88,13 +88,13 @@ class EducationCourseNameSearch(BaseHandler):
                     .filter('term', user_id=user_id)\
                     .filter('term', host=self.host)\
                     .filter('term', service_line=self.service_line)\
-                    .filter('term', course_status=self.course_status).sort('-start_time')
+                    .filter('term', course_status=COURSE_STATUS.get(self.course_status)).sort('-start_time')
         query_course_name =query_statics.filter(Q('bool', should=[Q('wildcard', course_name='%s*' % course_name)]))
         query_dynamics = self.es_query(doc_type='academics_course_dynamics')\
                          .filter('term', user_id=user_id)\
                          .filter('term', host=self.host)\
                          .filter('term', service_line=self.service_line)\
-                         .filter('term', course_status=self.course_status)
+                         .filter('term', course_status=COURSE_STATUS.get(self.course_status))
         results = self.es_execute(query_statics[(page-1)*size:page*size])
         if course_name == ' ':
             pass
@@ -131,33 +131,42 @@ class EducationCourseDownload(BaseHandler):
     """
     def get(self):
         #TODO
-        user_id = '5446'
-        query = self.es_query(doc_type='academics_course_statics')\
-                    .filter('term', user_id=user_id)\
-                    .filter('term', host=self.host)\
-                    .filter('term', service_line=self.service_line)\
-                    .filter('term', course_status=self.course_status)
-        query_result = self.es_execute(query)
-        import json
-        print json.dumps(query.to_dict())
-        if query_result.hits:
-            #TODO
-            temp_data = []
-            for hits in query_result.hits:
-                if hits.school not in temp_data:
-                    temp_data.append(hits.school)
-                if hits.user_id not in temp_data:
-                    temp_data.append(hits.user_id)
-            print set(temp_data)
-            query_dynamics = self.es_query(doc_type='academics_course_dynamics')\
-                                 .filter('term', user_id=user_id)\
-                                 .filter('term', host=self.host)\
-                                 .filter('term', service_line=self.service_line)\
-                                 .filter('term', course_status=self.course_status)
-            query_dynamic_result = self.es_execute(query_dynamics)
-            #TODO
-            print query_dynamics.to_dict()
-            data = [[hits.course_status, hits.course_id, hits.course_name, hits.service_line, hits.course_type, hits.start_time, hits.end_time, hits.video_length, hits.chapter_num, hits.chapter_avg_length, hits.chapter_issue_num] for hits in query_result.hits for dynamic_hits in query_dynamic_result if hits.course_id == dynamic_hits.course_id and hits.service_line == dynamic_hits.service_line and hits.user_id == dynamic_hits.user_id]
-            self.success_response({'data': data})
+        #user_id = '67'
+        #query = self.es_query(doc_type='academics_course_statics')\
+        #            .filter('term', user_id=self.user_id)\
+        #            .filter('term', host=self.host)\
+        #            .filter('term', service_line=self.service_line)\
+        #            .filter('term', course_status=COURSE_STATUS.get(self.course_status))
+        #query_result = self.es_execute(query)
+        #if query_result.hits:
+        data = []
+        if True:
+            #TODO先查user_id,下对应的course_id:[group_key]
+            #暂时先从teacher_power中查course_id:[group_key]
+            #index暂时用tapgo
+            query_teacher_power = self.es_query(index='tapgo',doc_type='teacher_power')\
+                                        .filter('term', user_id=self.user_id)\
+                                        .filter('term', host=self.host)
+            total = self.es_execute(query_teacher_power).hits.total
+            result_teacher_power = self.es_execute(query_teacher_power[:total])
+            teacher_power = [{hits.course_id:[]} for hits in result_teacher_power.hits]
+            for i in teacher_power:
+                for j in result_teacher_power.hits:
+                    if i.keys()[0] == j.course_id and j.group_key not in i.values():
+                        i[i.keys()[0]].append(j.group_key)
+            #查健康度以及相关数据
+            result = []
+            for i in teacher_power:
+                for course_id, group_key in i.items():
+                    query_health = self.es_query(index='test_health', doc_type='course_health')\
+                                        .filter('term',course_id=course_id)\
+                                        .filter('terms',group_key=group_key).source(['enroll_num','activate_rate','accomplish_num','avg_grade','post_per'])
+                    result_health = self.es_execute(query_health)
+                    #TODO
+                    result.extend([hits.to_dict().values() for hits in result_health.hits])
+                    #result.append({k:v for hits in result_health.hits for k,v in hits.to_dict().items()})
+            data = []
+            print result
+            self.success_response({'data': result})
         self.success_response({'data': []})
  
