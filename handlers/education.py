@@ -138,8 +138,17 @@ class EducationCourseDownload(BaseHandler):
                     .filter('term', service_line=self.service_line)\
                     .filter('term', course_status=self.course_status)
         query_result = self.es_execute(query)
+        import json
+        print json.dumps(query.to_dict())
         if query_result.hits:
             #TODO
+            temp_data = []
+            for hits in query_result.hits:
+                if hits.school not in temp_data:
+                    temp_data.append(hits.school)
+                if hits.user_id not in temp_data:
+                    temp_data.append(hits.user_id)
+            print set(temp_data)
             query_dynamics = self.es_query(doc_type='academics_course_dynamics')\
                                  .filter('term', user_id=user_id)\
                                  .filter('term', host=self.host)\
@@ -147,6 +156,7 @@ class EducationCourseDownload(BaseHandler):
                                  .filter('term', course_status=self.course_status)
             query_dynamic_result = self.es_execute(query_dynamics)
             #TODO
+            print query_dynamics.to_dict()
             data = [[hits.course_status, hits.course_id, hits.course_name, hits.service_line, hits.course_type, hits.start_time, hits.end_time, hits.video_length, hits.chapter_num, hits.chapter_avg_length, hits.chapter_issue_num] for hits in query_result.hits for dynamic_hits in query_dynamic_result if hits.course_id == dynamic_hits.course_id and hits.service_line == dynamic_hits.service_line and hits.user_id == dynamic_hits.user_id]
             self.success_response({'data': data})
         self.success_response({'data': []})
