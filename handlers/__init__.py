@@ -12,3 +12,4 @@ from .prediction import *
 from .detail import *
 from .table import *
 from .permission import *
+from .elective_course import *

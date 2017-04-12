@@ -10,13 +10,16 @@ import shutil
 import tempfile
 import xlsxwriter
 import csv
+from collections import defaultdict
+from datetime import datetime
 from cStringIO import StringIO
+from dateutil.relativedelta import relativedelta
 from tornado.escape import url_unescape
 from tornado.web import HTTPError, Finish
 from elasticsearch import NotFoundError
 from .base import BaseHandler
 from utils.routes import route
-from utils.tools import fix_course_id
+from utils.tools import fix_course_id, datedelta
 from utils.log import Log
 
 reload(sys)
@@ -43,6 +46,7 @@ download_data_type = {
     'ta_activity_export': u'助教考核数据',
     'comment_active_export': u'讨论活跃数据',
     'grade': u'个人总成绩',
+    'final_score': u'期末结课数据'
 }
 
 
@@ -66,7 +70,7 @@ class DataExport(BaseHandler):
         for item in data_type:
             data_id = hashlib.md5(course_id + item).hexdigest()
             try:
-                record = self.es.get(index='download', doc_type='course_data', id=data_id)
+                record = self.es.get(index='dataimport', doc_type='course_data', id=data_id)
                 data[item] = {
                     'id': record['_id'],
                     'course_id': record['_source']['course_id'],
@@ -95,7 +99,7 @@ class DataBindingOrg(BaseHandler):
         data_type = [item.strip() for item in data_type.split(',') if item.strip()]
 
         default_size = 0
-        query = self.es_query(index='download', doc_type='course_data')\
+        query = self.es_query(index='dataimport', doc_type='course_data')\
                 .filter('exists', field='binding_org')\
                 .filter('terms', data_type=data_type)
         
@@ -129,6 +133,338 @@ class DataBindingOrg(BaseHandler):
 
         self.success_response(result)
 
+@route('/data/moocap/student')
+class MOOCAPStudent(BaseHandler):
+    def get(self):
+        user_id = self.get_param('user_id')
+        query = self.es_query(index="moocap", doc_type="student_sum")\
+                .filter("term", user_id=user_id)
+        hits = self.es_execute(query[:10]).hits
+        if hits.total == 0:
+            self.success_response({"course_list": []})
+        if hits.total > 10:
+            hits = self.es_execute(query[:hits.total]).hits
+        self.success_response({"course_list": [hit.course_id for hit in hits]})
+        
+
+
+@route('/data/moocap')
+class DataMOOCAP(BaseHandler):
+    """
+    获取MOOCAP数据
+    API: http://confluence.xuetangx.com/pages/viewpage.action?pageId=10486183
+    """
+    def get(self):
+        user_id = self.get_param('user_id')
+        query = self.es_query(index="moocap", doc_type="student_sum")\
+                .filter("term", course_id=self.course_id)\
+                .filter("term", user_id=user_id)
+        result = self.es_execute(query)
+        hits = result.hits
+        if hits.total == 0:
+            self.error_response(201, u'没有查到该学生数据')
+            return
+        user_info = result.to_dict()["hits"]["hits"][0]["_source"]
+        # user_info
+        # course_id, user_id, habbit, grade, ref, summary
+        query = self.es_query(index="moocap", doc_type="course_sum")\
+                .filter("term", course_id=self.course_id)
+        result = self.es_execute(query)
+        course_info = result.to_dict()["hits"]["hits"][0]["_source"]
+        # course_info
+        # course_id, habbit, grade, ref
+        def fix_percent(dic):
+            percents = dic["percents"]
+            fix_percent = [int(percent) for percent in percents]
+            sum_percent = sum(fix_percent)
+            delta = sum_percent - 100
+            fix_percent[-1] -= delta
+            dic["percents"] = fix_percent
+        all_type = ["SJ", "TR", "JL", "XL", "JZ"]
+        for u_type in all_type:
+            user_info["habbit"][u_type].update(course_info["habbit"][u_type])
+            fix_percent(user_info["habbit"][u_type])
+        user_info["ref"]["effect"].update(course_info["ref"]["effect"])
+        user_info["ref"]["speed"].update(course_info["ref"]["speed"])
+        user_info["grade"]["result"].update(course_info["grade"]["result"])
+        user_info["grade"]["exam"].update(course_info["grade"]["exam"])
+        user_info["grade"]["homework"].update(course_info["grade"]["homework"])
+#        user_info["summary"].update(course_info["summary"])
+        def get_context(dic, key, avg):
+            if dic[avg] == 0:
+                return "与均值持平"
+            val = int(round((dic[key] - dic[avg]) / float(dic[avg]) * 100))
+            if key == "attempts":
+                val = -val
+            if val > 0:
+                return "高于均值{}%".format(val)
+            elif val < 0:
+                return "低于均值{}%".format(-val)
+            else:
+                return "与均值持平"
+        # 时间偏好
+        def get_percent(dic):
+            for i, k in enumerate(dic["keys"]):
+                if k == dic["value"]:
+                    return "%.0f"%float(dic["percents"][i])
+        sj = user_info["habbit"]["SJ"]
+        if user_info["habbit"]["TR"]["value"] == u"无法判定":
+            sj["value"] == u"无法判定"
+        if sj["value"] == u"无法判定":
+            desc = "<p><strong>本学生学习行为不足，无法进行类型判定。</strong></p>"
+        elif sj["value"] == u"突击型":
+            st = sj["num_date"]
+            et = datedelta(st, sj["num_days"])
+            desc = "<p><strong>本学生的时间偏好为突击型，学习时间集中在{}至{}中。</strong></p>".format(st, et)
+        elif sj["value"] == u"规律型":
+            if sj["weekday"]:
+                weeknum = {
+                    0: "一",
+                    1: "二",
+                    2: "三",
+                    3: "四",
+                    4: "五",
+                    5: "六",
+                    6: "日"}
+                param = "、".join(["周" + weeknum[item[0]] for item in sorted(sj["weekday"], key=lambda x: [0])])
+                desc = "<p><strong>本学生的时间偏好为规律型，学习时间段较有规律，固定在每{}。</strong></p>".format(param)
+            elif sj["hour"]:
+                hours = sorted([item[0] for item in sj["hour"]])
+                param = []
+                curr = {}
+                for hour in hours:
+                    if not curr:
+                        curr["start"] = hour
+                        curr["end"] = hour+1
+                    else:
+                        if hour == curr["end"]:
+                            curr["end"] += 1
+                        else:
+                            param.append(curr)
+                            curr = {"start": hour, "end": hour+1}
+                param.append(curr)
+                param_content = []
+                for item in param:
+                    if item["start"] < 4:
+                        start = "0" + str(item["start"]*3)
+                    else:
+                        start = str(item["start"]*3)
+                    if item["end"] < 4:
+                        end = "0" + str(item["end"]*3)
+                    else:
+                        end = str(item["end"]*3)
+                    param_content.append(start + ":00-"+end+":00")
+
+                param = "、".join(param_content)
+                desc = "<p><strong>本学生的时间偏好为规律型，学习时间段较有规律，固定在每天{}时间段。</strong></p>".format(param)
+        elif sj["value"] == u"散点型":
+            desc = "<p><strong>本学生的时间偏好为散点型，无固定学习时间段</strong></p>"
+        user_info["habbit"]["SJ"]["desc"] = desc + "<p>本期课程中，有{}%的合格成员也属于{}。</p>".format(get_percent(sj), sj["value"])
+        # 投入偏好
+        tr = user_info["habbit"]["TR"]
+        if tr["value"] == u"无法判定":
+            desc = "<p><strong>本学生学习行为不足，无法进行类型判定</strong></p>"
+        elif tr["value"] == u"均衡型":
+            video_context = get_context(tr, "video_seconds", "video_avg")
+            hw_context = get_context(tr, "homework_seconds", "homework_avg")
+            exam_context = get_context(tr, "exam_seconds", "exam_avg")
+            desc = "<p><strong>本学生的投入偏好为均衡型，各个学习模块的投入总时间较为平均。</strong></p><p>与同期学生相比，各学习模块投入时长：视频学习{}小时，{}；作业{}小时，{};测试{}小时，{}。</p>".format("%.1f"%(tr["video_seconds"]/3600.0), video_context, "%.1f"%(tr["homework_seconds"]/3600.0), hw_context, "%.1f"%(tr["exam_seconds"]/3600.0), hw_context)
+        elif tr["value"] == u"倾斜型":
+            video_context = get_context(tr, "video_seconds", "video_avg")
+            hw_context = get_context(tr, "homework_seconds", "homework_avg")
+            exam_context = get_context(tr, "exam_seconds", "exam_avg")
+            conce = max((tr["video_seconds"], "视频学习"), (tr["homework_seconds"], "作业"), (tr["exam_seconds"], "测试"))
+            desc = "<p><strong>本学生的投入偏好为倾斜型，学习时间主要集中于{}。</strong></p><p>与同期学生相比，各学习模块投入时长：视频学习{}小时，{}；作业{}小时，{};测试{}小时，{}。</p>".format(conce[1], "%.1f"%(tr["video_seconds"]/3600.0), video_context, "%.1f"%(tr["homework_seconds"]/3600.0), hw_context, "%.1f"%(tr["exam_seconds"]/3600.0), exam_context)
+        user_info["habbit"]["TR"]["desc"] = desc + "<p>本期课程中，有{}%的合格成员也属于{}。</p>".format(get_percent(tr), tr["value"])
+        # 交流
+        jl = user_info["habbit"]["JL"]
+        if jl["value"] == u"离群型":
+            desc = "<p><strong>本学生的交流偏好为离群型，无任何发言和互动。</strong></p>"
+        elif jl["value"] == u"积极参与型":
+            desc = "<p><strong>本学生的交流偏好为积极参与型，喜欢集体学习，会主动与他人交流问题。</strong></p>"
+        elif jl["value"] == u"逃避型":
+            desc = "<p><strong>本学生的交流偏好为逃避型，主动提问较少，同时与他人交流较少。</strong></p>"
+        user_info["habbit"]["JL"]["desc"] = desc + "<p>本期课程中，有{}%的合格成员也属于{}。</p>".format(get_percent(jl), jl["value"])
+        # 序列
+        xl = user_info["habbit"]["XL"]
+        if xl["value"] == u"无法判定":
+            desc = "<p><strong>本学生学习行为不足，无法进行类型判定</strong></p>"
+        elif xl["value"] == u"序列型":
+            desc = "<p><strong>本学生的序列偏好为序列型，主要按课程内容顺序学习。</strong></p>"
+        elif xl["value"] == u"逃避型":
+            desc = "<p><strong>本学生的交流偏好为逃避型，主动提问较少，同时与他人交流较少。</strong></p>"
+        user_info["habbit"]["XL"]["desc"] = desc + "<p>本期课程中，有{}%的合格成员也属于{}。</p>".format(get_percent(xl), xl["value"])
+        # 节奏
+        jz = user_info["habbit"]["JZ"]
+        if jz["value"] == u"无法判定":
+            desc = "<p><strong>本学生学习行为不足，无法进行类型判定</strong></p>"
+        elif jz["value"] == u"张弛型":
+            if jz["is_12_gt_12345"]:
+                param = "根据学习情况"
+            else:
+                param = ""
+            desc = "<p><strong>本学生的节奏偏好为张弛型，在学完一个知识点后，会{}停顿以反思。</strong></p>".format(param)
+        elif jz["value"] == u"紧凑型":
+            desc = "<p><strong>本学生的节奏偏好为紧凑型，大部分情况下，学习完一个知识点后，会立即投入到下一个知识点的学习。</strong></p>"
+        user_info["habbit"]["JZ"]["desc"] = desc + "<p>本期课程中，有{}%的合格成员也属于{}。</p>".format(get_percent(jz), jz["value"])
+        # grade
+        # 1, result
+        user_info["grade"]["result"]["desc"] = "<p><strong>本学生顺利完成本课程的学习，并通过了考核。</strong></p><p>结果性成绩是基于课程最终得分线性折算的。</p>"
+        r = user_info["grade"]["result"]["range"]
+        user_info["grade"]["result"]["range"] = range(r[0], r[1]+1)
+        
+        def get_rel_avg(dic):
+            if "value" in dic and "avg" in dic:
+                v1, v2 = int(dic["value"]), int(dic["avg"])
+                if v1 >= v2:
+                    return "+" + str(v1-v2) 
+                else:
+                    return "-" + str(v2-v1)
+            else:
+                return "+0"
+        user_info["grade"]["result"]["rel_avg"] = get_rel_avg(user_info["grade"]["result"])
+        # 2, exam
+        exam = user_info["grade"]["exam"]
+        # 2.0 exam value
+        if "value" in exam and "avg" in exam:
+            if exam["value"] > exam["avg"]:
+                exam_val = "高于平均水平"
+            elif exam["value"] < exam["avg"]:
+                exam_val = "低于平均水平"
+            else:
+                exam_val = "与均值持平"
+        else:
+            exam_val = "与均值持平"
+        exam_eff = get_context(exam, "effice", "effice_avg")
+        exam_com = get_context(exam, "complete", "complete_avg")
+        exam_time = get_context(exam, "timeline", "timeline_avg")
+        user_info["grade"]["exam"]["desc"] = "<p><strong>本学生在完成测试过程中的综合表现{}。</strong></p><p>其中各子计分项情况分布为：效能[2]{}；完成率{}；及时性{}。</p>".format(exam_val, exam_eff, exam_com, exam_time)
+        user_info["grade"]["exam"]["rel_avg"] = get_rel_avg(user_info["grade"]["exam"])
+        r = user_info["grade"]["exam"]["range"]
+        user_info["grade"]["exam"]["range"] = range(r[0], r[1]+1)
+
+        # 3, homework
+        hw = user_info["grade"]["homework"]
+        if "value" in hw and "avg" in hw:
+            if hw["value"] > hw["avg"]:
+                hw_val = "高于平均水平"
+            elif hw["value"] < hw["avg"]:
+                hw_val = "低于平均水平"
+            else:
+                hw_val = "与均值持平"
+        else:
+            hw_val = "与均值持平"
+        hw_eff = get_context(hw, "effice", "effice_avg")
+        hw_com = get_context(hw, "complete", "complete_avg")
+        hw_time = get_context(hw, "timeline", "timeline_avg")
+        hw_atte = get_context(hw, "attempts", "attempts_avg")
+        user_info["grade"]["homework"]["desc"] = "<p><strong>本学生在完成测试过程中的综合表现{}。</strong></p><p>其中各子计分项情况分布为：效能[2]{}；完成率{}；及时性{}；尝试次数{}。</p>".format(hw_val, hw_eff, hw_com, hw_time, hw_atte)
+        user_info["grade"]["homework"]["rel_avg"] = get_rel_avg(user_info["grade"]["homework"])
+        r = user_info["grade"]["homework"]["range"]
+        user_info["grade"]["homework"]["range"] = range(r[0], r[1]+1)
+        
+        speed = user_info["ref"]["speed"]
+        user_info["ref"]["speed"]["value"] = int(speed["origin_value"]/speed["origin_max"]*10)
+        user_info["ref"]["speed"]["range"] = range(11)
+        if speed["origin_value"] > speed["origin_avg"]:
+            speed_val = ("高于平均水平", "较少")
+        elif speed["origin_value"] < speed["origin_avg"]:
+            speed_val = ("低于平均水平", "较多")
+        else:
+            speed_val = ("与均值持平", "与均值持平")
+        user_info["ref"]["speed"]["desc"] = "<p><strong>本学生学习速度{}。在学习内容一定的情况下，学习所用时间{}。</strong></p><p>学习速度是基于课程教学时长和学生的学习时长计算的。</p>".format(*speed_val)
+        effect = user_info["ref"]["effect"]
+        user_info["ref"]["effect"]["value"] = int(effect["origin_value"]/effect["origin_max"]*10)
+        user_info["ref"]["effect"]["range"] = range(11)
+        if effect["origin_value"] > effect["origin_avg"]:
+            effect_val = ("高于平均水平", "较少")
+        elif effect["origin_value"] < effect["origin_avg"]:
+            effect_val = ("低于平均水平", "较多")
+        else:
+            effect_val = ("与均值持平", "与均值持平")
+        user_info["ref"]["effect"]["desc"] = "<p><strong>本学生学习效度{}。在投入时间{}的情况下，取得了较好的成绩。</strong></p><p>学习效度是基于学生的学习速度和课程最终得分计算的。</p>".format(*effect_val)
+
+        user_info["authentication"] = "2016" + "年"
+        self.success_response(user_info)
+
+
+@route('/data/monthly_report')
+class DataMonthlyReport(BaseHandler):
+    """
+    获取学堂选修课教学周报
+    API: http://confluence.xuetangx.com/pages/viewpage.action?pageId=9869181
+    """
+    def get(self):
+        school = self.get_argument('org_name', None)
+        plan_name = self.get_argument('plan_name', None)
+        pn = int(self.get_argument('page', 1))
+        num = int(self.get_argument('psize', 10))
+        data_type = "monthly_report"
+        query = self.es_query(index='monthly_report', doc_type='tap_elective_course_plan_m')
+        if school:
+            query = query.filter('term', school=school)
+        else:
+            query = query.filter('exists', field="school")
+        if plan_name:
+            query = query.filter('term', plan=plan_name)
+        else:
+            query = query.filter('exists', field="plan_name")
+
+        date = datetime.today()-relativedelta(months=1)
+        last_month = "%s%02d"%(date.year,date.month)
+        query = query.filter('term',months=last_month)
+        #today = datetime.datetime.today()
+        #query = query.filter('term',update_date='%04d%02d%02d'%(today.year,today.month,run_day))
+        #query = query.filter('term',update_date='%s%s%s'%('2016','11','04'))
+        size = query[:0].execute().hits.total
+        data = query[:size].execute().hits
+
+        
+        #import pdb
+        #pdb.set_trace()
+        all_coursenames = defaultdict(list)
+        all_courseids = defaultdict(list)
+        view_info = {}
+        plan_info = {}
+        update_info = {}
+        #import reg
+        #reg.compile('^\d+年\d月\d日$')
+        for d in data:
+            all_coursenames[d.school].append(d.course_name)
+            #all_courseids[d.school].append(d.cours_id)
+            plan_info[d.school] = d.plan_name
+            view_info[d.school] = d.zip_url if hasattr(d,"zip_url") else ""
+        all_info = {}
+        for school in all_coursenames.iterkeys():
+            #all_info["%s"%school] = {"course_name":all_coursenames.get(school,[])}
+            all_info["%s"%school.encode('utf-8')] = {"plan_name":plan_info.get(school,'')}
+            all_info["%s"%school.encode('utf-8')].update({"org_name":school})
+            all_info["%s"%school.encode('utf-8')].update({"course_list":all_coursenames.get(school,[])})
+            all_info["%s"%school.encode('utf-8')].update({"update_time":last_month})
+            all_info["%s"%school.encode('utf-8')].update({"zip_url":view_info.get(school,'')})
+
+        size = len(all_info.keys())
+        values = all_info.values()
+        data = values[(pn-1)*num: pn*num]
+
+        pages = {
+                "recordsPerPage": num,
+                "totalPage": (size - 1) / num + 1,
+                "page": pn,
+                "totalRecord": size
+                }
+        results = []
+        for hit in data:
+            results.append({
+                "org_name": hit.get("org_name",""),
+                "plan_name": hit.get("plan_name",""),
+                "course_list": hit.get("course_list",""),
+                "update_time": hit.get("update_time",""),
+                "pdf_url": "",
+                "zip_url": hit.get("zip_url")
+                })
+        self.success_response({"pages": pages, "results": results})
+
 @route('/data/weekly_report')
 class DataWeeklyReport(BaseHandler):
     """
@@ -142,7 +478,7 @@ class DataWeeklyReport(BaseHandler):
         num = int(self.get_argument('psize', 10))
         data_type = "weekly_report"
 
-        query = self.es_query(doc_type='org_data')\
+        query = self.es_query(index='download', doc_type='org_data')\
                 .filter('term', data_type=data_type)
         if org:
             query = query.filter('term', binding_org=org)
@@ -186,6 +522,7 @@ class DataWeeklyReport(BaseHandler):
         self.success_response({"pages": pages, "results": results})
 
 
+
 @route('/data/download')
 class DataDownload(BaseHandler):
     """
@@ -208,7 +545,7 @@ class DataDownload(BaseHandler):
             file_format = 'xlsx'
 
         try:
-            record = self.es.get(index='download', doc_type='course_data', id=data_id)
+            record = self.es.get(index='dataimport', doc_type='course_data', id=data_id)
         except NotFoundError:
             raise HTTPError(404)
 
@@ -224,12 +561,14 @@ class DataDownload(BaseHandler):
         if zip_format != 'tar':
             if file_format == 'xlsx':
                 xlsx_file = StringIO()
-                workbook = xlsxwriter.Workbook(xlsx_file)
+                workbook = xlsxwriter.Workbook(xlsx_file, {'in_memory': True})
                 worksheet = workbook.add_worksheet()
                 lines = csv.reader(response.content.strip().split('\n'), dialect=csv.excel)
                 row = 0
                 for line in lines:
                     for col, item in enumerate(line):
+                        if len(item) > 0 and item[0] == '=':
+                            item = "'" + item
                         worksheet.write(row, col, item)
                     row += 1
                 workbook.close()
@@ -238,7 +577,6 @@ class DataDownload(BaseHandler):
                 self.set_header('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
                 self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
                 self.write(xlsx_file.read())
-                xlsx_file.close()
             else:
                 self.set_header('Content-Type', 'text/csv')
                 self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
@@ -267,7 +605,7 @@ class DataDownload(BaseHandler):
 
                 if file_format == 'xlsx':
                     xlsx_file = StringIO()
-                    workbook = xlsxwriter.Workbook(xlsx_file)
+                    workbook = xlsxwriter.Workbook(xlsx_file, {'in_memory': True})
                     for item in tar:
                         if not item.isreg():
                             continue
@@ -289,7 +627,6 @@ class DataDownload(BaseHandler):
                     self.set_header('Content-Disposition', u'attachment;filename={}'.format(filename))
 
                     self.write(xlsx_file.read())
-                    xlsx_file.close()
                 elif platform == 'windows':
                     win_tmp_tarfile = tempfile.mktemp(suffix='.tar.gz', dir=temp_dir)
                     win_tarfile = tarfile.open(win_tmp_tarfile, 'w')
