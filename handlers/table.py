@@ -12,23 +12,24 @@ class TableHandler(BaseHandler):
     def get_query(self, course_id, page, num, sort, sort_type, student_keyword,fields):
         pass
 
-    def post(self):
-        student_keyword = self.get_argument('student_keyword')
+    #def post(self):
+    def get(self):
+        student_keyword = self.get_argument('student_keyword', '')
         time_begin = time.time()
         page = int(self.get_argument('page', 0))
         num = int(self.get_argument('num', 10))
         sort = self.get_argument('sort', None)
         sort_type = int(self.get_argument('sort_type', 0))
         fields = self.get_argument('fields', '')
-        fields = field.split(',') if fields else []
+        fields = fields.split(',') if fields else []
         course_id = self.course_id
         user_ids = self.get_users()
 
 
         #查询改课程的owner
-        query_owner = self.es_query(doc_type='course_community')\
-                            .filter('term', course_id=course_id)
-        owner = self.es_execute(query_owner[:1]).hits[0].owner
+        #query_owner = self.es_query(doc_type='course_community')\
+        #                    .filter('term', course_id=course_id)
+        #owner = self.es_execute(query_owner[:1]).hits[0].owner
 
         result, size = self.get_query(course_id, user_ids, page, num, sort, sort_type, student_keyword, fields)
         #if fields:
@@ -61,7 +62,7 @@ class TableHandler(BaseHandler):
         final['data'] = result
         time_elapse = time.time() - time_begin
         final['time'] = "%.0f" % (float(time_elapse) * 1000)
-        final['owner'] = owner
+        #final['owner'] = owner
 
         self.success_response(final)
 
@@ -85,19 +86,22 @@ class GradeDetail(TableHandler):
 class QuestionDetail(TableHandler):
 
     def get_es_type(self, sort_field):
-        if 'problem' in sort_field:
-            return 'tap_question/small_question'
+        if 'answer' in sort_field or 'correct' in sort_field:
+            return 'small_question/small_question'
         return 'tap7_test/question_overview'
 
     def get_query_plan(self, sort):
-        es_types = ['tap7_test/question_overview', 'tap_question/small_question']
+        es_types = ['tap7_test/question_overview', 'small_question/small_question']
         first_es_type = self.get_es_type(sort)
         es_types.remove(first_es_type)
         es_types.insert(0, first_es_type)
         return es_types
 
     def get_query(self, course_id, user_ids, page, num, sort, sort_type, student_keyword, fields):
-        if not sort: sort = 'grade'
+        import ipdb
+        ipdb.set_trace()
+        if not sort:
+            sort = 'grade'
 
         es_index_types = self.get_query_plan(sort)
 
@@ -111,14 +115,16 @@ class QuestionDetail(TableHandler):
             query = self.es_query(index=es_index, doc_type=es_type) \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids)
+            # 如果是第一个查询，需要把size查出来，前端用于分页
             if idx == 1:
                 query = query.sort(sort)
-                size = self.es_execute(query).hits.total
+                size = self.es_execute(query[:0]).hits.total
                 query = query[page*num:(page+1)*num]
 
             data = self.es_execute(query)
             data_result = [item.to_dict() for item in data.hits]
 
+            # 如果是第一个查询，在查询后更新user_ids列表，后续查询只查这些学生
             if idx == 1:
                 result = data_result
                 user_ids = [r['user_id'] for r in result]
@@ -127,8 +133,8 @@ class QuestionDetail(TableHandler):
                     for dr in data_result:
                         if r['user_id'] == dr['user_id']:
                             r.extends(dr)
-                            continue
 
+        ipdb.set_trace()
         return result, size
 
 @route('/table/video_overview')
