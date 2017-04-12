@@ -98,8 +98,6 @@ class QuestionDetail(TableHandler):
         return es_types
 
     def get_query(self, course_id, user_ids, page, num, sort, sort_type, student_keyword, fields):
-        import ipdb
-        ipdb.set_trace()
         if not sort:
             sort = 'grade'
 
@@ -116,7 +114,7 @@ class QuestionDetail(TableHandler):
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids)
             # 如果是第一个查询，需要把size查出来，前端用于分页
-            if idx == 1:
+            if idx == 0:
                 query = query.sort(sort)
                 size = self.es_execute(query[:0]).hits.total
                 query = query[page*num:(page+1)*num]
@@ -125,16 +123,15 @@ class QuestionDetail(TableHandler):
             data_result = [item.to_dict() for item in data.hits]
 
             # 如果是第一个查询，在查询后更新user_ids列表，后续查询只查这些学生
-            if idx == 1:
+            if idx == 0:
                 result = data_result
                 user_ids = [r['user_id'] for r in result]
             else:
                 for r in result:
                     for dr in data_result:
                         if r['user_id'] == dr['user_id']:
-                            r.extends(dr)
+                            r.update(dr)
 
-        ipdb.set_trace()
         return result, size
 
 @route('/table/video_overview')
