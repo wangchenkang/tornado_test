@@ -12,59 +12,67 @@ class TableHandler(BaseHandler):
     def get_query(self, course_id, page, num, sort, sort_type, student_keyword,fields):
         pass
 
+    def student_search(self, student_keyword):
+        query = self.es_query(index='tap_test7', doc_type='question_overview') \
+                    .filter(Q('bool', should=[Q('wildcard', rname='*%s*' % student_keyword)\
+                                              | Q('wildcard', binding_uid='*%s*'% student_keyword) \
+                                              | Q('wildcard', nickname='*%s*' % student_keyword)\
+                                              | Q('wildcard', xid='*%s*' % student_keyword)\
+                                              ]))
+
+        size = self.es_execute(query[:0]).hits.total
+        result = self.es_execute(query[:size]).hits
+        user_ids = [r.user_id for r in result]
+        return user_ids
+
+    def search_es(self, course_id, user_ids, page, num, sort, sort_type, student_keyword, fields):
+        query = self.get_query(course_id, user_ids, page, num, sort, sort_type, student_keyword, fields)
+        if fields:
+            query = query.source(fields)
+
+        if num == -1:
+            result = self.download(query, len(user_ids))
+        else:
+            data = self.es_execute(query[page*num:(page+1)*num])
+            result = [item.to_dict() for item in data.hits]
+
+        return result
+
+    def download(self, query, size, part_num=10000):
+        times = size/part_num
+        if size % part_num:
+            times += 1
+        result = []
+        for i in range(times):
+            items = self.es_execute(query[i*part_num:(i+1)*part_num]).hits
+            result.extend([item.to_dict() for item in items])
+        return result
+
     #def post(self):
     def get(self):
         student_keyword = self.get_argument('student_keyword', '')
         time_begin = time.time()
         page = int(self.get_argument('page', 0))
         num = int(self.get_argument('num', 10))
-        sort = self.get_argument('sort', None)
+        sort = self.get_argument('sort', 'grade')
         sort_type = int(self.get_argument('sort_type', 0))
         fields = self.get_argument('fields', '')
         fields = fields.split(',') if fields else []
         course_id = self.course_id
-        user_ids = self.get_users()
 
+        if student_keyword:
+            user_ids = self.student_search()
+        else:
+            user_ids = self.get_users()
 
-        #查询改课程的owner
-        #query_owner = self.es_query(doc_type='course_community')\
-        #                    .filter('term', course_id=course_id)
-        #owner = self.es_execute(query_owner[:1]).hits[0].owner
-
-        result, size = self.get_query(course_id, user_ids, page, num, sort, sort_type, student_keyword, fields)
-        #if fields:
-        #    query = query.source(fields)
-
-        # student search
-        #if student_keyword != "":
-        #    query = query.filter(Q('bool', should=[Q('wildcard', rname='*%s*' % student_keyword)\
-        #                                          | Q('wildcard', binding_uid='*%s*'% student_keyword) \
-        #                                          | Q('wildcard', nickname='*%s*' % student_keyword)\
-        #                                          | Q('wildcard', xid='*%s*' % student_keyword)\
-        #                                          ]))
-
-        #size = self.es_execute(query[:0]).hits.total
-
-        # for download
-        #if num == -1:
-        #    times = size/10000
-        #    data = self.es_execute(query[:10000])
-        #    result = [item.to_dict() for item in data.hits]
-        #    for i in range(times+1):
-        #        if i != 0:
-        #            result = result + [item.to_dict() for item in self.es_execute(query[i*10000:(i+1)*10000]).hits]
-        #else:
-        #    data = self.es_execute(query[page*num:(page+1)*num])
-        #    result = [item.to_dict() for item in data.hits]
+        result = self.search_es(course_id, user_ids, page, num, sort, sort_type, student_keyword, fields)
 
         final = {}
-        final['total'] = size
+        final['total'] = len(user_ids)
         final['data'] = result
-        time_elapse = time.time() - time_begin
-        final['time'] = "%.0f" % (float(time_elapse) * 1000)
-        #final['owner'] = owner
 
         self.success_response(final)
+
 
 @route('/table/grade_overview')
 class GradeDetail(TableHandler):
@@ -97,42 +105,56 @@ class QuestionDetail(TableHandler):
         es_types.insert(0, first_es_type)
         return es_types
 
-    def get_query(self, course_id, user_ids, page, num, sort, sort_type, student_keyword, fields):
-        if not sort:
-            sort = 'grade'
-
+    def search_es(self, course_id, user_ids, page, num, sort, sort_type, student_keyword, fields):
         es_index_types = self.get_query_plan(sort)
 
         reverse = True if sort_type else False
         sort = '-' + sort if reverse else sort
 
         result = []
-        size = 0
-        for idx, es_index_type in enumerate(es_index_types):
-            es_index, es_type = es_index_type.split('/')
-            query = self.es_query(index=es_index, doc_type=es_type) \
-                        .filter('term', course_id=course_id) \
-                        .filter('terms', user_id=user_ids)
-            # 如果是第一个查询，需要把size查出来，前端用于分页
-            if idx == 0:
-                query = query.sort(sort)
-                size = self.es_execute(query[:0]).hits.total
-                query = query[page*num:(page+1)*num]
+        
+        def search(course_id, user_ids, page, num, sort):
+            for idx, es_index_type in enumerate(es_index_types):
+                es_index, es_type = es_index_type.split('/')
+                query = self.es_query(index=es_index, doc_type=es_type) \
+                            .filter('term', course_id=course_id) \
+                            .filter('terms', user_id=user_ids)
 
-            data = self.es_execute(query)
-            data_result = [item.to_dict() for item in data.hits]
+                # 如果是第一个查询，需要排序，查询后更新学生列表
+                if idx == 0:
+                    query = query.sort(sort)
+                    query = query[page*num:(page+1)*num]
 
-            # 如果是第一个查询，在查询后更新user_ids列表，后续查询只查这些学生
-            if idx == 0:
-                result = data_result
-                user_ids = [r['user_id'] for r in result]
-            else:
-                for r in result:
-                    for dr in data_result:
-                        if r['user_id'] == dr['user_id']:
-                            r.update(dr)
+                data = self.es_execute(query)
+                data_result = [item.to_dict() for item in data.hits]
 
-        return result, size
+                # 如果是第一个查询，在查询后更新user_ids列表，后续查询只查这些学生
+                if idx == 0:
+                    result = data_result
+                    user_ids = [r['user_id'] for r in result]
+                else:
+                    for r in result:
+                        for dr in data_result:
+                            if r['user_id'] == dr['user_id']:
+                                r.update(dr)
+            return result
+
+        def download(course_id, user_ids, sort, part_num=10000):
+            num = len(user_ids)
+            times = num / part_num
+            if times % part_num:
+                times += 1
+            result = []
+            for i in range(times):
+                result.extend(search(course_id, user_ids, i, part_num, sort))
+            return result 
+        
+        if num == -1:
+            result = download(course_id, user_ids, sort)
+        else:
+            result = search(course_id, user_ids, page, num, sort)
+
+        return result
 
 @route('/table/video_overview')
 class VideoDetail(TableHandler):
