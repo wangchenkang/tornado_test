@@ -70,7 +70,7 @@ class DataExport(BaseHandler):
         for item in data_type:
             data_id = hashlib.md5(course_id + item).hexdigest()
             try:
-                record = self.es.get(index='dataimport', doc_type='course_data', id=data_id)
+                record = self.es.get(index='download', doc_type='course_data', id=data_id)
                 data[item] = {
                     'id': record['_id'],
                     'course_id': record['_source']['course_id'],
@@ -99,7 +99,7 @@ class DataBindingOrg(BaseHandler):
         data_type = [item.strip() for item in data_type.split(',') if item.strip()]
 
         default_size = 0
-        query = self.es_query(index='dataimport', doc_type='course_data')\
+        query = self.es_query(index='download', doc_type='course_data')\
                 .filter('exists', field='binding_org')\
                 .filter('terms', data_type=data_type)
         
@@ -477,7 +477,7 @@ class DataWeeklyReport(BaseHandler):
         num = int(self.get_argument('psize', 10))
         data_type = "weekly_report"
 
-        query = self.es_query(index='dataimport', doc_type='org_data')\
+        query = self.es_query(index='download', doc_type='org_data')\
                 .filter('term', data_type=data_type)
         if org:
             query = query.filter('term', binding_org=org)
@@ -545,7 +545,7 @@ class DataDownload(BaseHandler):
             file_format = 'xlsx'
 
         try:
-            record = self.es.get(index='dataimport', doc_type='course_data', id=data_id)
+            record = self.es.get(index='download', doc_type='course_data', id=data_id)
         except NotFoundError:
             raise HTTPError(404)
 
