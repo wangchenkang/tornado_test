@@ -142,13 +142,13 @@ class QuestionDetail(TableHandler):
         def download(course_id, user_ids, sort, part_num=10000):
             num = len(user_ids)
             times = num / part_num
-            if times % part_num:
+            if num % part_num:
                 times += 1
             result = []
             for i in range(times):
                 result.extend(search(course_id, user_ids, i, part_num, sort))
             return result 
-        
+
         if num == -1:
             result = download(course_id, user_ids, sort)
         else:
