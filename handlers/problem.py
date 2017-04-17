@@ -189,10 +189,12 @@ class ChapterProblemDetailStat(BaseHandler):
             correct = 'correct' if hit.correctness == 1 else "uncorrect"
             answer = hit.answer
             # 此处不转了
-            #try:
-                #answer = ast.literal_eval(answer)
-            #except:
-            #    pass
+            try:
+                answer = ast.literal_eval(answer)
+                if answer == float('inf'):
+                    answer = hit.answer
+            except:
+                pass
             result.append({
                 'uid': hit.user_id,
                 'pid': hit.pid,
