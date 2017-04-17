@@ -74,6 +74,69 @@ class TableHandler(BaseHandler):
         self.success_response(final)
 
 
+def NewTableHanlder(TableHandler):
+
+    self.es_types = []
+
+    def get_es_type(self, sort_field):
+        pass
+
+    def get_query_plan(self, sort):
+        first_es_type = self.get_es_type(sort)
+        self.es_types.remove(first_es_type)
+        self.es_types.insert(0, first_es_type)
+        return es_types
+
+   def iterate_search(self, course_id, user_ids, page, num, sort):
+       for idx, es_index_type in enumerate(es_index_types):
+           es_index, es_type = es_index_type.split('/')
+           query = self.es_query(index=es_index, doc_type=es_type) \
+                       .filter('term', course_id=course_id) \
+                       .filter('terms', user_id=user_ids)
+
+           # 如果是第一个查询，需要排序，查询后更新学生列表
+           if idx == 0:
+               query = query.sort(sort)
+               query = query[page*num:(page+1)*num]
+
+           data = self.es_execute(query)
+           data_result = [item.to_dict() for item in data.hits]
+
+           # 如果是第一个查询，在查询后更新user_ids列表，后续查询只查这些学生
+           if idx == 0:
+               result = data_result
+               user_ids = [r['user_id'] for r in result]
+           else:
+               for r in result:
+                   for dr in data_result:
+                       if r['user_id'] == dr['user_id']:
+                           r.update(dr)
+       return result
+
+    def iterate_download(self, course_id, user_ids, sort, part_num=10000):
+        num = len(user_ids)
+        times = num / part_num
+        if num % part_num:
+            times += 1
+        result = []
+        for i in range(times):
+            result.extend(self.iterate_search(course_id, user_ids, i, part_num, sort))
+        return result 
+
+    def search_es(self, course_id, user_ids, page, num, sort, sort_type, student_keyword, fields):
+        es_index_types = self.get_query_plan(sort)
+
+        reverse = True if sort_type else False
+        sort = '-' + sort if reverse else sort
+
+        if num == -1:
+            result = self.iterate_download(course_id, user_ids, sort)
+        else:
+            result = self.iterate_search(course_id, user_ids, page, num, sort)
+
+        return result
+
+
 @route('/table/grade_overview')
 class GradeDetail(TableHandler):
     def get_query(self, course_id, user_ids, page, num, sort, sort_type, student_keyword, fields):
@@ -90,88 +153,27 @@ class GradeDetail(TableHandler):
                         .filter('terms', user_id=user_ids)
         return query
 
+
 @route('/table/question_overview')
-class QuestionDetail(TableHandler):
+class QuestionDetail(NewTableHandler):
+
+    self.es_types = ['tap7_test/question_overview', 'small_question/small_question']
 
     def get_es_type(self, sort_field):
         if 'answer' in sort_field or 'correct' in sort_field:
             return 'small_question/small_question'
         return 'tap7_test/question_overview'
 
-    def get_query_plan(self, sort):
-        es_types = ['tap7_test/question_overview', 'small_question/small_question']
-        first_es_type = self.get_es_type(sort)
-        es_types.remove(first_es_type)
-        es_types.insert(0, first_es_type)
-        return es_types
-
-    def search_es(self, course_id, user_ids, page, num, sort, sort_type, student_keyword, fields):
-        es_index_types = self.get_query_plan(sort)
-
-        reverse = True if sort_type else False
-        sort = '-' + sort if reverse else sort
-
-        result = []
-        
-        def search(course_id, user_ids, page, num, sort):
-            for idx, es_index_type in enumerate(es_index_types):
-                es_index, es_type = es_index_type.split('/')
-                query = self.es_query(index=es_index, doc_type=es_type) \
-                            .filter('term', course_id=course_id) \
-                            .filter('terms', user_id=user_ids)
-
-                # 如果是第一个查询，需要排序，查询后更新学生列表
-                if idx == 0:
-                    query = query.sort(sort)
-                    query = query[page*num:(page+1)*num]
-
-                data = self.es_execute(query)
-                data_result = [item.to_dict() for item in data.hits]
-
-                # 如果是第一个查询，在查询后更新user_ids列表，后续查询只查这些学生
-                if idx == 0:
-                    result = data_result
-                    user_ids = [r['user_id'] for r in result]
-                else:
-                    for r in result:
-                        for dr in data_result:
-                            if r['user_id'] == dr['user_id']:
-                                r.update(dr)
-            return result
-
-        def download(course_id, user_ids, sort, part_num=10000):
-            num = len(user_ids)
-            times = num / part_num
-            if num % part_num:
-                times += 1
-            result = []
-            for i in range(times):
-                result.extend(search(course_id, user_ids, i, part_num, sort))
-            return result 
-
-        if num == -1:
-            result = download(course_id, user_ids, sort)
-        else:
-            result = search(course_id, user_ids, page, num, sort)
-
-        return result
 
 @route('/table/video_overview')
-class VideoDetail(TableHandler):
-    def get_query(self, course_id, user_ids, page, num, sort, sort_type, student_keyword, fields):
-        if sort:
-            reverse = True if sort_type else False
-            sort = '-' + sort if reverse else sort
-            query = self.es_query(index='tapvideo', doc_type='video_overview') \
-                        .filter('term', course_id=course_id) \
-                        .filter('terms', user_id=user_ids) \
-                        .sort(sort)
-        else:
-            query = self.es_query(index='tapvideo', doc_type='video_overview') \
-                        .filter('term', course_id=course_id) \
-                        .filter('terms', user_id=user_ids)
+class VideoDetail(NewTableHandler):
 
-        return query
+    self.es_types = ['tap4_test/video_overview', 'item_video/item_video']
+
+    def get_es_type(self, sort_field):
+        if 'item' in sort_field:
+            return 'item_video/item_video'
+        return 'tap4_test/video_overview'
 
 @route('/table/discussion_overview')
 class DiscussionDetail(TableHandler):
