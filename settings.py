@@ -15,9 +15,10 @@ ELECTIVE_ALL_GROUP_KEY = 4
 COHORT_GROUP_KEY = 50000
 ELECTIVE_GROUP_KEY = 80000
 
-DISPATCH_OPTIMIZE = True
-ES_INDEX = 'tap'
 
+DISPATCH_OPTIMIZE = True
+#ES_INDEX = 'tap'
+ES_INDEX = 'tapgo'
 with open(CONFIG_FILE) as f:
     document = f.read()
     locals().update(yaml.load(document))
