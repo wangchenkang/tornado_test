@@ -117,7 +117,7 @@ class NewTableHandler(TableHandler):
                             r.update(dr)
         return result
 
-    def iterate_download(self, course_id, user_ids, sort, part_num=10000):
+    def iterate_download(self, es_index_types, course_id, user_ids, sort, fields, part_num=10000):
         num = len(user_ids)
         times = num / part_num
         if num % part_num:
