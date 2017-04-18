@@ -12,8 +12,9 @@ class TableHandler(BaseHandler):
     def get_query(self, course_id, page, num, sort, sort_type, student_keyword,fields):
         pass
 
-    def student_search(self, student_keyword):
-        query = self.es_query(index='tap_test7', doc_type='question_overview') \
+    def student_search(self, course_id, student_keyword):
+        query = self.es_query(index='tapgo', doc_type='student_enrollment_info') \
+                    .filter('term', course_id=course_id) \
                     .filter(Q('bool', should=[Q('wildcard', rname='*%s*' % student_keyword)\
                                               | Q('wildcard', binding_uid='*%s*'% student_keyword) \
                                               | Q('wildcard', nickname='*%s*' % student_keyword)\
@@ -61,7 +62,7 @@ class TableHandler(BaseHandler):
         course_id = self.course_id
 
         if student_keyword:
-            user_ids = self.student_search()
+            user_ids = self.student_search(course_id, student_keyword)
         else:
             user_ids = self.get_users()
 
@@ -160,23 +161,27 @@ class GradeDetail(TableHandler):
 @route('/table/question_overview')
 class QuestionDetail(NewTableHandler):
 
-    es_types = ['tap7_test/question_overview', 'small_question/small_question']
+    es_types = ['tap7_test/question_overview', 'small_question/small_question', 'course_grade/course_grade', 'tapgo/student_enrollment_info']
 
     def get_es_type(self, sort_field):
-        if 'answer' in sort_field or 'correct' in sort_field:
+        if 'grade' in sort_field:
+            return 'course_grade/course_grade'
+        elif 'answer' in sort_field or 'correct' in sort_field:
             return 'small_question/small_question'
-        return 'tap7_test/question_overview'
+        return 'tapgo/student_enrollment_info'
 
 
 @route('/table/video_overview')
 class VideoDetail(NewTableHandler):
 
-    es_types = ['video_overview/video_overview', 'item_video/item_video']
+    es_types = ['video_overview/video_overview', 'item_video/item_video', 'course_grade/course_grade', 'tapgo/student_enrollment_info']
 
     def get_es_type(self, sort_field):
+        if 'grade' in sort_field:
+            return 'course_grade/course_grade'
         if 'item' in sort_field:
             return 'item_video/item_video'
-        return 'video_overview/video_overview'
+        return 'tapgo/student_enrollment_info'
 
 @route('/table/discussion_overview')
 class DiscussionDetail(TableHandler):
