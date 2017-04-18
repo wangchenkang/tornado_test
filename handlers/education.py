@@ -11,8 +11,8 @@ import time
 Log.create('education')
 COURSE_STATUS = {'process': '开课中', 'close': '已结课', 'unopen': '即将开课'}
 COURSE_TYPE = {1: '自主模式', 0: '随堂模式'}
-FIELD_COURSE_NAME_SEARCH = ['course_id','group_key', 'active_rank', 'enroll_rank', 'reply_rank', 'interactive_rank', 'comment_rank', 'enroll_num', 'active_rate', 'accomplish_num', 'avg_grade', 'post_per', 'accomplish_rate']
-FIELD_COMMON = ['course_id', 'course_name', 'group_key', 'course_status', 'course_type', 'start_time', 'end_time', 'video_length', 'chapter_num', 'chapter_avg', 'chapter_issue_num']
+FIELD_COURSE_NAME_SEARCH = ['course_id', 'group_key', 'group_name', 'active_rank', 'enroll_rank', 'reply_rank', 'interactive_rank', 'comment_rank', 'enroll_num', 'active_rate', 'accomplish_num', 'avg_grade', 'post_per', 'accomplish_rate']
+FIELD_COMMON = ['course_id', 'course_name', 'group_key','group_name', 'course_status', 'course_type', 'start_time', 'end_time', 'video_length', 'chapter_num', 'chapter_avg', 'chapter_issue_num']
 FIELD_DOWNLOAD_PROCESS = FIELD_COMMON + ['active_user_num', 'active_rate', 'avg_grade', 'post_num', 'post_per']
 FIELD_DOWNLOAD_CLOSE = FIELD_COMMON + ['accomplish_num','accomplish_rate', 'avg_grade', 'post_num', 'post_per']
 FIELD_DOWNLOAD_UNOPEN = FIELD_COMMON
@@ -178,7 +178,7 @@ class EducationCourseNameSearch(Academic):
             #TODO 没开课就是几天后开课，自主课程开课就是上线几个月,证书状态 
             data = [{'course_id': result.course_id,'course_type': result.course_type,'chapter': result.chapter_issue_num, 'chapter_total': result.chapter_num,\
                     'chapter_avg': result.chapter_avg_length,'course_status': self.course_status, 'course_time': '%s-%s' %(result.start_time.replace('-', '.'),result.end_time.replace('-', '.')), \
-                    'course_name': result.course_name, 'start_time': result.start_time, 'month':0, 'certification_status':0, 'school': '%s.%s' %(result.school, '学分课') } for result in statics_result]
+                    'course_name': result.course_name, 'start_time': result.start_time, 'month':0, 'certification_status':0 } for result in statics_result]
             
             for i in data:
                 if i['course_type'] == 1 and self.course_status == 'process':
@@ -187,7 +187,8 @@ class EducationCourseNameSearch(Academic):
                 if self.course_status == 'unopen':
                     month = int(time.mktime(time.strptime(i['start_time'],'%Y-%m-%d'))-time.mktime(time.localtime()))/60/60/24
                     i['month'] = month
-                
+                del i['start_time']
+
             course_ids = list(set([ result.course_id for result in statics_result]))
             #查teacher_power
             teacher_power = self.get_teacher_power(course_ids)
@@ -197,12 +198,19 @@ class EducationCourseNameSearch(Academic):
             for i in data:
                 i['dynamics'] = []
             for i in result:
+                if i['group_key'] == 4:
+                    result.remove(i)
+                    continue
                 for j in data:
                     if i['course_id'] == j['course_id'] and i not in j['dynamics']:
-                        i['school'] = EDUCATION_GROUP.get(i['group_key'], j['school'])
+                        if i['group_name'] in ['mooc','spoc', 'cohorts']:
+                            i['school'] = '全部学生'
+                        else:
+                            i['school'] = '%s.%s' % (i['group_name'], '学分课')
                         j['dynamics'].append(i)
-            for j in data:
-                del j['school']
+            for i in data:
+                for j in i['dynamics']:
+                    del j['group_name']
             self.success_response({'data': data, 'load_more': load_more})
         self.success_response({'data': [], 'load_more': load_more})
 
@@ -223,7 +231,7 @@ class EducationCourseDownload(Academic):
             data = [{'course_id': result.course_id, 'chapter_num': result.chapter_num, 'video_length': result.video_length,\
                     'end_time': result.end_time, 'course_type': result.course_type, 'chapter_issue_num': result.chapter_issue_num,\
                     'chapter_total': result.chapter_num, 'chapter_avg': result.chapter_avg_length, 'course_status': self.course_status, \
-                    'course_name': result.course_name, 'start_time': result.start_time, 'school': '%s.%s' %(result.school, '学分课') } for result in statics_result]
+                    'course_name': result.course_name, 'start_time': result.start_time} for result in statics_result]
                 
             teacher_power = self.get_teacher_power(course_ids)
             #查健康度以及相关数据
@@ -232,15 +240,22 @@ class EducationCourseDownload(Academic):
             for i in result:
                 for j in data:
                     if i['course_id'] == j['course_id']:
-                        i['group_key'] = EDUCATION_GROUP.get(i['group_key'], j['school'])
+                        if i['group_name'] in ['mooc', 'spoc', 'cohorts']:
+                            i['group_name'] = '全部学生'
+                        else:
+                            i['group_name'] = '%s.%s' %(i['group_name'], '学分课')
                         i.update(j)
-            for j in data:
-                del j['school']
+                
+            for i in result:
+                if i['group_key'] == 4:
+                    result.remove(i)
             #TODO
             for i in result:
                 result_ = []
                 if isinstance(i,dict):
                     for j in field:
+                        if j == 'group_key':
+                            continue
                         if j in ['active_rate', 'accomplish_rate']:
                             i[j] = "%.2f%%" %(float(i[j] or 0)*100)
                         if j == 'course_status':
