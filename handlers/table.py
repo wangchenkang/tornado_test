@@ -75,7 +75,11 @@ class TableHandler(BaseHandler):
         self.success_response(final)
 
 
-class NewTableHandler(TableHandler):
+class TableJoinHandler(TableHandler):
+
+    def __init__(self):
+        self.GRADE_FIELDS = ['grade', 'letter_grade', 'current_grade_rate', 'total_grade_rate']
+        self.USER_FIELDS = ['user_id', 'nickname', 'xid', 'rname', 'binding_uid', 'faculty', 'major']
 
     def get_es_type(self, sort_field):
         pass
@@ -142,110 +146,74 @@ class NewTableHandler(TableHandler):
 
 
 @route('/table/grade_overview')
-class GradeDetail(NewTableHandler):
-    #def get_query(self, course_id, user_ids, page, num, sort, sort_type, student_keyword, fields):
-    #    if sort:
-    #        reverse = True if sort_type else False
-    #        sort = '-' + sort if reverse else sort
-    #        query = self.es_query(index='tapgrade', doc_type='grade_overview') \
-    #                    .filter('term', course_id=course_id) \
-    #                    .filter('terms', user_id=user_ids) \
-    #                    .sort(sort)
-    #    else:
-    #        query = self.es_query(index='tapgrade', doc_type='grade_overview') \
-    #                    .filter('term', course_id=course_id) \
-    #                    .filter('terms', user_id=user_ids)
-    #    return query
+class GradeDetail(TableJoinHandler):
 
-    es_types = ['tap7_test/grade_overview', 'course_grade/course_grade', 'tapgo/student_enrollment_info']
+    es_types = ['tap_table_grade/grade_summary', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
 
     def get_es_type(self, sort_field):
-        if sort_field in ('grade', 'letter_grade', 'current_grade_rate', 'total_grade_rate'):
-            return 'course_grade/course_grade'
-        elif len(sort_field) == 32:
-            return 'tap7_test/grade_overview'
-        return 'tapgo/student_enrollment_info'
+        if sort_field in self.GRADE_FIELDS:
+            return '%s/course_grade' % settings.ES_INDEX
+        elif sort_field in self.USER_FIELDS:
+            return '%s/student_enrollment_info' % settings.ES_INDEX
+        return 'tap_table_grade/grade_summary'
 
 
 @route('/table/question_overview')
-class QuestionDetail(NewTableHandler):
+class QuestionDetail(TableJoinHandler):
 
-    es_types = ['tap7_test/question_overview', 'small_question/small_question', 'course_grade/course_grade', 'tapgo/student_enrollment_info']
+    es_types = ['tap_table_question/chapter_question', 'tap_table_question/small_question', \
+                '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
 
     def get_es_type(self, sort_field):
-        if sort_field in ('grade', 'letter_grade', 'current_grade_rate', 'total_grade_rate'):
-            return 'course_grade/course_grade'
+        if sort_field in self.GRADE_FIELDS:
+            return '%s/course_grade' % settings.ES_INDEX
+        elif sort_field in self.USER_FIELDS:
+            return '%s/student_enrollment_info' % settings.ES_INDEX
         elif '_answer' in sort_field or '_correct' in sort_field:
-            return 'small_question/small_question'
-        return 'tapgo/student_enrollment_info'
+            return 'tap_table_question/small_question'
+        return 'tap_table_question/chapter_question'
 
 
 @route('/table/video_overview')
-class VideoDetail(NewTableHandler):
+class VideoDetail(TableJoinHandler):
 
-    es_types = ['video_overview/video_overview', 'item_video/item_video', 'course_grade/course_grade', 'tapgo/student_enrollment_info']
+    es_types = ['tap_table_video/chapter_seq_video', 'tap_table_video/item_video', \
+                '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
 
     def get_es_type(self, sort_field):
-        if sort_field in ('grade', 'letter_grade', 'current_grade_rate', 'total_grade_rate'):
-            return 'course_grade/course_grade'
-        if 'item_' in sort_field:
-            return 'item_video/item_video'
-        return 'tapgo/student_enrollment_info'
+        if sort_field in self.GRADE_FIELDS:
+            return '%s/course_grade' % settings.ES_INDEX
+        elif sort_field in self.USER_FIELDS:
+            return '%s/student_enrollment_info' % settings.ES_INDEX
+        elif 'item_' in sort_field:
+            return 'tap_table_video/item_video'
+        return 'tap_table_video/chapter_seq_video'
+
 
 @route('/table/discussion_overview')
-class DiscussionDetail(TableHandler):
-    #def get_query(self, course_id, user_ids, page, num, sort, sort_type, student_keyword,fields):
-    #    if sort:
-    #        reverse = True if sort_type else False
-    #        sort = '-' + sort if reverse else sort
-    #        query = self.es_query(index='tapforum', doc_type='discussion_overview') \
-    #                    .filter('term', course_id=course_id) \
-    #                    .filter('terms', user_id=user_ids) \
-    #                    .sort(sort)
-    #    else:
-    #        query = self.es_query(index='tapforum', doc_type='discussion_overview') \
-    #                    .filter('term', course_id=course_id) \
-    #                    .filter('terms', user_id=user_ids)
+class DiscussionDetail(TableJoinHandler):
 
-    #    return query
-
-    es_types = ['tap7_test/discussion_overview', 'course_grade/course_grade', 'tapgo/student_enrollment_info']
+    es_types = ['tap_table_discussion/discussion_summary', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
 
     def get_es_type(self, sort_field):
-        if sort_field in ('grade', 'letter_grade', 'current_grade_rate', 'total_grade_rate'):
-            return 'course_grade/course_grade'
-        elif 'post' in sort_field or 'reply' in sort_field:
-            return 'tap7_test/discussion_overview'
-        return 'tapgo/student_enrollment_info'
+        if sort_field in self.GRADE_FIELDS:
+            return '%s/course_grade' % settings.ES_INDEX
+        elif sort_field in self.USER_FIELDS:
+            return '%s/student_enrollment_info' % settings.ES_INDEX
+        return 'tap_table_discussion/discussion_summary'
 
 
 @route('/table/enroll_overview')
-class EnrollDetail(TableHandler):
-    #def get_query(self, course_id, user_ids, page, num, sort, sort_type, student_keyword,fields):
-    #    user_ids.extend(self.get_users(is_active=False))
+class EnrollDetail(TableJoinHandler):
 
-    #    if sort:
-    #        reverse = True if sort_type else False
-    #        sort = '-' + sort if reverse else sort
-    #        query = self.es_query(index='tapforum', doc_type='enroll_overview') \
-    #                    .filter('term', course_id=course_id) \
-    #                    .filter('terms', user_id=user_ids) \
-    #                    .sort(sort)
-    #    else:
-    #        query = self.es_query(index='tapforum', doc_type='enroll_overview') \
-    #                    .filter('term', course_id=course_id) \
-    #                    .filter('terms', user_id=user_ids)
-
-    #    return query
-
-    es_types = ['tap7_test/enroll_overview', 'course_grade/course_grade', 'tapgo/student_enrollment_info']
+    es_types = ['tap_table_enroll/enroll_summary', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
 
     def get_es_type(self, sort_field):
-        if sort_field in ('grade', 'letter_grade', 'current_grade_rate', 'total_grade_rate'):
-            return 'course_grade/course_grade'
-        elif sort_field in ('enroll_time', 'unenroll_time', 'is_active'): 
-            return 'tap7_test/enroll_overview'
-        return 'tapgo/student_enrollment_info'
+        if sort_field in self.GRADE_FIELDS:
+            return '%s/course_grade' % settings.ES_INDEX
+        elif sort_field in self.USER_FIELDS:
+            return '%s/student_enrollment_info' % settings.ES_INDEX
+        return 'tap_table_enroll/enroll_summary'
 
 
 @route('/small_question_structure')
