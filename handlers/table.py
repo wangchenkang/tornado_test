@@ -4,6 +4,7 @@ from utils.log import Log
 from utils.routes import route
 from elasticsearch_dsl import Q
 from .base import BaseHandler
+import settings
 
 Log.create('student')
 
@@ -49,8 +50,7 @@ class TableHandler(BaseHandler):
             result.extend([item.to_dict() for item in items])
         return result
 
-    #def post(self):
-    def get(self):
+    def post(self):
         student_keyword = self.get_argument('student_keyword', '')
         time_begin = time.time()
         page = int(self.get_argument('page', 0))
@@ -77,9 +77,8 @@ class TableHandler(BaseHandler):
 
 class TableJoinHandler(TableHandler):
 
-    def __init__(self):
-        self.GRADE_FIELDS = ['grade', 'letter_grade', 'current_grade_rate', 'total_grade_rate']
-        self.USER_FIELDS = ['user_id', 'nickname', 'xid', 'rname', 'binding_uid', 'faculty', 'major']
+    GRADE_FIELDS = ['grade', 'letter_grade', 'current_grade_rate', 'total_grade_rate']
+    USER_FIELDS = ['user_id', 'nickname', 'xid', 'rname', 'binding_uid', 'faculty', 'major']
 
     def get_es_type(self, sort_field):
         pass
