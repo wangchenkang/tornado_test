@@ -141,6 +141,11 @@ class TableJoinHandler(TableHandler):
         else:
             result = self.iterate_search(es_index_types, course_id, user_ids, page, num, sort, fields)
 
+        result = self.postprocess(result)
+
+        return result
+
+    def postprocess(self, result):
         return result
 
 
@@ -171,6 +176,13 @@ class QuestionDetail(TableJoinHandler):
         elif '_answer' in sort_field or '_correct' in sort_field:
             return 'tap_table_small_question/small_question'
         return 'tap_table_question/chapter_question'
+
+    def postprocess(self, result):
+        for record in result:
+            for key in record:
+                if key.endswith('_answer'):
+                    record[key] = record[key][:20]
+        return result
 
 
 @route('/table/video_overview')
