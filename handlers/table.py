@@ -160,7 +160,7 @@ class GradeDetail(TableJoinHandler):
 @route('/table/question_overview')
 class QuestionDetail(TableJoinHandler):
 
-    es_types = ['tap_table_question/chapter_question', 'tap_table_question/small_question', \
+    es_types = ['tap_table_question/chapter_question', 'tap_table_small_question/small_question', \
                 '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
 
     def get_es_type(self, sort_field):
@@ -169,7 +169,7 @@ class QuestionDetail(TableJoinHandler):
         elif sort_field in self.USER_FIELDS:
             return '%s/student_enrollment_info' % settings.ES_INDEX
         elif '_answer' in sort_field or '_correct' in sort_field:
-            return 'tap_table_question/small_question'
+            return 'tap_table_small_question/small_question'
         return 'tap_table_question/chapter_question'
 
 
@@ -221,7 +221,7 @@ class SmallQuestionStructure(BaseHandler):
     返回课程的小题顺序，描述
     """
     def get(self):
-        query = self.es_query(index='question_desc', doc_type='question_desc') \
+        query = self.es_query(index='tap_table_small_question', doc_type='small_question_desc') \
                     .filter('term', course_id=self.course_id)
 
         data = self.es_execute(query[:0])
