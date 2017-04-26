@@ -13,3 +13,4 @@ from .detail import *
 from .table import *
 from .permission import *
 from .education import *
+from .problem_focus import *

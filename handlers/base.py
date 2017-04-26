@@ -332,3 +332,42 @@ class BaseHandler(RequestHandler):
         if not service_line:
             self.error_response(u'参数错误')
         return service_line
+
+    @property
+    def course_open_num(self):
+        query = self.es_query(index='tap', doc_type='course_video_open')\
+                    .filter('term', course_id=self.course_id)
+        query.aggs.metric('num', 'cardinality', field='video_id')
+        result = self.es_execute(query)
+        aggs = result.aggregations
+        return aggs.num.value
+    
+    @property
+    def chapter_id(self):
+        chapter_id = self.get_argument('chapter_id', None)
+        if not chapter_id:
+            self.error_response(u'参数错误')
+        return chapter_id
+
+    @property
+    def chapter_open_num(self):
+        query = self.es_query(index='tap',doc_type='course_video_open')\
+                    .filter('term', course_id=self.course_id)
+        query.aggs.bucket('chapter_ids', 'terms', field='chapter_id')\
+                  .metric('num', 'cardinality', field='video_id')
+        result = self.es_execute(query)
+        aggs = result.aggregations
+        buckets = aggs.chapter_ids.buckets
+        return [{'chapter_id': bucket.key, 'open_num': bucket.num.value} for bucket in buckets]
+    
+    @property
+    def seq_open_num(self):
+        query = self.es_query(doc_type='course_video_open')\
+                    .filter('term', course_id=self.course_id)\
+                    .filter('term', chapter_id=self.chapter_id)
+        query.aggs.bucket('seq_ids', 'terms', field='seq_id')\
+                  .metric('num', 'cardinality', field='video_id')
+        result = self.es_execute(query)
+        aggs = result.aggregations
+        buckets = aggs.seq_ids.buckets
+        return [{'seq_id':bucket.key, 'open_num': bucket.num.value}for bucket in buckets] 
