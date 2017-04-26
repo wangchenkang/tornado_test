@@ -136,7 +136,7 @@ class CourseStudyDetail(BaseHandler):
         max_length = 1000
         if user_id is not None:
             user_id = [u.strip() for u in user_id.split(',') if u.strip()][0:max_length]
-            query = query.filter('terms', uid=user_id)
+            query = query.filter('terms', user_id=user_id)
 
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total])
