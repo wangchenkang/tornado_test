@@ -79,6 +79,8 @@ class TableJoinHandler(TableHandler):
 
     GRADE_FIELDS = ['grade', 'letter_grade', 'current_grade_rate', 'total_grade_rate']
     USER_FIELDS = ['user_id', 'nickname', 'xid', 'rname', 'binding_uid', 'faculty', 'major']
+    SEEK_FIELDS = ['is_watch', 'is_seek', 'not_watch_total', 'seek_total', 'video_open_num']
+    WARNING_FIELDS = []
 
     def get_es_type(self, sort_field):
         pass
@@ -226,6 +228,32 @@ class EnrollDetail(TableJoinHandler):
             return '%s/student_enrollment_info' % settings.ES_INDEX
         return 'tap_table_enroll/enroll_summary'
 
+
+@route('/table/seek_video')
+class SeekVideoTable(TableJoinHandler):
+
+    es_types = ['%s/video_seek_summary' % 'liuyanmei', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
+
+    def get_es_type(self, sort):
+        if sort in self.GRADE_FIELDS:
+            return '%s/course_grade' % settings.ES_INDEX
+        elif sort in self.USER_FIELDS:
+            return '%s/student_enrollment_info' % settings.ES_INDEX
+        return '%s/video_seek_summary' % 'liuyanmei'
+                            
+@route('/table/study_warning')
+class Studywarning(TableJoinHandler):
+                                
+    es_types = ['tap_table_video/chapter_seq_video', 'tap_table_video/item_video', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
+    
+    def get_es_type(self, sort_field):
+        if sort_field in self.GRADE_FIELDS:
+            return '%s/course_grade' % settings.ES_INDEX
+        elif sort_field in self.USER_FIELDS:
+            return '%s/student_enrollment_info' % settings.ES_INDEX
+        elif 'item_' in sort_field:
+            return 'tap_table_video/item_video'
+        return 'tap_table_video/chapter_seq_video'
 
 @route('/small_question_structure')
 class SmallQuestionStructure(BaseHandler):

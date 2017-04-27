@@ -132,82 +132,6 @@ class TableHandler(BaseHandler):
 
         self.success_response(final)
 
-class TableJoinHandler(TableHandler):
-
-    GRADE_FIELDS = ['letter_grade', 'grade', 'total_grade_rate']
-    USER_FIELDS = ['user_id', 'nickname', 'xid', 'rname', 'binding_uid', 'faculty', 'major']
-    SEEK_FIELDS = ['is_watch', 'is_seek', 'not_watch_total', 'seek_total', 'video_open_num']
-    
-    def get_es_type(self, sort):
-        pass
-    
-    def get_query_plan(self, sort):
-        first_es_type = self.get_es_type(sort)
-        self.es_types.remove(first_es_type)
-        self.es_types.insert(0, first_es_type)
-        return self.es_types
-
-    def iterate_search(self, es_index_types, course_id, user_ids, page, size, sort, fields):
-        if 'user_id' not in fields:
-            fields.append('user_id')
-        for idx, es_index_type in enumerate(es_index_types):
-            es_index, es_type = es_index_type.split('/')
-            query = self.es_query(index=es_index, doc_type=es_type) \
-                        .filter('term', course_id=course_id) \
-                        .filter('terms', user_id=user_ids) \
-                        .source(fields)
-    
-            # 如果是第一个查询，需要排序，查询后更新学生列表
-            if idx == 0:
-                query = query.sort(sort)
-                query = query[(page-1)*size:page*size]
-            else:
-                query = query[:len(user_ids)]
-                
-            data = self.es_execute(query)
-            data_result = [item.to_dict() for item in data.hits]
-        
-            # 如果是第一个查询，在查询后更新user_ids列表，后续查询只查这些学生
-            if idx == 0:
-                result = data_result
-                user_ids = [r['user_id'] for r in result]
-            else:
-                for r in result:
-                    for dr in data_result:
-                        if r['user_id'] == dr['user_id']:
-                            r.update(dr)
-        
-        return result
-            
-    def iterate_download(self, es_index_types, course_id, user_ids, sort, fields, part_num=10000):
-        num = len(user_ids)
-        times = num / part_num
-        if num % part_num:
-            times += 1
-        result = []
-        for i in range(times):
-            result.extend(self.iterate_search(es_index_types, course_id, user_ids, i, part_num, sort, fields))
-        return result
-
-    
-    def search_es(self, course_id, user_ids, page, size, sort, sort_type, student_keyword, fields):
-        es_index_types = self.get_query_plan(sort)
-        reverse = True if sort_type else False
-        sort = '-' + sort if reverse else sort
-        
-        if size == -1:
-            result = self.iterate_download(es_index_types, course_id, user_ids, sort, fields)
-        else:
-            result = self.iterate_search(es_index_types, course_id, user_ids, page, size, sort, fields)
-
-            result = self.postprocess(result)
-
-        return result
-
-    def postprocess(self,result):
-        return result
-
-
 @route('/problem_focus/seek_video_overview')
 class SeekVideoOverview(ProblemFocus):
 
@@ -294,33 +218,6 @@ class SeekVideoStudy(ProblemFocus):
 
 
         self.success_response({'data': result})
-
-@route('/problem_focus/seek_video_table')
-class SeekVideoTable(TableJoinHandler):
-
-    es_types = ['%s/video_seek_summary' % 'liuyanmei', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
-
-    def get_es_type(self, sort):
-        if sort in self.GRADE_FIELDS:
-            return '%s/course_grade' % settings.ES_INDEX
-        elif sort in self.USER_FIELDS:
-            return '%s/student_enrollment_info' % settings.ES_INDEX
-        return '%s/video_seek_summary' % 'liuyanmei'
-        
-@route('/prblem_focus/study_warning')
-class Studywarning(TableJoinHandler):
-    
-    #TODO学业预警
-    es_types = ['tap_table_video/chapter_seq_video', 'tap_table_video/item_video', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
-    def get_es_type(self, sort_field):
-        if sort_field in self.GRADE_FIELDS:
-            return '%s/course_grade' % settings.ES_INDEX
-        elif sort_field in self.USER_FIELDS:
-            return '%s/student_enrollment_info' % settings.ES_INDEX
-        elif 'item_' in sort_field:
-            return 'tap_table_video/item_video'
-        return 'tap_table_video/chapter_seq_video'
-
 
 @route('/problem_focus/personal_study')
 class PersonalStudy(BaseHandler):
