@@ -3,6 +3,7 @@ from .base import BaseHandler
 from utils.routes import route
 from utils.log import Log
 import settings
+from elasticsearch_dsl import Q
 
 Log.create('problem_focus')
 
@@ -122,7 +123,7 @@ class TableHandler(BaseHandler):
             user_ids = self.student_search(course_id, student_keyword)
         else:
             user_ids = self.get_users()
-
+        
         result = self.search_es(course_id, user_ids, page, size, sort, sort_type, student_keyword, fields)
 
         final = {}
@@ -149,13 +150,11 @@ class TableJoinHandler(TableHandler):
     def iterate_search(self, es_index_types, course_id, user_ids, page, size, sort, fields):
         if 'user_id' not in fields:
             fields.append('user_id')
-        
         for idx, es_index_type in enumerate(es_index_types):
             es_index, es_type = es_index_type.split('/')
-        
             query = self.es_query(index=es_index, doc_type=es_type) \
                         .filter('term', course_id=course_id) \
-                        .filter('terms', user_id=user_ids[2:4]) \
+                        .filter('terms', user_id=user_ids) \
                         .source(fields)
     
             # 如果是第一个查询，需要排序，查询后更新学生列表
@@ -164,7 +163,7 @@ class TableJoinHandler(TableHandler):
                 query = query[(page-1)*size:page*size]
             else:
                 query = query[:len(user_ids)]
-
+                
             data = self.es_execute(query)
             data_result = [item.to_dict() for item in data.hits]
         
@@ -177,7 +176,7 @@ class TableJoinHandler(TableHandler):
                     for dr in data_result:
                         if r['user_id'] == dr['user_id']:
                             r.update(dr)
-    
+        
         return result
             
     def iterate_download(self, es_index_types, course_id, user_ids, sort, fields, part_num=10000):
@@ -195,7 +194,7 @@ class TableJoinHandler(TableHandler):
         es_index_types = self.get_query_plan(sort)
         reverse = True if sort_type else False
         sort = '-' + sort if reverse else sort
-
+        
         if size == -1:
             result = self.iterate_download(es_index_types, course_id, user_ids, sort, fields)
         else:
@@ -213,8 +212,6 @@ class TableJoinHandler(TableHandler):
 class SeekVideoOverview(ProblemFocus):
 
     def get(self):
-        
-        #拖拽漏看视频数需要去重
 
         #课程选课人数
         enroll_num = len(self.get_users())
@@ -265,8 +262,6 @@ class SeekVideoStudy(ProblemFocus):
 
     def get(self):
 
-        #需要考虑size的大小，user_id过多会不会影响
-        #应该试一下新的表
         seek_avg = self.get_video_seek_avg
         user_ids = self.get_users()
         result = {
@@ -303,14 +298,14 @@ class SeekVideoStudy(ProblemFocus):
 @route('/problem_focus/seek_video_table')
 class SeekVideoTable(TableJoinHandler):
 
-    es_types = ['%s/video_seek_summary' % settings.ES_INDEX, '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
+    es_types = ['%s/video_seek_summary' % 'liuyanmei', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
 
     def get_es_type(self, sort):
         if sort in self.GRADE_FIELDS:
             return '%s/course_grade' % settings.ES_INDEX
         elif sort in self.USER_FIELDS:
             return '%s/student_enrollment_info' % settings.ES_INDEX
-        return '%s/video_seek_summary' % settings.ES_INDEX
+        return '%s/video_seek_summary' % 'liuyanmei'
         
 @route('/prblem_focus/study_warning')
 class Studywarning(TableJoinHandler):
@@ -331,92 +326,102 @@ class Studywarning(TableJoinHandler):
 class PersonalStudy(BaseHandler):
 
     def get(self):
-        
-        #课程发布总视频数量
-        course_open_num = self.course_open_num
-        #章发布视频总数量
-        chapter_open_num = self.chapter_open_num
+   
+        #用户在课程级别拖拽漏看视频数量,未观看视频数量，课程发布视频数量
+        query= self.es_query(index='liuyanmei',doc_type='video_seek_summary')\
+                   .filter('term', course_id=self.course_id)\
+                   .filter('term', user_id=self.user_id)
+
+        result = self.es_execute(query[:1]).hits[0]
+        course_seek_video = result.seek_total
+        course_not_watch = result.not_watch_total
+        course_open_num = result.video_open_num
+        _ut = result._ut.replace('T', ' ').split('.')[0]
+    
         #课程级别学习比例
         query = self.es_query(doc_type='video_course')\
                     .filter('term', user_id=self.user_id)\
                     .filter('term', course_id=self.course_id)
+
         total = self.es_execute(query).hits.total
         course_study_rate = self.es_execute(query[:total]).hits
         course_study_rate = course_study_rate[0].study_rate if len(course_study_rate) != 0 else 0
-        course_not_watch = 0
-        if course_study_rate == 0:
-            course_not_watch =course_open_num
+        
+        #课程学习比例为0/不为0
         result = {
                 'course_open_num': course_open_num,
-                'course_seek_video': 0,
+                'course_seek_video': course_seek_video,
                 'course_not_watch': course_not_watch,
                 'course_study_rate': course_study_rate,
                 'chapter_study_rate': [],
+                '_ut': _ut
         }
+
         if course_study_rate == 0:
-            result['chapter_study_rate'].extend([{'chapter_id': chapter['chapter_id'], 'open_num': chapter['open_num'], 'seek_video':0, 'not_watch':0, 'status': 0, 'study_rate': 0}for chapter in chapter_open_num])
+            result['chapter_study_rate'].extend([{'chapter_id': chapter['chapter_id'], 'open_num': chapter['open_num'], 'seek_video':0, 'not_watch':chapter['open_num'], 'status': 0, 'study_rate': 0} for chapter in self.chapter_open_num])
             result['status'] = 0
         else:    
-            #用户在课程级别拖拽漏看视频数量,未观看视频数量，课程发布数量
-            query= self.es_query(doc_type='video_seek_summary')\
-                       .filter('term', course_id=self.course_id)\
-                       .filter('term', user_id=self.user_id)
-            total = self.es_execute(query).hits.total
-            result_course_video = self.es_execute(query[:total]).hits[0]
-            course_seek_video = result_course_video.seek_total
-            course_not_watch = result_course_video.not_watch
-            course_open_num = result_course_video.video_open_num
-            
-            result['course_seek_video'] = course_seek_video
-            result['course_not_watch'] = course_not_watch
-
             #章级别学习比例
             query = self.es_query(doc_type='video_chapter')\
                         .filter('term', course_id=self.course_id)\
-                        .filter('term', user_id=self.user_id)\
-                        .aggs.bucket('chapter_ids', 'terms', field='chapter_id')\
-                        .metric('num', 'avg', field='study_rate')
+                        .filter('term', user_id=self.user_id)
+            query.aggs.bucket('chapter_ids', 'terms', field='chapter_id', size=1000)\
+                      .metric('num', 'avg', field='study_rate')
 
-            chapters_study_rate = self.es_execute(query)
-            chapters_study_rate = chapter_study_rate.aggregations
-            chapters_study_rate = [{'chapter_id':bucket.key, 'study_rate': bucket.num.value}for bucket in chapter_study_rate.chapter_ids.buckets]
+            result = self.es_execute(query)
+            aggs = result.aggregations
+            chapters_study_rate = [{'chapter_id':bucket.key, 'study_rate': bucket.num.value}for bucket in aggs.chapter_ids.buckets]
 
             for chapter in chapters_study_rate:
                 if chapter['study_rate'] == 0:
-                    result['chapter_study_rate'].extend([{'chapter_id': chapter['chapter_id'], 'open_num': chapter_1['open_num'], 'seek_video':0, 'not_wath':0, 'study_rate':0, 'status': 0} \
-                                                        for chapter_1 in chapter_open_num if chapter_1['chapter_id'] == chapter['chapter_id']])
+                    result['chapter_study_rate'].extend([{'chapter_id': chapter['chapter_id'], 'open_num': chapter_1['open_num'], 'seek_video':0, 'not_wath':chapter_1['open_num'], 'study_rate':0, 'status': 0} \
+                                                        for chapter_1 in self.chapter_open_num if chapter_1['chapter_id'] == chapter['chapter_id']])
 
                 else:
+                    #章级别有学习比例的视频数
+                    query = self.es_query(doc_type='study_video')\
+                                .filter('term', course_id=self.course_id)\
+                                .filter('term', user_id=self.user_id)\
+                                .filter('term', chapter_id=chapter['chapter_id'])
+                    total = self.es_execute(query).hits.total
+
                     #用户在章级别拖拽漏看视频数量
                     query = query.es_query(doc_type='video_seeking_event')\
+                                 .filter('term', course_id=self.course_id)\
+                                 .filter('term', user_id=self.user_id)\
                                  .filter('term', event_type='seek_video')\
-                                 .filter('term', chapter_id=chapter['chapter_id'])\
-                                 .metric('num', 'cardinality',field='video_id')
+                                 .filter('term', chapter_id=chapter['chapter_id'])
+                    query.metric('num', 'cardinality',field='video_id')
             
-                    result_chapter_seek_video = self.es_execute(query)
-                    aggs = result_chapter_seek_video.aggregations
+                    result = self.es_execute(query)
+                    aggs = result.aggregations
                     seek_total = aggs.num.value
-                    chapters_seek_total = {'chapter_id': chapter['chapter_id'], 'seek_video': seek_total} 
 
                     #用户在章级别未观看视频数量
                     query = query.es_query(doc_typ='video_seeking_event')\
+                                 .filter('term', course_id=self.course_id)\
+                                 .filter('term', user_id=self.user_id)\
                                  .filter('term', event_type='not_watch')\
-                                 .filter('term', chapter_id=chapter['chapter_id'])\
-                                 .metric('num', 'cardinality', field='video_id')
-                    result_chapter_not_watch = self.es_execute(query)
-                    aggs = result_chapter_not_watch.aggregations
+                                 .filter('term', chapter_id=chapter['chapter_id'])
+                    query.metric('num', 'cardinality', field='video_id')
+                    result = self.es_execute(query)
+                    aggs = result.aggregations
                     not_watch_total = aggs.num.value
-                    chapters_not_watch_total = {'chapter_id': chapter['chapter_id'], 'not_watch': not_watch_total}
                     
+                    #章开放视频数量
                     open_num = 0
-                    for chapter_1 in chapter_open_num:
-                        if chapter_1['chapter_id'] == chapter['chapter_id']:
+                    for chapter_1 in self.chapter_open_num:
+                        if chapter['chapter_id'] in chapter_1:
                             open_num = chapter_1['open_num']
-                    if chapter['study_rate'] >= 0.9:
-                        status = 1
-                    chapter_seek_not_watch = [{'chapter_id': chapter['chapter_id'], 'open_num': open_num, 'seek_video': chapter_seek[chapter['chapter_id']], 'not_watch': chapte_not_watch[chapter['chapter_id']], 'study_rate': chapter['study_rate'], 'status':status}]
+
+                    status = 1 if chapter['study_rate'] >= 0.9 else 0
+
+                    not_watch_total += open_num - total
+
+                    chapter_seek_not_watch = [{'chapter_id': chapter['chapter_id'], 'open_num': open_num, 'seek_video': seek_total, 'not_watch': not_watch_total, 'study_rate': chapter['study_rate'], 'status':status}]
                     
                     result['chapter_study_rate'].extend(chapter_seek_not_watch)
+
         self.success_response({'data': result})
 
 @route('/problem_focus/study_chapter')
@@ -424,11 +429,42 @@ class StudyChapter(BaseHandler):
 
     def get(self):
 
-        #点击章然后显示以下视频信息
 
         #节级别视频发布数量
         seq_open_num = self.seq_open_num
+        #节级别有学习比例的视频数
+        query = self.es_query(doc_type='study_video')\
+                    .filter('term', course_id=self.course_id)\
+                    .filter('term', chapter_id=self.chapter_id)\
+                    .filter('term', user_id=self.user_id)
+        query.aggs.bucket('seq_ids', 'terms', field='seq_id',size=1000)
+        seq_study = self.es_execute(query)
+        buckets = seq_study.aggregations.seq_ids.buckets
 
+        seq_study_total = [{'seq_id': bucket.key, 'total': bucket.doc_count} for bucket in buckets]
+
+        #节级别拖拽漏看，未观看视频数
+        query = self.es_query(doc_type='video_seeking_event')\
+                        .filter('term', course_id=self.course_id)\
+                        .filter('term', chapter_id=self.chapter_id)\
+                        .filter('term', user_id=self.user_id)
+        
+        query_seq_seek_video = query.filter('term', event_type='seek_video')
+        query_seq_seek_video.aggs.bucket('seq_ids', 'terms', field='seg_id', size=1000)\
+                                    .metric('num', 'cardinality', field='video_id')
+
+        query_seq_not_watch = query.filter('term', event_type='not_watch')
+        query_seq_not_watch.aggs.bucket('seq_ids', 'terms', field='seq_id', size=1000)\
+                                   .metric('num', 'cardinality', field='video_id')
+
+        result_seq_seek_video = self.es_execute(query_seq_seek_video)
+        seq_video_aggs = result_seq_seek_video.aggregations
+        seq_seek_video = [{'seq_id':bucket.key, 'seek_video':bucket.num.value} for bucket in seq_video_aggs.seq_ids.buckets]
+        
+        result_seq_not_watch = self.es_execute(query_seq_not_watch)
+        seq_watch_aggs = result_seq_not_watch.aggregations
+        seq_not_watch = [{'seq_id':bucket.key, 'not_watch':bucket.num.value} for bucket in seq_watch_aggs.seq_ids.buckets]
+        
         #根据user_id, course_id, group_key, chapter_id,从study_video表中查出每个视频的学习情况（视频学习比例,至于那些没有观看行为的视频放在tap层进行处理）
         query_video_rate = self.es_query(doc_type='study_video')\
                                 .filter('term', course_id=self.course_id)\
@@ -449,8 +485,6 @@ class StudyChapter(BaseHandler):
         less_total = self.es_execute(query_less).hits.total
         rate_less = self.es_execute(query_less[:less_total]).hits
         rate_less_id = []
-
-        #必须有观看行为，未观看比例
         result_rate_less = []
         if len(rate_less) != 0:
             video_less_id.extend([ hit.item_id for hit in rate_less])
@@ -469,36 +503,26 @@ class StudyChapter(BaseHandler):
                         .filter('terms', video_id=rate_less_id)\
                         .filter('term', user_id=self.user_id)
         
-            query_seq_seek_video = query.filter('term', event_type='seek_video')\
-                                        .aggs.bucket('seq_ids', 'terms', field='seg_id')\
+            query_seq_seek_video = query.filter('term', event_type='seek_video')
+            query_seq_seek_video.aggs.bucket('seq_ids', 'terms', field='seg_id', size=1000)\
                                         .metric('num', 'cardinality', field='video_id')
 
-            query_seq_not_watch = query.filter('term', event_type='not_watch')\
-                                       .aggs.bucket('seq_ids', 'terms', field='seq_id')\
+            query_seq_not_watch = query.filter('term', event_type='not_watch')
+            query_seq_not_watch.aggs.bucket('seq_ids', 'terms', field='seq_id', size=1000)\
                                        .metric('num', 'cardinality', field='video_id')
-            #节级别拖拽漏看视频数量
-            result_seq_seek_video = self.es_execute(query_seq_seek_video)
-            seq_video_aggs = result_seq_seek_video.aggregations
-            seq_seek_video = [{'seq_id':bucket.key, 'seek_video':bucket.num.value} for bucket in seq_video_aggs.seq_ids.buckets]
             #视频拖拽漏看记录
             seq_seek_video_action = [{'video_id':hit.video_id,'event_time': hit.event_time, 'platform': hit.platform, 'video_st': hit.video_st, 'video_et': hit.video_et, 'duration': hit.duration, 'percent': hit.percent} for hit in result_seq_seek_video.hits]
-            #节级别未看视频数量
-            result_seq_not_watch = self.es_execute(query_seq_not_watch)
-            seq_watch_aggs = result_seq_not_watch.aggregations
-            seq_not_watch = [{'seq_id':bucket.key, 'not_watch':bucket.num.value} for bucket in seq_watch_aggs.seq_ids.buckets]
-            #节级别未观看视频比例
-            seq_not_watch_percent = seq_not_watch/seq_open_num if seq_open_num !=0 else 0
             #视频未观看记录
             seq_not_watch_action = [{'video_id': hit.video_id, 'event_time': hit.event_time, 'platform': hit.platform, 'video_last': hit.video_last, 'duration': hit.duration, 'percent': hit.percent}for hit in result_seq_not_watch.hits]
             
         result = {
             'seq_open_num': seq_open_num,
             'seq_seek_video': seq_seek_video,
+            'seq_study_total': seq_study_total,
             'seq_not_watch': seq_not_watch,
             'result_video_rate_more': result_rate_more,
             'seq_seek_video_action': seq_seek_video_action,
             'seq_not_watch_action': seq_not_watch_action,
-            'seq_not_watch_percent': result_rate_less
 
         }
         self.success_response({'data': result})
