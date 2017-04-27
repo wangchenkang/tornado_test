@@ -99,6 +99,9 @@ class TableJoinHandler(TableHandler):
                         .filter('terms', user_id=user_ids) \
                         .source(fields)
 
+            if es_type == 'student_enrollment_info':
+                query = query.filter('term', group_key=self.group_key)
+
             # 如果是第一个查询，需要排序，查询后更新学生列表
             if idx == 0:
                 query = query.sort(sort)
