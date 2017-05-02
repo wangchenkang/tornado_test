@@ -126,12 +126,12 @@ class CourseStudyDetail(BaseHandler):
     def get(self):
         course_id = self.course_id
         user_id = self.get_argument('user_id', None)
-        users = self.get_users()
+        #users = self.get_users()
 
-        query = self.es_query(doc_type='study_video') \
-                .filter('term', course_id=course_id) \
-                .filter('exists', field='duration') \
-                .filter('terms', user_id=users)
+        query = self.es_query(doc_type='study_video')\
+                .filter('term', course_id=course_id)\
+                .filter('exists', field='duration')
+                #.filter('terms', user_id=users)
 
         max_length = 1000
         if user_id is not None:
@@ -147,16 +147,20 @@ class CourseStudyDetail(BaseHandler):
                 item_uid = int(item.user_id)
             except ValueError:
                 continue
+            try:
+                la_access = item.la_access
+            except:
+                la_access = ''
             results.append({
                 'user_id': item_uid,
                 'chapter_id': item.chapter_id,
-                'sequential_id': item.sequential_id,
+                'sequential_id': item.seq_id,
                 'vertical_id': item.vertical_id,
-                'video_id': item.vid,
+                'video_id': item.item_id,
                 'watch_num': item.watch_num,
                 'video_length': item.duration,
                 'study_rate': float(item.study_rate),
-                'la_access': item.la_access
+                'la_access': la_access
             })
 
         self.success_response({'total': data.hits.total, 'data': results})
