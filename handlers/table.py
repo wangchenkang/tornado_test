@@ -14,7 +14,7 @@ class TableHandler(BaseHandler):
         pass
 
     def student_search(self, course_id, student_keyword):
-        query = self.es_query(index='tapgo', doc_type='student_enrollment_info') \
+        query = self.es_query(index=settings.ES_INDEX, doc_type='student_enrollment_info') \
                     .filter('term', course_id=course_id) \
                     .filter(Q('bool', should=[Q('wildcard', rname='*%s*' % student_keyword)\
                                               | Q('wildcard', binding_uid='*%s*'% student_keyword) \

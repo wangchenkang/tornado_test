@@ -6,6 +6,7 @@ from utils.log import Log
 import time
 from elasticsearch_dsl import Q
 from elasticsearch import Elasticsearch
+import settings
 Log.create('student')
 
 @route('/student/binding_org')
@@ -383,7 +384,7 @@ class StudentInfo(BaseHandler):
             self.success_response({'data': student_info})
         import settings
         client = Elasticsearch(settings.es_cluster)
-        result = client.search(index='tapgo',doc_type='student_enrollment_info',\
+        result = client.search(index=settings.ES_INDEX,doc_type='student_enrollment_info',\
                         size=size,\
                         body={\
                             "query": {\
