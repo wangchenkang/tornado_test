@@ -229,6 +229,13 @@ class EnrollDetail(TableJoinHandler):
             return '%s/student_enrollment_info' % settings.ES_INDEX
         return 'tap_table_enroll/enroll_summary'
 
+    def postprocess(self, result):
+        for record in result:
+            if 'enroll_time' in record and record['enroll_time']:
+                record['enroll_time'] = record['enroll_time'][:10]
+            if 'unenroll_time' in record and record['unenroll_time']:
+                record['unenroll_time'] = record['unenroll_time'][:10]
+        return result
 
 @route('/small_question_structure')
 class SmallQuestionStructure(BaseHandler):
