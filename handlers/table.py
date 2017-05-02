@@ -183,8 +183,8 @@ class QuestionDetail(TableJoinHandler):
     def postprocess(self, result):
         for record in result:
             for key in record:
-                if key.endswith('_answer'):
-                    record[key] = record[key][:20]
+                if key.endswith('_answer') and len(record[key]) > 20:
+                    record[key] = record[key][:20] + '...' 
         return result
 
 
