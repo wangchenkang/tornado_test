@@ -117,10 +117,12 @@ class TableJoinHandler(TableHandler):
                 result = data_result
                 user_ids = [r['user_id'] for r in result]
             else:
+                data_result_dict = {}
+                for row in data_result:
+                    data_result_dict[row['user_id']] = row
                 for r in result:
-                    for dr in data_result:
-                        if r['user_id'] == dr['user_id']:
-                            r.update(dr)
+                    dr = data_result_dict.get(r['user_id'], {})
+                    r.update(dr)
         return result
 
     def iterate_download(self, es_index_types, course_id, user_ids, sort, fields, part_num=10000):
