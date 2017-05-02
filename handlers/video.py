@@ -2,6 +2,7 @@
 from .base import BaseHandler
 from utils.routes import route
 from utils.log import Log
+from utils.tools import date_from_new_date
 
 Log.create('video')
 
@@ -148,7 +149,7 @@ class CourseStudyDetail(BaseHandler):
             except ValueError:
                 continue
             try:
-                la_access = item.la_access
+                la_access = str(date_from_new_date(item.la_access)).split('.')[0]
             except:
                 la_access = ''
             results.append({

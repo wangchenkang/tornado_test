@@ -18,6 +18,13 @@ def date_to_str(dt, time_format="%Y-%m-%d"):
 def date_from_query(dt_string, time_format='%Y-%m-%d'):
     return datetime.strptime(dt_string, time_format)
 
+#新的时间格式加了个+08:00
+def date_from_new_date(time_string, time_format="%Y-%m-%dT%X+08:00"):
+    try:
+        return datetime.strptime(time_string, time_format)
+    except (AttributeError, TypeError):
+        return None
+
 def datedelta(dt, day):
     return date_to_str(datetime.strptime(dt, "%Y-%m-%d") + timedelta(days=day))
 
