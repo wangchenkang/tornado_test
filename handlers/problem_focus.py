@@ -416,10 +416,34 @@ class SchoolInfo(BaseHandler):
 class StudyWarningOverview(BaseHandler):
 
     def get(self):
-        pass
+        #enroll_num
+        user_ids = self.get_users()
+        enroll_num = len(user_ids)
+
+        field = ['warning_num', 'least_2_week', 'low_video_rate', 'low_grade_rate', 'study_week']
+        
+        query = self.query(doc_type='study_warning')\
+                    .filter('term', course_id=self.course_id)\
+                    .filter('term', group_key=self.group_key)\
+                    .source(field)\
+                    .sort('-_ut')
+        result = self.es_execute(query)
+        data = [hit.to_dict() for hit in result.hits[:2]] 
+        self.success_response({'data': data, 'enroll_num': enroll_num})
+
 
 @route('/problem_focus/study_warning_chart')
 class StudyWarningChart(BaseHandler):
 
     def get(self):
-        pass
+        query = self.query(doc_type='study_warning')\
+                    .filter('term', course_id=self.course_id)\
+                    .filter('term', group_key=self.group_key)\
+                    .sort('_ut')
+        query.aggs.bucket('study_weeks', 'terms', field='study_week')\
+                  .metric('num', 'cardinality', field='warning_num')
+        result = self.es_execute(query)
+        aggs = result.aggregations
+        buckets = aggs.study_weeks.buckets
+        data = [{'study_week': bucket.key, 'warning_num': bucket.num.value}for bucket in buckets]
+        self.success_response({'data': data})
