@@ -244,14 +244,14 @@ class EnrollDetail(TableJoinHandler):
 @route('/table/seek_video')
 class SeekVideoTable(TableJoinHandler):
 
-    es_types = ['%s/video_seek_summary' % 'liuyanmei', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
+    es_types = ['%s/video_seek_summary' % settings.ES_INDEX, '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
 
     def get_es_type(self, sort):
         if sort in self.GRADE_FIELDS:
             return '%s/course_grade' % settings.ES_INDEX
         elif sort in self.USER_FIELDS:
             return '%s/student_enrollment_info' % settings.ES_INDEX
-        return '%s/video_seek_summary' % 'liuyanmei'
+        return '%s/video_seek_summary' % settings.ES_INDEX
                             
 @route('/table/study_warning')
 class Studywarning(TableJoinHandler):

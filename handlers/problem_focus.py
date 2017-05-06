@@ -189,7 +189,7 @@ class PersonalStudy(BaseHandler):
     def get(self):
    
         #用户在课程级别拖拽漏看视频数量,未观看视频数量，课程发布视频数量
-        query= self.es_query(index='liuyanmei',doc_type='video_seek_summary')\
+        query= self.es_query(doc_type='video_seek_summary')\
                    .filter('term', course_id=self.course_id)\
                    .filter('term', user_id=self.user_id)
         
