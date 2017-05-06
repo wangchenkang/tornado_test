@@ -367,8 +367,6 @@ class BaseHandler(RequestHandler):
                     .filter('term', chapter_id=self.chapter_id)
         query.aggs.bucket('seq_ids', 'terms', field='seq_id')\
                   .metric('num', 'cardinality', field='video_id')
-        import json
-        print json.dumps(query.to_dict())
         result = self.es_execute(query)
         aggs = result.aggregations
         buckets = aggs.seq_ids.buckets

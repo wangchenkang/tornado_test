@@ -206,21 +206,19 @@ class PersonalStudy(BaseHandler):
 
         total = self.es_execute(query).hits.total
         course_study_rate = self.es_execute(query[:total]).hits
-        course_study_rate = course_study_rate[0].study_rate if len(course_study_rate) != 0 else 0
+        course_study_rate = round(course_study_rate[0].study_rate, 4) if len(course_study_rate) != 0 else 0
         
         #课程学习比例为0/不为0
         result_data = {
                 'course_open_num': course_open_num,
                 'course_seek_video': course_seek_video,
                 'course_not_watch': course_not_watch,
-                'course_study_rate': course_study_rate,
-                'chapter_study_rate': [],
+                'chapter_study_list': [],
                 '_ut': _ut
         }
-
+        result_data['status'] = 1 if course_study_rate >= 0.9 else 0
         if course_study_rate == 0:
-            result_data['chapter_study_rate'].extend([{'chapter_id': chapter['chapter_id'], 'open_num': chapter['open_num'], 'seek_video':0, 'not_watch':chapter['open_num'], 'status': 0, 'study_rate': 0} for chapter in self.chapter_open_num])
-            result_data['status'] = 0
+            result_data['chapter_study_list'].extend([{'chapter_id': chapter['chapter_id'], 'open_num': chapter['open_num'], 'seek_video':0, 'not_watch':chapter['open_num'], 'status': 0, 'study_rate': 1} for chapter in self.chapter_open_num])
         else:    
             #章级别学习比例
             query = self.es_query(doc_type='video_chapter')\
@@ -242,14 +240,15 @@ class PersonalStudy(BaseHandler):
 
             for chapter_id, open_num  in chapters_open_num.items():
                 if chapter_id not in chapters_study_rate:
-                    result_data['chapter_study_rate'].extend([{'chapter_id': chapter_id, 'open_num': open_num, 'seek_video':0, 'not_watch': open_num, 'study_rate':0, 'status': 0}])
+                    result_data['chapter_study_list'].extend([{'chapter_id': chapter_id, 'open_num': open_num, 'seek_video':0, 'not_watch': open_num, 'study_rate':1, 'status': 0}])
 
                 else:
                     #章级别有学习比例的视频数
                     query = self.es_query(doc_type='study_video')\
                                 .filter('term', course_id=self.course_id)\
                                 .filter('term', user_id=self.user_id)\
-                                .filter('term', chapter_id=chapter_id)
+                                .filter('term', chapter_id=chapter_id)\
+                                .filter('term', group_key=self.group_key)
                     total = self.es_execute(query).hits.total
 
                     #用户在章级别拖拽漏看视频数量
@@ -279,9 +278,14 @@ class PersonalStudy(BaseHandler):
                     not_watch_total += open_num - total                    
                     study_rate = round(chapters_study_rate[chapter_id], 4)
                     status = 1 if study_rate >= 0.9 else 0
+                    study_rate = round(1-study_rate, 4) if study_rate < 0.9 else study_rate
                     chapter_seek_not_watch = [{'chapter_id': chapter_id, 'open_num': open_num, 'seek_video': seek_total, 'not_watch': not_watch_total, 'study_rate': study_rate, 'status':status}]
                      
-                    result_data['chapter_study_rate'].extend(chapter_seek_not_watch)
+                    result_data['chapter_study_list'].extend(chapter_seek_not_watch)
+
+        
+        course_study_rate = round(1-course_study_rate, 4) if course_study_rate < 0.9 else course_study_rate
+        result_data['course_study_rate'] = course_study_rate
 
         self.success_response({'data': result_data})
 
@@ -289,7 +293,6 @@ class PersonalStudy(BaseHandler):
 class StudyChapter(BaseHandler):
 
     def get(self):
-
 
         #节级别视频发布数量
         seq_open_num = self.seq_open_num
@@ -334,48 +337,39 @@ class StudyChapter(BaseHandler):
                                 .source(['item_id', 'study_rate'])
         
         #观看比例大于等于90%的视频id以及观看比例                        
-        query_more = query_video_rate.filter('range', **{'study_rate': {'gte': 0.09}})
+        query_more = query_video_rate.filter('range', **{'study_rate': {'gte': 0.9}})
         more_total = self.es_execute(query_more).hits.total
         rate_more = self.es_execute(query_more[:more_total]).hits
         result_rate_more = []
         if len(rate_more) != 0:
-            result_rate_more.extend([{'video_id':hit.item_id, 'study_rate':hit.study_rate} for hit in rate_more])
+            result_rate_more.extend([{'video_id':hit.item_id, 'study_rate': round(float(hit.study_rate),4)} for hit in rate_more])
 
         #观看比例小于90%的视频id以及未观看比例
-        query_less = query_video_rate.filter('range', **{'study_rate': {'lt': 0.09}})
+        query_less = query_video_rate.filter('range', **{'study_rate': {'lt': 0.9}})
         less_total = self.es_execute(query_less).hits.total
         rate_less = self.es_execute(query_less[:less_total]).hits
         rate_less_id = []
-        result_rate_less = []
+        result_video_rate_less = []
         if len(rate_less) != 0:
-            video_less_id.extend([ hit.item_id for hit in rate_less])
-            result_rate_less.extend({'video_id': hit.item_id, 'study_rate': round(1-hit.study_rate, 4)} for hit in rate_less)
+            rate_less_id.extend([ hit.item_id for hit in rate_less])
+            result_video_rate_less.extend([ {'video_id': hit.item_id, 'study_rate': round(float(hit.study_rate), 4)}for hit in rate_less])
 
         #判断是否有观看比例小于90%的视频（只判断有观看行为的）
         seq_seek_video = []
         seq_seek_video_action = []
         seq_not_watch = []
         seq_not_watch_percent = []
-        seq_not_watch_action = []
         if len(rate_less_id) != 0:
-            query = self.es_query(doc_type='video_seeking_event')\
-                        .filter('term', course_id=self.course_id)\
-                        .filter('term', chapter_id=self.chapter_id)\
-                        .filter('terms', video_id=rate_less_id)\
-                        .filter('term', user_id=self.user_id)
-        
-            query_seq_seek_video = query.filter('term', event_type='seek_video')
-            query_seq_seek_video.aggs.bucket('seq_ids', 'terms', field='seg_id', size=1000)\
-                                        .metric('num', 'cardinality', field='video_id')
-
-            query_seq_not_watch = query.filter('term', event_type='not_watch')
-            query_seq_not_watch.aggs.bucket('seq_ids', 'terms', field='seq_id', size=1000)\
-                                       .metric('num', 'cardinality', field='video_id')
+            query = self.es_query(index='tap',doc_type='video_seeking_event')\
+                                       .filter('term', course_id=self.course_id)\
+                                       .filter('term', chapter_id=self.chapter_id)\
+                                       .filter('term', user_id=self.user_id)\
+                                       .filter('terms', video_id=rate_less_id)\
+                                       .source(settings.SEEK_FIELD)
+            result_seek = self.es_execute(query)
             #视频拖拽漏看记录
-            seq_seek_video_action = [{'video_id':hit.video_id,'event_time': hit.event_time, 'platform': hit.platform, 'video_st': hit.video_st, 'video_et': hit.video_et, 'duration': hit.duration, 'percent': hit.percent} for hit in result_seq_seek_video.hits]
-            #视频未观看记录
-            seq_not_watch_action = [{'video_id': hit.video_id, 'event_time': hit.event_time, 'platform': hit.platform, 'video_last': hit.video_last, 'duration': hit.duration, 'percent': hit.percent}for hit in result_seq_not_watch.hits]
-            
+            seq_seek_video_action = [hit.to_dict()for hit in result_seek.hits]
+        
         result = {
             'seq_open_num': seq_open_num,
             'seq_seek_video': seq_seek_video,
@@ -383,9 +377,10 @@ class StudyChapter(BaseHandler):
             'seq_not_watch': seq_not_watch,
             'result_video_rate_more': result_rate_more,
             'seq_seek_video_action': seq_seek_video_action,
-            'seq_not_watch_action': seq_not_watch_action,
+            'result_video_rate_less': result_video_rate_less
 
         }
+    
         self.success_response({'data': result})
 
 @route('/problem_focus/school_info')
@@ -416,6 +411,7 @@ class SchoolInfo(BaseHandler):
 class StudyWarningOverview(BaseHandler):
 
     def get(self):
+        
         #enroll_num
         user_ids = self.get_users()
         enroll_num = len(user_ids)

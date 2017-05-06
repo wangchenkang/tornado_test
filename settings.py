@@ -16,6 +16,8 @@ COHORT_GROUP_KEY = 50000
 ELECTIVE_GROUP_KEY = 80000
 
 
+SEEK_FIELD = ['event_type','video_id', 'event_time', 'platform', 'duration', 'not_percent','video_st', 'video_et','video_last']
+
 DISPATCH_OPTIMIZE = True
 #ES_INDEX = 'tap'
 ES_INDEX = 'tapgo'
