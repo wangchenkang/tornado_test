@@ -172,8 +172,9 @@ class GradeDetail(TableJoinHandler):
 @route('/table/question_overview')
 class QuestionDetail(TableJoinHandler):
 
-    es_types = ['tap_table_question/chapter_question', 'tap_table_small_question/small_question', \
-                '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
+    es_types = ['tap_table_question/chapter_question', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
+    #es_types = ['tap_table_question/chapter_question', 'tap_table_small_question/small_question', \
+    #            '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
 
     def get_es_type(self, sort_field):
         if sort_field in self.GRADE_FIELDS:
@@ -195,8 +196,9 @@ class QuestionDetail(TableJoinHandler):
 @route('/table/video_overview')
 class VideoDetail(TableJoinHandler):
 
-    es_types = ['tap_table_video/chapter_seq_video', 'tap_table_video/item_video', \
-                '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
+    es_types = ['tap_table_video/chapter_seq_video', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
+    #es_types = ['tap_table_video/chapter_seq_video', 'tap_table_video/item_video', \
+    #            '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
 
     def get_es_type(self, sort_field):
         if sort_field in self.GRADE_FIELDS:
