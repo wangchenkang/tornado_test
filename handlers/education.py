@@ -10,6 +10,7 @@ import datetime
 import time
 
 Log.create('education')
+
 COURSE_STATUS = {'process': '开课中', 'close': '已结课', 'unopen': '即将开课'}
 COURSE_TYPE = {1: '自主模式', 0: '随堂模式'}
 FIELD_COURSE_NAME_SEARCH = ['course_id', 'group_key', 'group_name', 'active_rank', 'enroll_rank', 'reply_rank', 'interactive_rank', 'comment_rank', 'enroll_num', 'active_rate', 'accomplish_num', 'avg_grade', 'post_per', 'accomplish_rate']
@@ -66,11 +67,11 @@ class Academic(BaseHandler):
             query.aggs.metric('video_length', 'sum', field='video_length')
             query.aggs.metric('active_num', 'sum', field='active_num')
             query.aggs.metric('no_num', 'sum', field='no_num')
-
             query.aggs.metric('course_num', 'sum', field='course_id')
 
             results = self.es_execute(query)
             buckets = results.aggregations
+
             result = [{'course_num': int(buckets.course_num.value or 0), 'enrollment_num': int(buckets.enrollment_num.value or 0), 'pass_num': int(buckets.pass_num.value or 0), 'video_length': round(int(buckets.video_length.value or 0)/3600,2), \
                            'active_num': int(buckets.active_num.value or 0), 'no_num': int(buckets.no_num.value or 0)}]
         else:
@@ -84,8 +85,6 @@ class Academic(BaseHandler):
             query = query.filter('terms', course_id=course_ids)
         total = self.es_execute(query).hits.total
         result = self.es_execute(query[:total]).hits
-        import json
-        print json.dumps(query.to_dict())
         return result
     
 
@@ -120,7 +119,7 @@ class EducationCourseOverview(Academic):
     教务数据课程概览关键参数
     """
     def get(self):
-        
+    
         teachter_power, course_ids = self.get_teacher_power
         result = self.get_summary() if self.role == 1 else self.get_summary(course_ids)
         
@@ -136,7 +135,7 @@ class EducationCourseOverview(Academic):
             overview_result['course_num'] = result[0]['course_num']
             overview_result['active_num'] = result[0]['active_num']
             overview_result['video_length'] = round(result[0]['video_length']/3600, 2)
-            overview_result['enrollment_num'] = result[0]['enrollment_num']
+            overview_result['enrollment_num'] = result[0]['enrollment_num'] or 0
             overview_result['pass_num'] = result[0]['pass_num']
         
         if self.course_status == 'process':
@@ -165,11 +164,11 @@ class EducationCourseStudy(Academic):
         study_result = []
         if len(result) != 0:
             if self.course_status == 'process':
-                study_result.extend([{'week_course_duration': round((hits.week_course_duration or 0)/3600, 2), 'enrollment_num': hits.enrollment_num, 'active_rate': round(hits.study_active_rate or 0, 4), 'course_name': hits.course_name } for hits in result])
+                study_result.extend([{'week_course_duration': round((hits.week_course_duration or 0)/3600, 2), 'enrollment_num': hits.enrollment_num or 0, 'active_rate': round(hits.study_active_rate or 0, 4), 'course_name': hits.course_name } for hits in result])
             if self.course_status == 'close':
-                study_result.extend([{'week_course_duration': round((hits.week_course_duration or 0)/3600, 2), 'enrollment_num': hits.enrollment_num, 'pass_rate': round(hits.pass_rate or 0, 4), 'course_name': hits.course_name } for hits in result])
+                study_result.extend([{'week_course_duration': round((hits.week_course_duration or 0)/3600, 2), 'enrollment_num': hits.enrollment_num or 0, 'pass_rate': round(hits.pass_rate or 0, 4), 'course_name': hits.course_name } for hits in result])
             if self.course_status == 'unopen':
-                study_result.extend([{'week_course_duration': round((hits.week_course_duration or 0)/3600, 2), 'enrollment_num': hits.enrollment_num, 'course_name': round(hits.course_name or 0, 4) ,'no_rate': 0} for hits in result])
+                study_result.extend([{'week_course_duration': round((hits.week_course_duration or 0)/3600, 2), 'enrollment_num': hits.enrollment_num or 0, 'no_rate': 0, 'course_name': hits.course_name} for hits in result])
         
         self.success_response({'data': study_result})
 
@@ -196,20 +195,23 @@ class EducationCourseNameSearch(Academic):
                 load_more = 1
 
             #TODO 没开课就是几天后开课，自主课程开课就是上线几个月,证书状态 
-            data = [{'course_id': result.course_id,'course_type': result.course_type,'chapter': result.chapter_issue_num, 'chapter_total': result.chapter_num,\
+            data = [{'course_id': result.course_id,'course_type': int(result.course_type),'chapter': result.chapter_issue_num, 'chapter_total': result.chapter_num,\
                     'chapter_avg': round((result.chapter_avg_length or 0)/3600,2),'course_status': self.course_status, 'course_time': '%s-%s' %(result.start_time.replace('-', '.'),result.end_time.replace('-', '.')), \
                     'course_name': result.course_name, 'start_time': result.start_time.split(' ')[0], 'month':0, 'certification_status': result.certification_status } for result in statics_result]
             
             for i in data:
                 if i['course_type'] == 1 and self.course_status == 'process':
-                    month = int(time.mktime(time.localtime())-time.mktime(time.strptime(i['start_time'],'%Y-%m-%d')))/60/60/24/30
+                    month = int(time.mktime(time.localtime())-time.mktime(time.strptime(i['start_time'],'%Y-%m-%d')))/3600/24/30
                     i['month'] = month
                 if self.course_status == 'unopen':
-                    month = int(time.mktime(time.strptime(i['start_time'],'%Y-%m-%d'))-time.mktime(time.localtime()))/60/60/24
-                    i['month'] = month
+                    if i['start_time']:
+                        month = int(time.mktime(time.strptime(i['start_time'],'%Y-%m-%d'))-time.mktime(time.localtime()))/3600/24
+                        i['month'] = month
+                    else:
+                        i['month'] = -1
                 del i['start_time']
 
-            #查teacher_power
+            #course_id:[group_key]
             course_ids = [result.course_id for result in statics_result]
             course_id_group_key = {}
             for course_id in course_ids:
@@ -224,9 +226,9 @@ class EducationCourseNameSearch(Academic):
                     if i['course_id'] == j['course_id'] and i not in j['dynamics']:
                         if i['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY]:
                             i['school'] = '全部学生'
-                        elif i['group_key'] == settings.TSINGHUA_GROUP_KEY:
+                        if i['group_key'] == settings.TSINGHUA_GROUP_KEY:
                             i['school'] = i['group_name']
-                        elif i['group_key'] == settings.ELECTIVE_ALL_GROUP_KEY:
+                        if i['group_key'] == settings.ELECTIVE_ALL_GROUP_KEY:
                             i['school'] = '%s.%s' % ('全部学生', '学分课')
                         if i['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY, settings.TSINGHUA_GROUP_KEY, settings.ELECTIVE_ALL_GROUP_KEY]:
                             j['dynamics'].append(i)
@@ -248,7 +250,6 @@ class EducationCourseDownload(Academic):
         
         teacher_power, course_ids = self.get_teacher_power
         statics_result = self.get_statics(course_ids)
-
         data = []
         result_data = []
         if statics_result:
@@ -265,7 +266,6 @@ class EducationCourseDownload(Academic):
             #查健康度以及相关数据
             field = FIELD_DOWNLOAD.get(self.course_status)
             result = self.get_health(course_id_group_key, field)
-
             for i in result:
                 for j in data:
                     if i['course_id'] == j['course_id']:
@@ -276,8 +276,9 @@ class EducationCourseDownload(Academic):
                         if i['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY, settings.TSINGHUA_GROUP_KEY, settings.ELECTIVE_ALL_GROUP_KEY]:
                             i.update(j)
         
-        
             for i in result:
+                if i['group_key'] not in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY, settings.ELECTIVE_ALL_GROUP_KEY, settings.TSINGHUA_GROUP_KEY]:
+                    continue
                 result_ = []
                 if isinstance(i,dict):
                     for j in field:

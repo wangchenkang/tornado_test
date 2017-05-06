@@ -416,9 +416,9 @@ class StudyWarningOverview(BaseHandler):
         user_ids = self.get_users()
         enroll_num = len(user_ids)
 
-        field = ['warning_num', 'least_2_week', 'low_video_rate', 'low_grade_rate', 'study_week']
+        field = ['warning_num', 'least_2_week_num', 'low_video_rate_num', 'low_grade_rate_num', 'warning_date']
         
-        query = self.query(doc_type='study_warning')\
+        query = self.es_query(doc_type='study_warning')\
                     .filter('term', course_id=self.course_id)\
                     .filter('term', group_key=self.group_key)\
                     .source(field)\
@@ -432,12 +432,12 @@ class StudyWarningOverview(BaseHandler):
 class StudyWarningChart(BaseHandler):
 
     def get(self):
-        query = self.query(doc_type='study_warning')\
+        query = self.es_query(doc_type='study_warning_person')\
                     .filter('term', course_id=self.course_id)\
                     .filter('term', group_key=self.group_key)\
                     .sort('_ut')
-        query.aggs.bucket('study_weeks', 'terms', field='study_week')\
-                  .metric('num', 'cardinality', field='warning_num')
+        query.aggs.bucket('study_weeks', 'terms', field='study_week', size=1000)\
+                  .metric('num', 'cardinality', field='user_id')
         result = self.es_execute(query)
         aggs = result.aggregations
         buckets = aggs.study_weeks.buckets
