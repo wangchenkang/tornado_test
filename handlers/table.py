@@ -14,7 +14,7 @@ class TableHandler(BaseHandler):
         pass
 
     def student_search(self, course_id, student_keyword):
-        query = self.es_query(index='tapgo', doc_type='student_enrollment_info') \
+        query = self.es_query(index=settings.ES_INDEX, doc_type='student_enrollment_info') \
                     .filter('term', course_id=course_id) \
                     .filter(Q('bool', should=[Q('wildcard', rname='*%s*' % student_keyword)\
                                               | Q('wildcard', binding_uid='*%s*'% student_keyword) \
@@ -119,10 +119,12 @@ class TableJoinHandler(TableHandler):
                 result = data_result
                 user_ids = [r['user_id'] for r in result]
             else:
+                data_result_dict = {}
+                for row in data_result:
+                    data_result_dict[row['user_id']] = row
                 for r in result:
-                    for dr in data_result:
-                        if r['user_id'] == dr['user_id']:
-                            r.update(dr)
+                    dr = data_result_dict.get(r['user_id'], {})
+                    r.update(dr)
         return result
 
     def iterate_download(self, es_index_types, course_id, user_ids, sort, fields, part_num=10000):
@@ -185,8 +187,8 @@ class QuestionDetail(TableJoinHandler):
     def postprocess(self, result):
         for record in result:
             for key in record:
-                if key.endswith('_answer'):
-                    record[key] = record[key][:20]
+                if key.endswith('_answer') and len(record[key]) > 20:
+                    record[key] = record[key][:20] + '...' 
         return result
 
 
@@ -231,6 +233,13 @@ class EnrollDetail(TableJoinHandler):
             return '%s/student_enrollment_info' % settings.ES_INDEX
         return 'tap_table_enroll/enroll_summary'
 
+    def postprocess(self, result):
+        for record in result:
+            if 'enroll_time' in record and record['enroll_time']:
+                record['enroll_time'] = record['enroll_time'][:10]
+            if 'unenroll_time' in record and record['unenroll_time']:
+                record['unenroll_time'] = record['unenroll_time'][:10]
+        return result
 
 @route('/table/seek_video')
 class SeekVideoTable(TableJoinHandler):
