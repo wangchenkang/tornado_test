@@ -122,7 +122,7 @@ class EducationCourseOverview(Academic):
     
         teachter_power, course_ids = self.get_teacher_power
         result = self.get_summary() if self.role == 1 else self.get_summary(course_ids)
-        
+        print self.role        
         overview_result = {}
         overview_result['course_num'] = 0
         overview_result['active_num'] = 0
@@ -215,8 +215,10 @@ class EducationCourseNameSearch(Academic):
             course_ids = [result.course_id for result in statics_result]
             course_id_group_key = {}
             for course_id in course_ids:
-                course_id_group_key[course_id] = teacher_power[course_id]
-            
+                try:
+                    course_id_group_key[course_id] = teacher_power[course_id]
+                except KeyError:
+                    continue
             #查健康度以及相关数据
             result = self.get_health(course_id_group_key)
             for i in data:
@@ -224,13 +226,17 @@ class EducationCourseNameSearch(Academic):
             for i in result:
                 for j in data:
                     if i['course_id'] == j['course_id'] and i not in j['dynamics']:
-                        if i['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY]:
-                            i['school'] = '全部学生'
-                        if i['group_key'] == settings.TSINGHUA_GROUP_KEY:
-                            i['school'] = i['group_name']
-                        if i['group_key'] == settings.ELECTIVE_ALL_GROUP_KEY:
-                            i['school'] = '%s.%s' % ('全部学生', '学分课')
-                        if i['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY, settings.TSINGHUA_GROUP_KEY, settings.ELECTIVE_ALL_GROUP_KEY]:
+                        if self.service_line != 'credit':
+                            if i['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY]:
+                                i['school'] = '全部学生'
+                            if i['group_key'] == settings.TSINGHUA_GROUP_KEY:
+                                i['school'] = i['group_name']
+                            if i['group_key'] == settings.ELECTIVE_ALL_GROUP_KEY:
+                                i['school'] = '%s.%s' % ('全部学生', '学分课')
+                            if i['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY, settings.TSINGHUA_GROUP_KEY, settings.ELECTIVE_ALL_GROUP_KEY]:
+                                j['dynamics'].append(i)
+                        else:
+                            i['school'] = '%s.%s' % (i['group_name'], '学分课')
                             j['dynamics'].append(i)
             for i in data:
                 i['dynamics'].sort(lambda x,y: cmp(x["group_key"], y["group_key"]))
@@ -249,7 +255,7 @@ class EducationCourseDownload(Academic):
     def get(self):
         
         teacher_power, course_ids = self.get_teacher_power
-        statics_result = self.get_statics(course_ids)
+        statics_result = self.get_statics() if self.role == 1 else self.get_statics(course_ids)
         data = []
         result_data = []
         if statics_result:
@@ -261,19 +267,25 @@ class EducationCourseDownload(Academic):
             course_ids = [result.course_id for result in statics_result]
             course_id_group_key = {}
             for course_id in course_ids:
-                course_id_group_key[course_id] = teacher_power[course_id]
-            
+                try:
+                    course_id_group_key[course_id] = teacher_power[course_id]
+                except KeyError:
+                    continue
             #查健康度以及相关数据
             field = FIELD_DOWNLOAD.get(self.course_status)
             result = self.get_health(course_id_group_key, field)
             for i in result:
                 for j in data:
                     if i['course_id'] == j['course_id']:
-                        if i['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY]:
-                            i['group_name'] = '全部学生'
-                        if i['group_key'] == settings.ELECTIVE_ALL_GROUP_KEY:
-                            i['group_name'] = '%s.%s' % ('全部学生', '学分课')
-                        if i['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY, settings.TSINGHUA_GROUP_KEY, settings.ELECTIVE_ALL_GROUP_KEY]:
+                        if self.service_line != 'credit':
+                            if i['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY]:
+                                i['group_name'] = '全部学生'
+                            if i['group_key'] == settings.ELECTIVE_ALL_GROUP_KEY:
+                                i['group_name'] = '%s.%s' % ('全部学生', '学分课')
+                            if i['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY, settings.TSINGHUA_GROUP_KEY, settings.ELECTIVE_ALL_GROUP_KEY]:
+                                i.update(j)
+                        else:
+                            i['group_name'] = '%s.%s' % (i['group_name'], '学分课')
                             i.update(j)
         
             for i in result:

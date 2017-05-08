@@ -37,7 +37,7 @@ class ProblemFocus(BaseHandler):
         for bucket in buckets:
             seek_video_avg += bucket.num.value
 
-        seek_video_avg = round(float(seek_video_avg)/seek_persons, 4) if seek_persons != 0 else 0
+        seek_video_avg = round(float(seek_video_avg)/seek_persons, 2) if seek_persons != 0 else 0
         return seek_persons, seek_video_avg
 
     def get_video_not_watch(self, event_type):
@@ -128,7 +128,7 @@ class SeekVideoOverview(ProblemFocus):
         #没有观看行为的人
         not_watch_action_persons = [user_id for user_id in user_ids if user_id not in seek_user_ids]
         not_watch_avg = not_watch_avg + len(not_watch_action_persons) * open_num
-        not_watch_avg = round(float(not_watch_avg)/not_watch_total, 4) if not_watch_total != 0 else 0
+        not_watch_avg = round(float(not_watch_avg)/not_watch_total, 2) if not_watch_total != 0 else 0
 
         #人均未看完视频数/已发布视频数
         not_watch_avg_percent = round(float(not_watch_avg)/open_num, 4) if open_num !=0  else 0
@@ -252,7 +252,7 @@ class PersonalStudy(BaseHandler):
                     total = self.es_execute(query).hits.total
 
                     #用户在章级别拖拽漏看视频数量
-                    query = self.es_query(doc_type='video_seeking_event')\
+                    query = self.es_query(index='tap',doc_type='video_seeking_event')\
                                  .filter('term', course_id=self.course_id)\
                                  .filter('term', user_id=self.user_id)\
                                  .filter('term', event_type='seek_video')\
@@ -264,7 +264,7 @@ class PersonalStudy(BaseHandler):
                     seek_total = aggs.num.value
 
                     #用户在章级别未观看视频数量
-                    query = self.es_query(doc_type='video_seeking_event')\
+                    query = self.es_query(index='tap',doc_type='video_seeking_event')\
                                  .filter('term', course_id=self.course_id)\
                                  .filter('term', user_id=self.user_id)\
                                  .filter('term', event_type='not_watch')\
@@ -274,8 +274,7 @@ class PersonalStudy(BaseHandler):
                     aggs = result.aggregations
                     not_watch_total = aggs.num.value
 
-
-                    not_watch_total += open_num - total                    
+                    not_watch_total += open_num - total
                     study_rate = round(chapters_study_rate[chapter_id], 4)
                     status = 1 if study_rate >= 0.9 else 0
                     study_rate = round(1-study_rate, 4) if study_rate < 0.9 else study_rate
@@ -436,10 +435,9 @@ class StudyWarningChart(BaseHandler):
                     .filter('term', course_id=self.course_id)\
                     .filter('term', group_key=self.group_key)\
                     .sort('_ut')
-        query.aggs.bucket('study_weeks', 'terms', field='study_week', size=1000)\
-                  .metric('num', 'cardinality', field='user_id')
+        query.aggs.bucket('study_weeks', 'terms', field='study_week', size=1000)
         result = self.es_execute(query)
         aggs = result.aggregations
         buckets = aggs.study_weeks.buckets
-        data = [{'study_week': bucket.key, 'warning_num': bucket.num.value}for bucket in buckets]
+        data = [{'study_week': bucket.key, 'warning_num': bucket.doc_count}for bucket in buckets]
         self.success_response({'data': data})

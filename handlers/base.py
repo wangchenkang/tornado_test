@@ -353,7 +353,7 @@ class BaseHandler(RequestHandler):
     def chapter_open_num(self):
         query = self.es_query(index='tap',doc_type='course_video_open')\
                     .filter('term', course_id=self.course_id)
-        query.aggs.bucket('chapter_ids', 'terms', field='chapter_id')\
+        query.aggs.bucket('chapter_ids', 'terms', field='chapter_id', size=1000)\
                   .metric('num', 'cardinality', field='video_id')
         result = self.es_execute(query)
         aggs = result.aggregations
@@ -365,7 +365,7 @@ class BaseHandler(RequestHandler):
         query = self.es_query(index='tap',doc_type='course_video_open')\
                     .filter('term', course_id=self.course_id)\
                     .filter('term', chapter_id=self.chapter_id)
-        query.aggs.bucket('seq_ids', 'terms', field='seq_id')\
+        query.aggs.bucket('seq_ids', 'terms', field='seq_id', size=1000)\
                   .metric('num', 'cardinality', field='video_id')
         result = self.es_execute(query)
         aggs = result.aggregations
