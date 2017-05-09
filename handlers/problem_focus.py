@@ -92,8 +92,6 @@ class ProblemFocus(BaseHandler):
         result = self.es_execute(query)
         aggs = result.aggregations.user_ids.buckets
         total = len(aggs)
-        import json
-        print json.dumps(query.to_dict())
         return total
             
 
@@ -427,6 +425,8 @@ class StudyWarningOverview(BaseHandler):
                     .source(field)\
                     .sort('-_ut')
         result = self.es_execute(query)
+        import json
+        print json.dumps(query.to_dict())
         data = [hit.to_dict() for hit in result.hits[:2]] 
         self.success_response({'data': data, 'enroll_num': enroll_num})
 

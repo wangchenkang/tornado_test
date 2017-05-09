@@ -53,7 +53,8 @@ class Academic(BaseHandler):
     def statics_query(self):
         query = self.es_query(index='academics',doc_type='tap_academics_statics')\
                     .filter('term', service_line=self.service_line)\
-                    .filter('term', course_status=COURSE_STATUS.get(self.course_status))
+                    .filter('term', course_status=COURSE_STATUS.get(self.course_status))\
+                    .sort('-start_time')
         if self.service_line != 'mooc':
             query = query.filter('term', orgid_or_host=self.orgid_or_host)
         return query
@@ -89,9 +90,9 @@ class Academic(BaseHandler):
     
 
     def get_course_name_search(self, page, size, course_ids, course_name=None):
-        query = self.statics_query.filter('terms', course_id=course_ids)
+        query = self.statics_query.filter('terms', course_id=course_ids) if course_ids != 'all_' else self.statics_query
         if course_name:
-            query =self.statics_query.filter(Q('bool', should=[Q('wildcard', course_name='%s*' % course_name)]))
+            query =query.filter(Q('bool', should=[Q('wildcard', course_name='%s*' % course_name)]))
         result = self.es_execute(query[(page-1)*size:page*size]).hits
         return result
 
@@ -189,7 +190,7 @@ class EducationCourseNameSearch(Academic):
         course_name = self.get_argument('course_name', None)
 
         teacher_power, course_ids = self.get_teacher_power
-        statics_result = self.get_course_name_search(page, size, course_ids, course_name)
+        statics_result = self.get_course_name_search(page, size, 'all_', course_name) if self.role == 1 else self.get_course_name_search(page, size, course_ids, course_name)
         load_more = 0
         result_data = []
         if statics_result:
