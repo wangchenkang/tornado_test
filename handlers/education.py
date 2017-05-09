@@ -60,7 +60,6 @@ class Academic(BaseHandler):
         return query
 
     def get_summary(self, course_ids=None):
-
         if course_ids:
             query = self.statics_query.filter('terms', course_id=course_ids)
             query.aggs.metric('enrollment_num', 'sum', field='enrollment_num')
@@ -68,13 +67,11 @@ class Academic(BaseHandler):
             query.aggs.metric('video_length', 'sum', field='video_length')
             query.aggs.metric('active_num', 'sum', field='active_num')
             query.aggs.metric('no_num', 'sum', field='no_num')
-            query.aggs.metric('course_num', 'sum', field='course_id')
-
             results = self.es_execute(query)
-            buckets = results.aggregations
-
-            result = [{'course_num': int(buckets.course_num.value or 0), 'enrollment_num': int(buckets.enrollment_num.value or 0), 'pass_num': int(buckets.pass_num.value or 0), 'video_length': round(int(buckets.video_length.value or 0)/3600,2), \
-                           'active_num': int(buckets.active_num.value or 0), 'no_num': int(buckets.no_num.value or 0)}]
+            total = results.hits.total
+            aggs = results.aggregations
+            result = [{'course_num': total, 'enrollment_num': int(aggs.enrollment_num.value or 0), 'pass_num': int(aggs.pass_num.value or 0), 'video_length': round(int(aggs.video_length.value or 0)/3600,2), \
+                           'active_num': int(aggs.active_num.value or 0), 'no_num': int(aggs.no_num.value or 0)}]
         else:
             total = self.es_execute(self.summary_query).hits.total
             result = self.es_execute(self.summary_query[:total]).hits
