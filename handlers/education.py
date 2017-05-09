@@ -247,12 +247,11 @@ class EducationCourseNameSearch(Academic):
                                 i['school'] = '%s.%s' % (i['group_name'], '学分课')
                                 j['dynamics'].append(i)
                                 teacher_data.append(j)
+                        
         
             for i in teacher_data:
                 i['dynamics'].sort(lambda x,y: cmp(x["group_key"], y["group_key"]))
-            
             result_data.extend(teacher_data)
-
         self.success_response({'data': result_data, 'load_more': load_more})
 
 @route('/education/course_download')
