@@ -425,8 +425,6 @@ class StudyWarningOverview(BaseHandler):
                     .source(field)\
                     .sort('-_ut')
         result = self.es_execute(query)
-        import json
-        print json.dumps(query.to_dict())
         data = [hit.to_dict() for hit in result.hits[:2]] 
         self.success_response({'data': data, 'enroll_num': enroll_num})
 
