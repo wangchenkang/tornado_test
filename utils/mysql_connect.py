@@ -67,7 +67,7 @@ class MysqlConnect(object):
             if result['course_id'] not in data:
                 data[result['course_id']] = []
             data[result['course_id']].append(result['group_key'])
-        course_ids = [result['course_id']for result in results]
+        course_ids = data.keys()
         return data,course_ids
 
     def course_permission(self, user_id, course_id, group_key):

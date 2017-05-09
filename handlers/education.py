@@ -121,8 +121,7 @@ class EducationCourseOverview(Academic):
     def get(self):
     
         teachter_power, course_ids = self.get_teacher_power
-        result = self.get_summary() if self.role == 1 else self.get_summary(course_ids)
-        print self.role        
+        result = self.get_summary() if self.role == 1 else self.get_summary(course_ids)   
         overview_result = {}
         overview_result['course_num'] = 0
         overview_result['active_num'] = 0
@@ -185,7 +184,6 @@ class EducationCourseNameSearch(Academic):
 
         teacher_power, course_ids = self.get_teacher_power
         statics_result = self.get_course_name_search(page, size, course_ids, course_name)
-
         load_more = 0
         result_data = []
         if statics_result:
@@ -236,8 +234,13 @@ class EducationCourseNameSearch(Academic):
                             if i['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY, settings.TSINGHUA_GROUP_KEY, settings.ELECTIVE_ALL_GROUP_KEY]:
                                 j['dynamics'].append(i)
                         else:
-                            i['school'] = '%s.%s' % (i['group_name'], '学分课')
-                            j['dynamics'].append(i)
+                            if i['group_key'] == settings.TSINGHUA_GROUP_KEY:
+                                i['school'] = '%s' % (i['group_name'])
+                                j['dynamics'].append(i)
+                            if i['group_key'] >= settings.ELECTIVE_GROUP_KEY:
+                                i['school'] = '%s.%s' % (i['group_name'], '学分课')
+                                j['dynamics'].append(i)
+                
             for i in data:
                 i['dynamics'].sort(lambda x,y: cmp(x["group_key"], y["group_key"]))
                 for j in i['dynamics']:
@@ -285,12 +288,20 @@ class EducationCourseDownload(Academic):
                             if i['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY, settings.TSINGHUA_GROUP_KEY, settings.ELECTIVE_ALL_GROUP_KEY]:
                                 i.update(j)
                         else:
-                            i['group_name'] = '%s.%s' % (i['group_name'], '学分课')
-                            i.update(j)
+                            if i['group_key'] == settings.TSINGHUA_GROUP_KEY:
+                                i.update(j)
+                            if i['group_key'] >= settings.ELECTIVE_GROUP_KEY:
+                                i['group_name'] = '%s.%s' % (i['group_name'], '学分课')
+                                i.update(j)
         
             for i in result:
-                if i['group_key'] not in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY, settings.ELECTIVE_ALL_GROUP_KEY, settings.TSINGHUA_GROUP_KEY]:
-                    continue
+                if self.service_line != 'credit':
+                    if i['group_key'] not in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY, settings.ELECTIVE_ALL_GROUP_KEY, settings.TSINGHUA_GROUP_KEY]:
+                        continue
+                else:
+                    if i['group_key'] < settings.ELECTIVE_GROUP_KEY:
+                        if i['group_key'] !=  settings.TSINGHUA_GROUP_KEY:
+                            continue
                 result_ = []
                 if isinstance(i,dict):
                     for j in field:

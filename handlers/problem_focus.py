@@ -86,10 +86,14 @@ class ProblemFocus(BaseHandler):
     def get_video_rate(self):
         query = self.es_query(doc_type='study_video')\
                     .filter('term', course_id=self.course_id)\
-                    .filter('term', group_key=self.group_key)
-        
-        query=query.filter('range', **{'study_rate': {'gte': 0.09}})
-        total = self.es_execute(query).hits.total
+                    .filter('term', group_key=self.group_key)\
+                    .filter('range', **{'study_rate': {'gte': 0.9}})
+        query.aggs.bucket('user_ids', 'terms', field='user_id', size=len(self.get_users()))
+        result = self.es_execute(query)
+        aggs = result.aggregations.user_ids.buckets
+        total = len(aggs)
+        import json
+        print json.dumps(query.to_dict())
         return total
             
 
