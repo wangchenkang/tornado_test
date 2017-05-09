@@ -229,7 +229,7 @@ class EducationCourseNameSearch(Academic):
             for i in result:
                 for j in data:
                     if i['course_id'] == j['course_id'] and i not in j['dynamics']:
-                        if self.service_line != 'credit':
+                        if self.service_line in ['mooc', 'spoc']:
                             if i['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY]:
                                 i['school'] = '全部学生'
                             if i['group_key'] == settings.TSINGHUA_GROUP_KEY:
@@ -238,21 +238,21 @@ class EducationCourseNameSearch(Academic):
                                 i['school'] = '%s.%s' % ('全部学生', '学分课')
                             if i['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY, settings.TSINGHUA_GROUP_KEY, settings.ELECTIVE_ALL_GROUP_KEY]:
                                 j['dynamics'].append(i)
-                        else:
+                                teacher_data.append(j)
+                        if self.service_line == 'credit':
                             if i['group_key'] == settings.TSINGHUA_GROUP_KEY:
                                 i['school'] = '%s' % (i['group_name'])
                                 j['dynamics'].append(i)
                             if i['group_key'] >= settings.ELECTIVE_GROUP_KEY:
                                 i['school'] = '%s.%s' % (i['group_name'], '学分课')
                                 j['dynamics'].append(i)
-                
-                        teacher_data.append(j)
-
+                                teacher_data.append(j)
+        
             for i in teacher_data:
                 i['dynamics'].sort(lambda x,y: cmp(x["group_key"], y["group_key"]))
             
             result_data.extend(teacher_data)
-        
+
         self.success_response({'data': result_data, 'load_more': load_more})
 
 @route('/education/course_download')
