@@ -105,11 +105,17 @@ class Academic(BaseHandler):
         if not field:
             field = FIELD_COURSE_NAME_SEARCH 
         result = []
-        for course_id,group_key in teacher_power.items():
-            query = self.es_query(index='test_health', doc_type='course_health')\
-                            .filter('term',course_id=course_id)\
-                            .filter('terms',group_key=group_key).source(field)
-            result.extend([hits.to_dict() for hits in self.es_execute(query).hits])
+        group_key_list = []
+        course_ids = teacher_power.keys()
+        for group_keys in teacher_power.values():
+            for group_key in group_keys:
+                if group_key not in group_key_list:
+                    group_key_list.append(group_key)
+        query = self.es_query(index='test_health', doc_type='course_health')\
+                    .filter('terms',course_id=course_ids)\
+                    .filter('terms',group_key=group_key_list).source(field)
+        total = self.es_execute(query).hits.total
+        result.extend([hits.to_dict() for hits in self.es_execute(query[:total]).hits])
         return result
 
 
@@ -219,6 +225,7 @@ class EducationCourseNameSearch(Academic):
                     continue
             #查健康度以及相关数据
             result = self.get_health(course_id_group_key)
+            teacher_data = []
             for i in data:
                 i['dynamics'] = []
             for i in result:
@@ -241,12 +248,12 @@ class EducationCourseNameSearch(Academic):
                                 i['school'] = '%s.%s' % (i['group_name'], '学分课')
                                 j['dynamics'].append(i)
                 
-            for i in data:
-                i['dynamics'].sort(lambda x,y: cmp(x["group_key"], y["group_key"]))
-                for j in i['dynamics']:
-                    del j['group_name']
+                        teacher_data.append(j)
 
-            result_data.extend(data)
+            for i in teacher_data:
+                i['dynamics'].sort(lambda x,y: cmp(x["group_key"], y["group_key"]))
+            
+            result_data.extend(teacher_data)
         
         self.success_response({'data': result_data, 'load_more': load_more})
 
