@@ -13,7 +13,7 @@ class ProblemFocus(BaseHandler):
     def query_video_seeking_event(self, event_type):
         
         user_ids = self.get_users()
-        query = self.es_query(index='tap',doc_type='video_seeking_event')\
+        query = self.es_query(index='problems_focused',doc_type='video_seeking_event')\
                                 .filter('term', course_id=self.course_id)\
                                 .filter('term', event_type=event_type)\
                                 .filter('terms', user_id=user_ids)
@@ -58,7 +58,7 @@ class ProblemFocus(BaseHandler):
         
         #查拖拽漏看表中所有的user_id
         user_ids = self.get_users()
-        query = self.es_query(index='tap',doc_type='video_seeking_event')\
+        query = self.es_query(index='problems_focused',doc_type='video_seeking_event')\
                     .filter('term', course_id=self.course_id)\
                     .filter('terms', user_id=user_ids)
         query.aggs.bucket('user_ids', 'terms', field='user_id', size=len(user_ids))
@@ -191,7 +191,7 @@ class PersonalStudy(BaseHandler):
     def get(self):
    
         #用户在课程级别拖拽漏看视频数量,未观看视频数量，课程发布视频数量
-        query= self.es_query(doc_type='video_seek_summary')\
+        query= self.es_query(index='problems_focused',doc_type='video_seek_summary')\
                    .filter('term', course_id=self.course_id)\
                    .filter('term', user_id=self.user_id)
         
@@ -254,7 +254,7 @@ class PersonalStudy(BaseHandler):
                     total = self.es_execute(query).hits.total
 
                     #用户在章级别拖拽漏看视频数量
-                    query = self.es_query(index='tap',doc_type='video_seeking_event')\
+                    query = self.es_query(index='problems_focused',doc_type='video_seeking_event')\
                                  .filter('term', course_id=self.course_id)\
                                  .filter('term', user_id=self.user_id)\
                                  .filter('term', event_type='seek_video')\
@@ -266,7 +266,7 @@ class PersonalStudy(BaseHandler):
                     seek_total = aggs.num.value
 
                     #用户在章级别未观看视频数量
-                    query = self.es_query(index='tap',doc_type='video_seeking_event')\
+                    query = self.es_query(index='problems_focused',doc_type='video_seeking_event')\
                                  .filter('term', course_id=self.course_id)\
                                  .filter('term', user_id=self.user_id)\
                                  .filter('term', event_type='not_watch')\
@@ -309,7 +309,7 @@ class StudyChapter(BaseHandler):
         seq_study_total = [{'seq_id': bucket.key, 'total': bucket.doc_count} for bucket in buckets]
 
         #节级别拖拽漏看，未观看视频数
-        query = self.es_query(doc_type='video_seeking_event')\
+        query = self.es_query(index='problems_focused', doc_type='video_seeking_event')\
                         .filter('term', course_id=self.course_id)\
                         .filter('term', chapter_id=self.chapter_id)\
                         .filter('term', user_id=self.user_id)
@@ -361,7 +361,7 @@ class StudyChapter(BaseHandler):
         seq_not_watch = []
         seq_not_watch_percent = []
         if len(rate_less_id) != 0:
-            query = self.es_query(index='tap',doc_type='video_seeking_event')\
+            query = self.es_query(index='problems_focused',doc_type='video_seeking_event')\
                                        .filter('term', course_id=self.course_id)\
                                        .filter('term', chapter_id=self.chapter_id)\
                                        .filter('term', user_id=self.user_id)\
@@ -419,7 +419,7 @@ class StudyWarningOverview(BaseHandler):
 
         field = ['warning_num', 'least_2_week_num', 'low_video_rate_num', 'low_grade_rate_num', 'warning_date']
         
-        query = self.es_query(doc_type='study_warning')\
+        query = self.es_query(index='problems_focused', doc_type='study_warning')\
                     .filter('term', course_id=self.course_id)\
                     .filter('term', group_key=self.group_key)\
                     .source(field)\
@@ -433,7 +433,7 @@ class StudyWarningOverview(BaseHandler):
 class StudyWarningChart(BaseHandler):
 
     def get(self):
-        query = self.es_query(doc_type='study_warning_person')\
+        query = self.es_query(index='problems_focused', doc_type='study_warning_person')\
                     .filter('term', course_id=self.course_id)\
                     .filter('term', group_key=self.group_key)\
                     .sort('_ut')
