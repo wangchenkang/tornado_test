@@ -10,9 +10,10 @@ Log.create('student')
 
 class TableHandler(BaseHandler):
 
-    def student_search(self, course_id, student_keyword):
+    def student_search(self, course_id, group_key, student_keyword):
         query = self.es_query(index=settings.ES_INDEX, doc_type='student_enrollment_info') \
                     .filter('term', course_id=course_id) \
+                    .filter('term', group_key=group_key) \
                     .filter(Q('bool', should=[Q('wildcard', rname='*%s*' % student_keyword)\
                                               | Q('wildcard', binding_uid='*%s*'% student_keyword) \
                                               | Q('wildcard', nickname='*%s*' % student_keyword)\
@@ -43,7 +44,7 @@ class TableHandler(BaseHandler):
         course_id = self.course_id
         
         if student_keyword:
-            user_ids = self.student_search(course_id, student_keyword)
+            user_ids = self.student_search(course_id, self.group_key, student_keyword)
         else:
             user_ids = self.get_users()
         result = self.search_es(course_id, user_ids, page, num, sort, sort_type, student_keyword, fields)
