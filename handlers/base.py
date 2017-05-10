@@ -311,5 +311,63 @@ class BaseHandler(RequestHandler):
                 item.grade_ratio = 0
             result[item.user_id] = item.grade_ratio
         return result
+    
+    @property
+    def host(self):
+        host = self.get_argument('host', None)
+        if not host:
+            self.error_response(u'参数错误')
+        return host
 
+    @property
+    def course_status(self):
+        course_status = self.get_argument('course_status', None)
+        if not course_status:
+            self.error_response(u'参数错误')
+        return course_status
 
+    @property
+    def service_line(self):
+        service_line = self.get_argument('service_line', None)
+        if not service_line:
+            self.error_response(u'参数错误')
+        return service_line
+
+    @property
+    def course_open_num(self):
+        query = self.es_query(index='problems_focused', doc_type='course_video_open')\
+                    .filter('term', course_id=self.course_id)
+        query.aggs.metric('num', 'cardinality', field='video_id')
+        result = self.es_execute(query)
+        aggs = result.aggregations
+        return aggs.num.value
+    
+    @property
+    def chapter_id(self):
+        chapter_id = self.get_argument('chapter_id', None)
+        if not chapter_id:
+            self.error_response(u'参数错误')
+        return chapter_id
+
+    @property
+    def chapter_open_num(self):
+        query = self.es_query(index='problems_focused',doc_type='course_video_open')\
+                    .filter('term', course_id=self.course_id)
+        query.aggs.bucket('chapter_ids', 'terms', field='chapter_id', size=1000)\
+                  .metric('num', 'cardinality', field='video_id')
+        result = self.es_execute(query)
+        aggs = result.aggregations
+        buckets = aggs.chapter_ids.buckets
+        return [{'chapter_id': bucket.key, 'open_num': bucket.num.value} for bucket in buckets]
+    
+    @property
+    def seq_open_num(self):
+        query = self.es_query(index='problems_focused',doc_type='course_video_open')\
+                    .filter('term', course_id=self.course_id)\
+                    .filter('term', chapter_id=self.chapter_id)
+        query.aggs.bucket('seq_ids', 'terms', field='seq_id', size=1000)\
+                  .metric('num', 'cardinality', field='video_id')
+        result = self.es_execute(query)
+        aggs = result.aggregations
+        buckets = aggs.seq_ids.buckets
+        return [{'seq_id':bucket.key, 'open_num': bucket.num.value}for bucket in buckets] 

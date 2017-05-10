@@ -234,3 +234,4 @@ class CourseChapterVideoDetail(BaseHandler):
             seq_result[bucket['key']] = bucket.num.value
         self.success_response({"vid_result": result, "seq_result": seq_result})
 
+

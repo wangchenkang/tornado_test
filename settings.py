@@ -15,9 +15,12 @@ ELECTIVE_ALL_GROUP_KEY = 4
 COHORT_GROUP_KEY = 50000
 ELECTIVE_GROUP_KEY = 80000
 
-DISPATCH_OPTIMIZE = True
-ES_INDEX = 'tap'
 
+SEEK_FIELD = ['event_type','video_id', 'event_time', 'platform', 'duration', 'not_percent','video_st', 'video_et','video_last', 'seek_len']
+
+DISPATCH_OPTIMIZE = True
+#ES_INDEX = 'tap'
+ES_INDEX = 'tapgo'
 with open(CONFIG_FILE) as f:
     document = f.read()
     locals().update(yaml.load(document))

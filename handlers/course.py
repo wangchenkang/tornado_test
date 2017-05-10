@@ -383,3 +383,17 @@ class CourseQueryDate(BaseHandler):
         course_data.append(data.hits[0].to_dict())
 
         self.success_response({'data': course_data})
+
+@route('/course/course_health')
+class CourseHealth(BaseHandler):
+    def get(self):
+        query = self.es_query(index='test_health',doc_type='course_health')\
+                    .filter('term', course_id=self.course_id)\
+                    .filter('term', group_key=self.group_key).source(['active_rate', 'active_user_num', 'active_rank', 'enroll_num', 'enroll_rank', 'reply_rate', 'noreply_num', 'reply_rank', 'interactive_per', 'interactive_rank', 'comment_num', 'comment_rank'])
+        total = self.es_execute(query).hits.total
+        result = self.es_execute(query[:total]).hits
+        data = {}
+        if len(result) !=0:
+            data = result[0].to_dict()
+        self.success_response({'data': data})
+
