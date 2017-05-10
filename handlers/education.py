@@ -216,42 +216,44 @@ class EducationCourseNameSearch(Academic):
             #course_id:[group_key]
             course_ids = [result.course_id for result in statics_result]
             course_id_group_key = {}
-            for course_id in course_ids:
+            data_courses = []
+            for data_course in data:
                 try:
-                    course_id_group_key[course_id] = teacher_power[course_id]
+                    course_id_group_key[data_course['course_id']] = teacher_power[data_course['course_id']]
+                    data_courses.append(data_course)
                 except KeyError:
                     continue
             #查健康度以及相关数据
             result = self.get_health(course_id_group_key)
-            teacher_data = []
-            for i in data:
+            
+            for i in data_courses:
                 i['dynamics'] = []
-            for i in result:
-                for j in data:
-                    if i['course_id'] == j['course_id'] and i not in j['dynamics']:
-                        if self.service_line in ['mooc', 'spoc']:
-                            if i['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY]:
-                                i['school'] = '全部学生'
-                            if i['group_key'] == settings.TSINGHUA_GROUP_KEY:
-                                i['school'] = i['group_name']
-                            if i['group_key'] == settings.ELECTIVE_ALL_GROUP_KEY:
-                                i['school'] = '%s.%s' % ('全部学生', '学分课')
-                            if i['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY, settings.TSINGHUA_GROUP_KEY, settings.ELECTIVE_ALL_GROUP_KEY]:
-                                j['dynamics'].append(i)
-                                teacher_data.append(j)
-                        if self.service_line == 'credit':
-                            if i['group_key'] == settings.TSINGHUA_GROUP_KEY:
-                                i['school'] = '%s' % (i['group_name'])
-                                j['dynamics'].append(i)
-                            if i['group_key'] >= settings.ELECTIVE_GROUP_KEY:
-                                i['school'] = '%s.%s' % (i['group_name'], '学分课')
-                                j['dynamics'].append(i)
-                                teacher_data.append(j)
+                for j in result:
+                    if j not in i['dynamics']:
+                        if j['course_id'] == i['course_id']:
+                            if self.service_line != 'credit':
+                                if j['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY]:
+                                    j['school'] = '全部学生'
+                                if j['group_key'] == settings.TSINGHUA_GROUP_KEY:
+                                    j['school'] = j['group_name']
+                                if j['group_key'] == settings.ELECTIVE_ALL_GROUP_KEY:
+                                    j['school'] = '%s.%s' % ('全部学生', '学分课')
+                                if j['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY, settings.TSINGHUA_GROUP_KEY, settings.ELECTIVE_ALL_GROUP_KEY]:
+                                    i['dynamics'].append(j)
+                            if self.service_line == 'credit':
+                                if j['group_key'] == settings.TSINGHUA_GROUP_KEY:
+                                    j['school'] = '%s' % (j['group_name'])
+                                    i['dynamics'].append(j)
+                                if j['group_key'] >= settings.ELECTIVE_GROUP_KEY:
+                                    j['school'] = '%s.%s' % (j['group_name'], '学分课')
+                                    i['dynamics'].append(j)
                         
-        
-            for i in teacher_data:
+                
+            for i in data_courses:
                 i['dynamics'].sort(lambda x,y: cmp(x["group_key"], y["group_key"]))
-            result_data.extend(teacher_data)
+
+            result_data.extend(data_courses)
+
         self.success_response({'data': result_data, 'load_more': load_more})
 
 @route('/education/course_download')
