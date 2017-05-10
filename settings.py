@@ -19,8 +19,8 @@ ELECTIVE_GROUP_KEY = 80000
 SEEK_FIELD = ['event_type','video_id', 'event_time', 'platform', 'duration', 'not_percent','video_st', 'video_et','video_last', 'seek_len']
 
 DISPATCH_OPTIMIZE = True
-#ES_INDEX = 'tap'
-ES_INDEX = 'tapgo'
+ES_INDEX = 'tap'
+#ES_INDEX = 'tapgo'
 with open(CONFIG_FILE) as f:
     document = f.read()
     locals().update(yaml.load(document))

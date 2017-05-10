@@ -109,7 +109,7 @@ class Academic(BaseHandler):
             for group_key in group_keys:
                 if group_key not in group_key_list:
                     group_key_list.append(group_key)
-        query = self.es_query(index='test_health', doc_type='course_health')\
+        query = self.es_query(doc_type='course_health')\
                     .filter('terms',course_id=course_ids)\
                     .filter('terms',group_key=group_key_list).source(field)
         total = self.es_execute(query).hits.total
