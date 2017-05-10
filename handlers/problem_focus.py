@@ -180,8 +180,7 @@ class SeekVideoStudy(ProblemFocus):
                      result['>100'] +=1
             if k in user_ids:
                 user_ids.remove(k)
-        result['0'] += len(user_ids)
-
+        result['0'] += len(user_ids) - len(seek_avg.keys())
 
         self.success_response({'data': result})
 
