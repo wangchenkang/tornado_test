@@ -364,7 +364,8 @@ class StudyChapter(BaseHandler):
                                        .filter('term', user_id=self.user_id)\
                                        .filter('terms', video_id=rate_less_id)\
                                        .source(settings.SEEK_FIELD)
-            result_seek = self.es_execute(query)
+            total = self.es_execute(query).hits.total
+            result_seek = self.es_execute(query[:total])
             #视频拖拽漏看记录
             seq_seek_video_action = [hit.to_dict()for hit in result_seek.hits]
         
