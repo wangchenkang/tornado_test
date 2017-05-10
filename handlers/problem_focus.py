@@ -356,6 +356,7 @@ class StudyChapter(BaseHandler):
             result_video_rate_less.extend([ {'video_id': hit.item_id, 'study_rate': round(float(hit.study_rate), 4)}for hit in rate_less])
 
         #判断是否有观看比例小于90%的视频（只判断有观看行为的）
+        seq_seek_video_action = []
         if len(rate_less_id) != 0:
             query = self.es_query(index='problems_focused',doc_type='video_seeking_event')\
                                        .filter('term', course_id=self.course_id)\
