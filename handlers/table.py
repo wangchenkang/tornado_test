@@ -18,7 +18,6 @@ class TableHandler(BaseHandler):
                                               | Q('wildcard', nickname='*%s*' % student_keyword)\
                                               | Q('wildcard', xid='*%s*' % student_keyword)\
                                               ]))
-
         size = self.es_execute(query[:0]).hits.total
         result = self.es_execute(query[:size]).hits
         user_ids = [r.user_id for r in result]
@@ -42,12 +41,10 @@ class TableHandler(BaseHandler):
         fields = self.get_argument('fields', '')
         fields = fields.split(',') if fields else []
         course_id = self.course_id
-
         if student_keyword:
             user_ids = self.student_search(course_id, student_keyword)
         else:
             user_ids = self.get_users()
-
         result = self.search_es(course_id, user_ids, page, num, sort, sort_type, student_keyword, fields)
         total = len(user_ids)
         #NEED
@@ -56,7 +53,6 @@ class TableHandler(BaseHandler):
         final = {}
         final['total'] = total
         final['data'] = result
-
         self.success_response(final)
 
 
@@ -85,7 +81,8 @@ class TableJoinHandler(TableHandler):
             if idx == 0 and es_type == 'study_warning_person':
                 query = self.es_query(index=es_index, doc_type=es_type)\
                             .filter('term', course_id=course_id)\
-                            .filter('term', group_key=self.group_key)
+                            .filter('term', group_key=self.group_key)\
+                            .filter('terms', user_id=user_ids)
                 query.aggs.bucket('user_ids', 'terms', field='user_id', size=len(user_ids))
                 aggs = self.es_execute(query).aggregations
                 buckets = aggs.user_ids.buckets 
@@ -140,7 +137,6 @@ class TableJoinHandler(TableHandler):
 
         reverse = True if sort_type else False
         sort = '-' + sort if reverse else sort
-
         if num == -1:
             result = self.iterate_download(es_index_types, course_id, user_ids, sort, fields)
         else:
