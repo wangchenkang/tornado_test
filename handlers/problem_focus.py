@@ -315,7 +315,7 @@ class StudyChapter(BaseHandler):
                         .filter('term', user_id=self.user_id)
         
         query_seq_seek_video = query.filter('term', event_type='seek_video')
-        query_seq_seek_video.aggs.bucket('seq_ids', 'terms', field='seg_id', size=1000)\
+        query_seq_seek_video.aggs.bucket('seq_ids', 'terms', field='seq_id', size=1000)\
                                     .metric('num', 'cardinality', field='video_id')
 
         query_seq_not_watch = query.filter('term', event_type='not_watch')
@@ -325,7 +325,7 @@ class StudyChapter(BaseHandler):
         result_seq_seek_video = self.es_execute(query_seq_seek_video)
         seq_video_aggs = result_seq_seek_video.aggregations
         seq_seek_video = [{'seq_id':bucket.key, 'seek_video':bucket.num.value} for bucket in seq_video_aggs.seq_ids.buckets]
-        
+
         result_seq_not_watch = self.es_execute(query_seq_not_watch)
         seq_watch_aggs = result_seq_not_watch.aggregations
         seq_not_watch = [{'seq_id':bucket.key, 'not_watch':bucket.num.value} for bucket in seq_watch_aggs.seq_ids.buckets]
@@ -356,10 +356,6 @@ class StudyChapter(BaseHandler):
             result_video_rate_less.extend([ {'video_id': hit.item_id, 'study_rate': round(float(hit.study_rate), 4)}for hit in rate_less])
 
         #判断是否有观看比例小于90%的视频（只判断有观看行为的）
-        seq_seek_video = []
-        seq_seek_video_action = []
-        seq_not_watch = []
-        seq_not_watch_percent = []
         if len(rate_less_id) != 0:
             query = self.es_query(index='problems_focused',doc_type='video_seeking_event')\
                                        .filter('term', course_id=self.course_id)\
@@ -381,7 +377,7 @@ class StudyChapter(BaseHandler):
             'result_video_rate_less': result_video_rate_less
 
         }
-    
+
         self.success_response({'data': result})
 
 @route('/problem_focus/school_info')
