@@ -41,18 +41,21 @@ class TableHandler(BaseHandler):
         fields = self.get_argument('fields', '')
         fields = fields.split(',') if fields else []
         course_id = self.course_id
+        
         if student_keyword:
             user_ids = self.student_search(course_id, student_keyword)
         else:
             user_ids = self.get_users()
         result = self.search_es(course_id, user_ids, page, num, sort, sort_type, student_keyword, fields)
-        total = len(user_ids)
+        
+        total = len(result)
         #NEED
         if 'warning_date' in fields:
             total = self.get_study_warning_num()
         final = {}
         final['total'] = total
         final['data'] = result
+
         self.success_response(final)
 
 
@@ -119,7 +122,7 @@ class TableJoinHandler(TableHandler):
                 for r in result:
                     dr = data_result_dict.get(r['user_id'], {})
                     r.update(dr)
-    
+        
         return result
 
     def iterate_download(self, es_index_types, course_id, user_ids, sort, fields, part_num=10000):
