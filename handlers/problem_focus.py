@@ -227,7 +227,7 @@ class PersonalStudy(BaseHandler):
                         .filter('term', user_id=self.user_id)
             query.aggs.bucket('chapter_ids', 'terms', field='chapter_id', size=1000)\
                       .metric('num', 'avg', field='study_rate')
-
+            
             result = self.es_execute(query)
             aggs = result.aggregations
 
@@ -251,7 +251,7 @@ class PersonalStudy(BaseHandler):
                                 .filter('term', chapter_id=chapter_id)\
                                 .filter('term', group_key=self.group_key)
                     total = self.es_execute(query).hits.total
-
+                    
                     #用户在章级别拖拽漏看视频数量
                     query = self.es_query(index='problems_focused',doc_type='video_seeking_event')\
                                  .filter('term', course_id=self.course_id)\
@@ -259,11 +259,11 @@ class PersonalStudy(BaseHandler):
                                  .filter('term', event_type='seek_video')\
                                  .filter('term', chapter_id=chapter_id)
                     query.aggs.metric('num', 'cardinality',field='video_id')
-            
+                    
                     result = self.es_execute(query)
                     aggs = result.aggregations
                     seek_total = aggs.num.value
-
+                    
                     #用户在章级别未观看视频数量
                     query = self.es_query(index='problems_focused',doc_type='video_seeking_event')\
                                  .filter('term', course_id=self.course_id)\
@@ -274,8 +274,9 @@ class PersonalStudy(BaseHandler):
                     result = self.es_execute(query)
                     aggs = result.aggregations
                     not_watch_total = aggs.num.value
-
+                    
                     not_watch_total += open_num - total
+                    
                     study_rate = round(chapters_study_rate[chapter_id], 4)
                     status = 1 if study_rate >= 0.9 else 0
                     study_rate = round(1-study_rate, 4) if study_rate < 0.9 else study_rate
@@ -286,7 +287,6 @@ class PersonalStudy(BaseHandler):
         
         course_study_rate = round(1-course_study_rate, 4) if course_study_rate < 0.9 else course_study_rate
         result_data['course_study_rate'] = course_study_rate
-
         self.success_response({'data': result_data})
 
 @route('/problem_focus/study_chapter')
@@ -362,7 +362,8 @@ class StudyChapter(BaseHandler):
                                        .filter('term', chapter_id=self.chapter_id)\
                                        .filter('term', user_id=self.user_id)\
                                        .filter('terms', video_id=rate_less_id)\
-                                       .source(settings.SEEK_FIELD)
+                                       .source(settings.SEEK_FIELD)\
+                                       .sort('event_time')
             total = self.es_execute(query).hits.total
             result_seek = self.es_execute(query[:total])
             #视频拖拽漏看记录
