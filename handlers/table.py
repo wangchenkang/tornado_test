@@ -49,7 +49,7 @@ class TableHandler(BaseHandler):
             user_ids = self.get_users()
         result = self.search_es(course_id, user_ids, page, num, sort, sort_type, student_keyword, fields)
         
-        total = len(result)
+        total = len(user_ids)
         #NEED
         if 'warning_date' in fields:
             total = self.get_study_warning_num()
