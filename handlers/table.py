@@ -25,7 +25,7 @@ class TableHandler(BaseHandler):
         return user_ids
     
     def get_study_warning_num(self):
-        query = self.es_query(doc_type='study_warning_person')\
+        query = self.es_query(index='problems_focused',doc_type='study_warning_person')\
                     .filter('term', course_id=self.course_id)\
                     .filter('term', group_key=self.group_key)\
                     .filter('terms', user_id=self.get_users())
