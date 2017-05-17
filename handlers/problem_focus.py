@@ -300,11 +300,11 @@ class StudyChapter(BaseHandler):
         query = self.es_query(doc_type='study_video')\
                     .filter('term', course_id=self.course_id)\
                     .filter('term', chapter_id=self.chapter_id)\
-                    .filter('term', user_id=self.user_id)
+                    .filter('term', user_id=self.user_id)\
+                    .filter('term', group_key=self.group_key)
         query.aggs.bucket('seq_ids', 'terms', field='seq_id',size=1000)
         seq_study = self.es_execute(query)
         buckets = seq_study.aggregations.seq_ids.buckets
-
         seq_study_total = [{'seq_id': bucket.key, 'total': bucket.doc_count} for bucket in buckets]
 
         #节级别拖拽漏看，未观看视频数
@@ -328,7 +328,7 @@ class StudyChapter(BaseHandler):
         result_seq_not_watch = self.es_execute(query_seq_not_watch)
         seq_watch_aggs = result_seq_not_watch.aggregations
         seq_not_watch = [{'seq_id':bucket.key, 'not_watch':bucket.num.value} for bucket in seq_watch_aggs.seq_ids.buckets]
-        
+
         #根据user_id, course_id, group_key, chapter_id,从study_video表中查出每个视频的学习情况（视频学习比例,至于那些没有观看行为的视频放在tap层进行处理）
         query_video_rate = self.es_query(doc_type='study_video')\
                                 .filter('term', course_id=self.course_id)\
@@ -379,7 +379,6 @@ class StudyChapter(BaseHandler):
             'result_video_rate_less': result_video_rate_less
 
         }
-
         self.success_response({'data': result})
 
 @route('/problem_focus/school_info')

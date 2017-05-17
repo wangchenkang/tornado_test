@@ -85,7 +85,7 @@ class CoursePermission(BaseHandler):
     教师是否有某门课的权限
     """
     def get(self):
-        status = mysql_connect.MysqlConnect('10.0.0.206', 'heqi_test', 'heqi', 'heqi').course_permission(self.user_id, self.course_id, self.group_key)
+        status = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).course_permission(self.user_id, self.course_id, self.group_key)
         self.success_response({'has_permission': status})
 
 @route('/permission/group_key')
@@ -94,5 +94,5 @@ class GroupKey(BaseHandler):
     教师某门课的group_key    
     """
     def get(self):
-        result = mysql_connect.MysqlConnect('10.0.0.206', 'heqi_test','heqi', 'heqi').course_group_key(self.user_id, self.course_id)
+        result = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).course_group_key(self.user_id, self.course_id)
         self.success_response({'data': result})

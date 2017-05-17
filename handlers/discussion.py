@@ -432,11 +432,10 @@ class CourseDiscussionStat(BaseHandler):
 
     def get(self):
         result = {}
-        query = self.es_query(doc_type='study_comment_problem') \
+        query = self.es_query(index='test_comment', doc_type='study_comment_problem') \
                 .filter('term', course_id=self.course_id) \
                 .filter("term", group_key=self.group_key) \
-                .filter('term', chapter_id=self.chapter_id) \
-                .sort('-date')[:1]
+                .filter('term', chapter_id=self.chapter_id)[:1]
         data = self.es_execute(query)
         hit = data.hits
         result['course_id'] = self.course_id
