@@ -32,7 +32,7 @@ class Academic(BaseHandler):
 
     @property
     def role(self):
-        results = mysql_connect.MysqlConnect('10.0.0.206', 'heqi_test', 'heqi', 'heqi').get_role(self.user_id, self.host)
+        results = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_role(self.user_id, self.host)
         role = []
         role.extend([result['mode'] for result in results])
         for i in ['staff', 'vpc_admin', 'plateducaion']:
@@ -96,7 +96,7 @@ class Academic(BaseHandler):
     @property
     def get_teacher_power(self):
         
-        teacher_power, course_ids= mysql_connect.MysqlConnect('10.0.0.206', 'heqi_test', 'heqi', 'heqi').get_course_group_keys(self.user_id, self.host)
+        teacher_power, course_ids= mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_course_group_keys(self.user_id, self.host)
         return teacher_power, course_ids
 
     def get_health(self, teacher_power, field=None):

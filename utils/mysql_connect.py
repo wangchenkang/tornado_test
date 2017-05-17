@@ -9,17 +9,11 @@ sys.setdefaultencoding('utf-8')
 
 class MysqlConnect(object):
 
-    def __init__(self, host, db, user, password):
-        #上线后换成域名
-        #self.host = 'readmysql.xuetangx.info'
-        #self.host = '10.0.0.19'
-        self.host = host
-        #self.db = 'edxapp'
-        self.db = db
-        #self.user = 'mysql_ro'
-        self.user = user
-        #self.password = 'xuetangx.com168mysql'
-        self.password = password
+    def __init__(self,params):
+        self.host = params['host']
+        self.db = params['db']
+        self.user = params['user']
+        self.password = params['password']
     
     def get_db(self):
         db = MySQLdb.connect(self.host, self.user, self.password, self.db)
