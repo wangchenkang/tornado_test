@@ -3,6 +3,7 @@ from elasticsearch_dsl import Q
 from utils.routes import route
 from utils.tools import var
 from utils.log import Log
+from utils import mysql_connect
 from .base import BaseHandler
 import settings
 import datetime
@@ -84,16 +85,8 @@ class CoursePermission(BaseHandler):
     教师是否有某门课的权限
     """
     def get(self):
-        query = self.es_query(doc_type='teacher_power')\
-                .filter('term', user_id=str(self.user_id)) \
-                .filter('term', course_id=self.course_id) \
-                .filter('term', group_key=self.group_key)
-
-        results = self.es_execute(query)
-
-        if results.hits:
-            self.success_response({'has_permission': True})
-        self.success_response({'has_permission': False})
+        status = mysql_connect.MysqlConnect('10.0.0.206', 'heqi_test', 'heqi', 'heqi').course_permission(self.user_id, self.course_id, self.group_key)
+        self.success_response({'has_permission': status})
 
 @route('/permission/group_key')
 class GroupKey(BaseHandler):
@@ -101,12 +94,5 @@ class GroupKey(BaseHandler):
     教师某门课的group_key    
     """
     def get(self):
-        query = self.es_query(doc_type='teacher_power')\
-                    .filter('term', user_id=str(self.user_id))\
-                    .filter('term', course_id=self.course_id).sort('group_key')
-
-        results = self.es_execute(query)
-        if results.hits:
-            data = [result.to_dict() for result in results.hits]
-            self.success_response({'data': data[0]})
-        self.success_response({'data': {}})
+        result = mysql_connect.MysqlConnect('10.0.0.206', 'heqi_test','heqi', 'heqi').course_group_key(self.user_id, self.course_id)
+        self.success_response({'data': result})

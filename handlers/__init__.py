@@ -13,3 +13,5 @@ from .detail import *
 from .table import *
 from .permission import *
 from .elective_course import *
+from .education import *
+from .problem_focus import *

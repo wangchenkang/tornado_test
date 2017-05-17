@@ -2,6 +2,7 @@
 from .base import BaseHandler
 from utils.routes import route
 from utils.log import Log
+from utils.tools import date_from_new_date
 
 Log.create('video')
 
@@ -126,17 +127,17 @@ class CourseStudyDetail(BaseHandler):
     def get(self):
         course_id = self.course_id
         user_id = self.get_argument('user_id', None)
-        users = self.get_users()
+        #users = self.get_users()
 
-        query = self.es_query(doc_type='study_video') \
-                .filter('term', course_id=course_id) \
-                .filter('exists', field='duration') \
-                .filter('terms', user_id=users)
+        query = self.es_query(doc_type='study_video')\
+                .filter('term', course_id=course_id)\
+                .filter('exists', field='duration')
+                #.filter('terms', user_id=users)
 
         max_length = 1000
         if user_id is not None:
             user_id = [u.strip() for u in user_id.split(',') if u.strip()][0:max_length]
-            query = query.filter('terms', uid=user_id)
+            query = query.filter('terms', user_id=user_id)
 
         data = self.es_execute(query[:0])
         data = self.es_execute(query[:data.hits.total])
@@ -147,16 +148,20 @@ class CourseStudyDetail(BaseHandler):
                 item_uid = int(item.user_id)
             except ValueError:
                 continue
+            try:
+                la_access = str(date_from_new_date(item.la_access)).split('.')[0]
+            except:
+                la_access = ''
             results.append({
                 'user_id': item_uid,
                 'chapter_id': item.chapter_id,
-                'sequential_id': item.sequential_id,
+                'sequential_id': item.seq_id,
                 'vertical_id': item.vertical_id,
-                'video_id': item.vid,
+                'video_id': item.item_id,
                 'watch_num': item.watch_num,
                 'video_length': item.duration,
                 'study_rate': float(item.study_rate),
-                'la_access': item.la_access
+                'la_access': la_access
             })
 
         self.success_response({'total': data.hits.total, 'data': results})
@@ -228,4 +233,5 @@ class CourseChapterVideoDetail(BaseHandler):
         for bucket in seq_buckets:
             seq_result[bucket['key']] = bucket.num.value
         self.success_response({"vid_result": result, "seq_result": seq_result})
+
 
