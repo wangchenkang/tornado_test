@@ -205,11 +205,11 @@ class DataMOOCAP(BaseHandler):
         # 时间偏好
         def get_percent(dic):
             for i, k in enumerate(dic["keys"]):
-                if k == dic["category"]:
+                if k == dic["value"]:
                     return "%.0f"%float(dic["percents"][i])
         sj = user_info["habbit"]["SJ"]
         if user_info["habbit"]["TR"]["category"] == u"无法判定":
-            sj["category"] == u"无法判定"
+            sj["category"] = u"无法判定"
         if sj["category"] == u"无法判定":
             desc = "<p><strong>本学生学习行为不足，无法进行类型判定。</strong></p>"
         elif sj["category"] == u"突击型":
@@ -259,7 +259,11 @@ class DataMOOCAP(BaseHandler):
                 desc = "<p><strong>本学生的时间偏好为规律型，学习时间段较有规律，固定在每天{}时间段。</strong></p>".format(param)
         elif sj["category"] == u"散点型":
             desc = "<p><strong>本学生的时间偏好为散点型，无固定学习时间段</strong></p>"
-        user_info["habbit"]["SJ"]["desc"] = desc + "<p>本期课程中，有{}%的合格成员也属于{}。</p>".format(get_percent(sj), sj["category"])
+
+        #fix bug        
+        sj["value"] = sj["category"]
+        sj.pop("category")
+        user_info["habbit"]["SJ"]["desc"] = desc + "<p>本期课程中，有{}%的合格成员也属于{}。</p>".format(get_percent(sj), sj["value"])
         # 投入偏好
         tr = user_info["habbit"]["TR"]
         if tr["category"] == u"无法判定":
@@ -275,7 +279,12 @@ class DataMOOCAP(BaseHandler):
             exam_context = get_context(tr, "exam_seconds", "exam_avg")
             conce = max((tr["video_seconds"], "视频学习"), (tr["homework_seconds"], "作业"), (tr["exam_seconds"], "测试"))
             desc = "<p><strong>本学生的投入偏好为倾斜型，学习时间主要集中于{}。</strong></p><p>与同期学生相比，各学习模块投入时长：视频学习{}小时，{}；作业{}小时，{};测试{}小时，{}。</p>".format(conce[1], "%.1f"%(tr["video_seconds"]/3600.0), video_context, "%.1f"%(tr["homework_seconds"]/3600.0), hw_context, "%.1f"%(tr["exam_seconds"]/3600.0), exam_context)
-        user_info["habbit"]["TR"]["desc"] = desc + "<p>本期课程中，有{}%的合格成员也属于{}。</p>".format(get_percent(tr), tr["category"])
+       
+        #fix bug
+        tr["value"] = tr["category"]
+        tr.pop("category")
+        user_info["habbit"]["TR"]["desc"] = desc + "<p>本期课程中，有{}%的合格成员也属于{}。</p>".format(get_percent(tr), tr["value"])
+
         # 交流
         jl = user_info["habbit"]["JL"]
         if jl["category"] == u"离群型":
@@ -284,7 +293,11 @@ class DataMOOCAP(BaseHandler):
             desc = "<p><strong>本学生的交流偏好为积极参与型，喜欢集体学习，会主动与他人交流问题。</strong></p>"
         elif jl["category"] == u"逃避型":
             desc = "<p><strong>本学生的交流偏好为逃避型，主动提问较少，同时与他人交流较少。</strong></p>"
-        user_info["habbit"]["JL"]["desc"] = desc + "<p>本期课程中，有{}%的合格成员也属于{}。</p>".format(get_percent(jl), jl["category"])
+
+        #fix bug
+        jl["value"] = jl["category"]
+        jl.pop("category")
+        user_info["habbit"]["JL"]["desc"] = desc + "<p>本期课程中，有{}%的合格成员也属于{}。</p>".format(get_percent(jl), jl["value"])
         # 序列
         xl = user_info["habbit"]["XL"]
         if xl["category"] == u"无法判定":
@@ -293,7 +306,11 @@ class DataMOOCAP(BaseHandler):
             desc = "<p><strong>本学生的序列偏好为序列型，主要按课程内容顺序学习。</strong></p>"
         elif xl["category"] == u"逃避型":
             desc = "<p><strong>本学生的交流偏好为逃避型，主动提问较少，同时与他人交流较少。</strong></p>"
-        user_info["habbit"]["XL"]["desc"] = desc + "<p>本期课程中，有{}%的合格成员也属于{}。</p>".format(get_percent(xl), xl["category"])
+
+        #fix bug
+        xl["value"] = xl["category"]
+        xl.pop("category")
+        user_info["habbit"]["XL"]["desc"] = desc + "<p>本期课程中，有{}%的合格成员也属于{}。</p>".format(get_percent(xl), xl["value"])
         # 节奏
         jz = user_info["habbit"]["JZ"]
         if jz["category"] == u"无法判定":
@@ -306,16 +323,31 @@ class DataMOOCAP(BaseHandler):
             desc = "<p><strong>本学生的节奏偏好为张弛型，在学完一个知识点后，会{}停顿以反思。</strong></p>".format(param)
         elif jz["category"] == u"紧凑型":
             desc = "<p><strong>本学生的节奏偏好为紧凑型，大部分情况下，学习完一个知识点后，会立即投入到下一个知识点的学习。</strong></p>"
-        user_info["habbit"]["JZ"]["desc"] = desc + "<p>本期课程中，有{}%的合格成员也属于{}。</p>".format(get_percent(jz), jz["category"])
+
+        #fix bug
+        jz["value"] = jz["category"]
+        jz.pop("category")
+
+        user_info["habbit"]["JZ"]["desc"] = desc + "<p>本期课程中，有{}%的合格成员也属于{}。</p>".format(get_percent(jz), jz["value"])
         # grade
         # 1, result
-        user_info["grade"]["result"]["desc"] = "<p><strong>本学生顺利完成本课程的学习，并通过了考核。</strong></p><p>结果性成绩是基于课程最终得分线性折算的。</p>"
-        r = user_info["grade"]["result"]["range"]
-        user_info["grade"]["result"]["range"] = range(r[0], r[1]+1)
+        
+        #fix bug
+        result = user_info["grade"]["result"]
+        result["desc"] = "<p><strong>本学生顺利完成本课程的学习，并通过了考核。</strong></p><p>结果性成绩是基于课程最终得分线性折算的。</p>"
+        r = result["range"]        
+        result["range"] = range(r[0], r[1]+1)
+        if result.has_key("grade_value"):
+            result["value"] = result["grade_value"]
+            result.pop("grade_value")
+
+        #user_info["grade"]["result"]["desc"] = "<p><strong>本学生顺利完成本课程的学习，并通过了考核。</strong></p><p>结果性成绩是基于课程最终得分线性折算的。</p>"
+        #r = user_info["grade"]["result"]["range"]
+        #user_info["grade"]["result"]["range"] = range(r[0], r[1]+1)
         
         def get_rel_avg(dic):
-            if "grade_value" in dic and "avg" in dic:
-                v1, v2 = int(dic["grade_value"]), int(dic["avg"])
+            if "value" in dic and "avg" in dic:
+                v1, v2 = int(dic["value"]), int(dic["avg"])
                 if v1 >= v2:
                     return "+" + str(v1-v2) 
                 else:
@@ -325,11 +357,15 @@ class DataMOOCAP(BaseHandler):
         user_info["grade"]["result"]["rel_avg"] = get_rel_avg(user_info["grade"]["result"])
         # 2, exam
         exam = user_info["grade"]["exam"]
+        #fix bug
+        if exam.has_key("grade_value"):
+            exam["value"] = exam["grade_value"]
+            exam.pop("grade_value")
         # 2.0 exam value
-        if "grade_value" in exam and "avg" in exam:
-            if exam["grade_value"] > exam["avg"]:
+        if "value" in exam and "avg" in exam:
+            if exam["value"] > exam["avg"]:
                 exam_val = "高于平均水平"
-            elif exam["grade_value"] < exam["avg"]:
+            elif exam["value"] < exam["avg"]:
                 exam_val = "低于平均水平"
             else:
                 exam_val = "与均值持平"
@@ -345,10 +381,14 @@ class DataMOOCAP(BaseHandler):
 
         # 3, homework
         hw = user_info["grade"]["homework"]
-        if "grade_value" in hw and "avg" in hw:
-            if hw["grade_value"] > hw["avg"]:
+        #fix bug
+        if hw.has_key("grade_value"):
+            hw["value"] = hw["grade_value"]
+            hw.pop("grade_value")
+        if "value" in hw and "avg" in hw:
+            if hw["value"] > hw["avg"]:
                 hw_val = "高于平均水平"
-            elif hw["grade_value"] < hw["avg"]:
+            elif hw["value"] < hw["avg"]:
                 hw_val = "低于平均水平"
             else:
                 hw_val = "与均值持平"
