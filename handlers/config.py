@@ -41,3 +41,13 @@ class DownloadDataDate(BaseHandler):
                     })
         except (IndexError, AttributeError):
             self.error_response(101, u'数据时间配置错误')
+
+@route('/download/date')
+class DownloadDate(BaseHandler):
+    """
+    获取系统时间   
+    """
+    def get(self):
+        from datetime import datetime
+        download_date = str(datetime.now())
+        self.success_response({'date_time': download_date})
