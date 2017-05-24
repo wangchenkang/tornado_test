@@ -78,5 +78,8 @@ class MysqlConnect(object):
                 select group_key from teacher_power where user_id='{0}' and course_id='{1}' order by group_key
                 """.format(user_id, course_id)
         results = self.execute_query(query)
-        return results[0]
+        if len(results)>0:
+            return results[0]
+        return ''
+
 

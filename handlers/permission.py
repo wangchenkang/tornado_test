@@ -95,4 +95,6 @@ class GroupKey(BaseHandler):
     """
     def get(self):
         result = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).course_group_key(self.user_id, self.course_id)
+        if not result:
+            self.success_response({'data': []})
         self.success_response({'data': result})
