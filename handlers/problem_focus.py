@@ -438,5 +438,5 @@ class StudyWarningChart(BaseHandler):
         result = self.es_execute(query)
         aggs = result.aggregations
         buckets = aggs.study_weeks.buckets
-        data = [{'study_week': bucket.key, 'warning_num': bucket.doc_count}for bucket in buckets]
+        data = [{'study_week': bucket.key, 'warning_num': bucket.doc_count}for bucket in buckets[0:20]]
         self.success_response({'data': data})
