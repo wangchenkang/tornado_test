@@ -15,3 +15,4 @@ from .permission import *
 from .elective_course import *
 from .education import *
 from .problem_focus import *
+from .mobile_web_video import *
