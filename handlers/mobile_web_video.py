@@ -22,6 +22,7 @@ class MysqlConnect(object):
 
     def get_db(self):
         db = MySQLdb.connect(self.host, self.user, self.password, self.db)
+        db.ping(True)
         return db
 
     def convert_decimal_int(self, decimal_num):
