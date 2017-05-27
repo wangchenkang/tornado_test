@@ -222,8 +222,8 @@ class MobileWebStudyProgressDetail(BaseHandler):
             seq = {}
             seq['id'] = seq_id
             watched_percent = seq_video_rate_dict.get(seq_id, {}).get('watched_duration', 0) / float(video_durations.get(seq_id, 1e-10))
-            if watched_percent:
-                watched_percent += 0.005
+            if watched_percent >= 0.98:
+                watched_percent = 1.
             seq['watched_percent'] = round(watched_percent, 2)
             seq['watched_num'] = seq_video_rate_dict.get(seq_id, {}).get('watched_num', 0)
             seq['video_length'] = int(video_durations.get(seq_id, 0))
