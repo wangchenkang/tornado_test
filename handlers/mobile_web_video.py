@@ -151,14 +151,18 @@ class MobileWebStudyProgress(BaseHandler):
             query_items = """
                             select item_id as items from course_video where course_id='{0}' and chapter_id='{1}'
                           """.format(course_id, chapter_id)
-        if sequential_id:
+        elif sequential_id:
             query_items = """
                             select item_id as items from course_video where course_id='{0}' and sequential_id='{1}'
                           """.format(course_id, sequential_id)
-        if vertical_id:
+        elif vertical_id:
             query_items = """
                             select item_id as items from course_video where course_id='{0}' and vertical_id='{1}'
                          """.format(course_id, vertical_id)
+        else:
+            query_items = """
+                            select item_id as items from course_video where course_id='{0}'
+                         """.format(course_id)
         if query_items:
             results = cursor.execute(query_items)
             results = cursor.fetchall()
