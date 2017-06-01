@@ -41,12 +41,20 @@ class Academic(BaseHandler):
         return 0
 
     @property
+    def get_term(self):
+        term = self.get_argument('term', '')
+        return term
+
+    @property
     def summary_query(self):
         query = self.es_query(index='academics',doc_type='tap_academics_summary')\
                     .filter('term', service_line=self.service_line)\
                     .filter('term', course_status=COURSE_STATUS.get(self.course_status))
         if self.service_line != 'mooc':
             query = query.filter('term', orgid_or_host=self.orgid_or_host)
+        #加学期
+        if self.get_term:
+            query = query.filter('term', term=self.get_term)
         return query
     
     @property
@@ -57,6 +65,8 @@ class Academic(BaseHandler):
                     .sort('-start_time')
         if self.service_line != 'mooc':
             query = query.filter('term', orgid_or_host=self.orgid_or_host)
+        if self.get_term:
+            query = query.filter('term', term=self.get_term)
         return query
 
     def get_summary(self, course_ids=None):
@@ -109,7 +119,7 @@ class Academic(BaseHandler):
             for group_key in group_keys:
                 if group_key not in group_key_list:
                     group_key_list.append(group_key)
-        query = self.es_query(doc_type='course_health')\
+        query = self.es_query(index='test_health', doc_type='course_health')\
                     .filter('terms',course_id=course_ids)\
                     .filter('terms',group_key=group_key_list).source(field)
         total = self.es_execute(query).hits.total
@@ -225,7 +235,6 @@ class EducationCourseNameSearch(Academic):
                     continue
             #查健康度以及相关数据
             result = self.get_health(course_id_group_key)
-            
             for i in data_courses:
                 i['dynamics'] = []
                 for j in result:
