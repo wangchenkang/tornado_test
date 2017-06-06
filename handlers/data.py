@@ -21,6 +21,7 @@ from .base import BaseHandler
 from utils.routes import route
 from utils.tools import fix_course_id, datedelta
 from utils.log import Log
+import settings
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -772,15 +773,15 @@ class StudentCourseEnrollment(BaseHandler):
                 course_id_pc[hit.parrent].append(hit.course_id)
          
          #查询这些子课程的数据然后聚合
-         query = self.es_query(doc_type='student_courseenrollment')\
+         query = self.es_query(doc_type='course_community')\
                      .filter('terms', course_id=children_course_ids)\
-                     .filter('term', is_active=True)
+                     .filter('terms', group_key=[settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY])
          total = self.es_execute(query[:0]).hits.total
          query.aggs.bucket('course_ids', 'terms', field='course_id', size=len(children_course_ids))\
-                   .bucket('uid_num', 'terms', field='uid', size=total)
+                   .metric('enroll_nums', 'sum', field='enroll_num')
          result = self.es_execute(query)
          aggs = result.aggregations
-         course_enrollment = [{'course_id':i.key, 'enrollment_num':len(i.uid_num.buckets)} for i in aggs.course_ids.buckets]
+         course_enrollment = [{'course_id':i.key, 'enrollment_num': int(i.enroll_nums.value or 0)} for i in aggs.course_ids.buckets]
 
          data = self.get_course_enrollments(course_id_pc, course_id_cp, course_enrollment)
 
