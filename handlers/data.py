@@ -713,7 +713,8 @@ class StudentCourseEnrollment(BaseHandler):
          new_course_ids = []
          for course_id in course_ids:
              course_id = fix_course_id(course_id)
-             new_course_ids.append(course_id)
+             if course_id not in new_course_ids:
+                new_course_ids.append(course_id)
          return new_course_ids
 
      def get_course_enrollments(self, course_id_pc, course_id_cp, course_enrollment):
