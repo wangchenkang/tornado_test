@@ -27,7 +27,7 @@ class Academic(BaseHandler):
     def orgid_or_host(self):
         orgid_or_host = self.get_argument('orgid_or_host', None)
         if not orgid_or_host:
-            self.error_response(u'参数错误')
+            self.error_response(502, u'缺少参数')
         return orgid_or_host
 
     @property
