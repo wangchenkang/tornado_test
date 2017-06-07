@@ -18,6 +18,8 @@ class TableHandler(BaseHandler):
                                               | Q('wildcard', binding_uid='*%s*'% student_keyword) \
                                               | Q('wildcard', nickname='*%s*' % student_keyword)\
                                               | Q('wildcard', xid='*%s*' % student_keyword)\
+                                              | Q('wildcard', the_class='*%s*' % student_keyword)\
+                                              | Q('wildcard', entrance_year='*%s*' % student_keyword)
                                               ]))
         size = self.es_execute(query[:0]).hits.total
         result = self.es_execute(query[:size]).hits
@@ -63,7 +65,7 @@ class TableHandler(BaseHandler):
 class TableJoinHandler(TableHandler):
 
     GRADE_FIELDS = ['grade', 'letter_grade', 'current_grade_rate', 'total_grade_rate']
-    USER_FIELDS = ['user_id', 'nickname', 'xid', 'rname', 'binding_uid', 'faculty', 'major']
+    USER_FIELDS = ['user_id', 'nickname', 'xid', 'rname', 'binding_uid', 'faculty', 'major', 'the_class', 'entrance_year']
     SEEK_FIELDS = ['is_watch', 'is_seek', 'not_watch_total', 'seek_total', 'video_open_num']
     WARNING_FIELDS = ['warning_date', 'study_week', 'least_2_week', 'low_video_rate', 'low_grade_rate']
 
