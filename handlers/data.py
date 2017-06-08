@@ -718,7 +718,7 @@ class StudentCourseEnrollment(BaseHandler):
                 new_course_ids.append(course_id)
          return new_course_ids
 
-     def get_course_enrollments(self, course_id_pc, course_id_cp, course_enrollment):
+     def get_course_enrollments(self, course_id_pc, course_id_cp, course_enrollment, course_ids):
          parent_enrollment_num = {}
          for parent, children in course_id_pc.items():
              num = 0
@@ -727,13 +727,16 @@ class StudentCourseEnrollment(BaseHandler):
                      num += course['enrollment_num']
              parent_enrollment_num[parent] = num
          data = []
-         for child, parent in course_id_cp.items():
-             data_ = {}
-             for parent_, enrollment_num in parent_enrollment_num.items():
-                 if parent == parent_:
-                     data_['course_id'] = child
-                     data_['acc_enrollment_num'] = enrollment_num
-             data.append(data_)
+         for course_id in course_ids:
+            for child, parent in course_id_cp.items():
+                if child != course_id:
+                    continue
+                data_ = {}
+                for parent_, enrollment_num in parent_enrollment_num.items():
+                    if parent == parent_:
+                        data_['course_id'] = child
+                        data_['acc_enrollment_num'] = enrollment_num
+                data.append(data_)
          return data
 
      def get(self):
@@ -783,7 +786,7 @@ class StudentCourseEnrollment(BaseHandler):
          aggs = result.aggregations
          course_enrollment = [{'course_id':i.key, 'enrollment_num': int(i.enroll_nums.value or 0)} for i in aggs.course_ids.buckets]
 
-         data = self.get_course_enrollments(course_id_pc, course_id_cp, course_enrollment)
+         data = self.get_course_enrollments(course_id_pc, course_id_cp, course_enrollment, course_ids)
 
          self.success_response({'data': data})
 
