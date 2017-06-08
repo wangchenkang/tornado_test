@@ -18,6 +18,8 @@ class TableHandler(BaseHandler):
                                               | Q('wildcard', binding_uid='*%s*'% student_keyword) \
                                               | Q('wildcard', nickname='*%s*' % student_keyword)\
                                               | Q('wildcard', xid='*%s*' % student_keyword)\
+                                              | Q('wildcard', faculty='*%s*' % student_keyword)\
+                                              | Q('wildcard', major='*%s*' % student_keyword)\
                                               | Q('wildcard', the_class='*%s*' % student_keyword)\
                                               | Q('wildcard', entrance_year='*%s*' % student_keyword)
                                               ]))
