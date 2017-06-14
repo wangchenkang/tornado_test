@@ -294,7 +294,7 @@ class EducationCourseDownload(Academic):
                                 i['group_name'] = '全部学生'
                             if i['group_key'] == settings.ELECTIVE_ALL_GROUP_KEY:
                                 i['group_name'] = '%s.%s' % ('全部学生', '学分课')
-                            if settings.COHORT_GROUP_KEY <= j['group_key'] <= settings.ELECTIVE_GROUP_KEY:
+                            if settings.COHORT_GROUP_KEY <= i['group_key'] <= settings.ELECTIVE_GROUP_KEY:
                                 i.update(j)
                             if i['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY, settings.TSINGHUA_GROUP_KEY, settings.ELECTIVE_ALL_GROUP_KEY]:
                                 i.update(j)
