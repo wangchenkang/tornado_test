@@ -238,6 +238,9 @@ class EducationCourseNameSearch(Academic):
                                     j['school'] = j['group_name']
                                 if j['group_key'] == settings.ELECTIVE_ALL_GROUP_KEY:
                                     j['school'] = '%s.%s' % ('全部学生', '学分课')
+                                if settings.COHORT_GROUP_KEY <= j['group_key'] <= settings.ELECTIVE_GROUP_KEY:
+                                    j['school'] = j['group_name']
+                                    i['dynamics'].append(j)
                                 if j['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY, settings.TSINGHUA_GROUP_KEY, settings.ELECTIVE_ALL_GROUP_KEY]:
                                     i['dynamics'].append(j)
                             if self.service_line == 'credit':
@@ -291,6 +294,8 @@ class EducationCourseDownload(Academic):
                                 i['group_name'] = '全部学生'
                             if i['group_key'] == settings.ELECTIVE_ALL_GROUP_KEY:
                                 i['group_name'] = '%s.%s' % ('全部学生', '学分课')
+                            if settings.COHORT_GROUP_KEY <= j['group_key'] <= settings.ELECTIVE_GROUP_KEY:
+                                i.update(j)
                             if i['group_key'] in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY, settings.TSINGHUA_GROUP_KEY, settings.ELECTIVE_ALL_GROUP_KEY]:
                                 i.update(j)
                         else:
@@ -303,7 +308,8 @@ class EducationCourseDownload(Academic):
             for i in result:
                 if self.service_line != 'credit':
                     if i['group_key'] not in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY, settings.ELECTIVE_ALL_GROUP_KEY, settings.TSINGHUA_GROUP_KEY]:
-                        continue
+                         if i['group_key'] < settings.COHORT_GROUP_KEY:
+                            continue
                 else:
                     if i['group_key'] < settings.ELECTIVE_GROUP_KEY:
                         if i['group_key'] !=  settings.TSINGHUA_GROUP_KEY:
