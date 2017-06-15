@@ -42,7 +42,7 @@ class MobileWebCourse(BaseHandler):
         db,cursor= MysqlConnect().get_db_cursor()
         course_id = self.get_argument("course_id", None)
         if not course_id:
-            self.error_response({"data": {}})
+            self.error_response(502, u'缺少参数')
         course_id = fix_course_id(course_id)
         query = """
                 select count(vi.id) as video_num, sum(vi.duration) as total_duration from course_video cv join video_info vi on cv.video_id = vi.id where cv.course_id='{0}' and cv.item_id != 'intro_video'
@@ -61,7 +61,7 @@ class MobileWebVideoChapter(BaseHandler):
         course_id = self.get_argument('course_id', None)
         chapter_id = self.get_argument('chapter_id', None)
         if not course_id or not chapter_id:
-            self.error_response({'data': {}})
+            self.error_response(502, u'缺少参数')
         course_id = fix_course_id(course_id)
         query = """
                 select count(vi.id) as video_num, sum(vi.duration) as total_duration from course_video cv join video_info vi on cv.video_id = vi.id where cv.course_id='{0}' and chapter_id='{1}'
@@ -80,7 +80,7 @@ class MobileWebVideoVertical(BaseHandler):
         course_id = self.get_argument('course_id', None)
         vertical_id = self.get_argument('vertical_id',None)
         if not course_id or not vertical_id:
-            self.error_response({'data': {}})
+            self.error_response(502, u'缺少参数')
         course_id = fix_course_id(course_id)
         query = """
                 select count(vi.id) as video_num, sum(vi.duration) as total_duration from course_video cv join video_info vi on cv.video_id = vi.id where cv.course_id='{0}' and vertical_id= '{1}'
@@ -99,7 +99,7 @@ class MobileWebVideoSequencial(BaseHandler):
         course_id = self.get_argument('course_id', None)
         sequential_id = self.get_argument('sequential_id', None)
         if not course_id or not sequential_id:
-            self.error_response({'data': {}})
+            self.error_response(502, u'缺少参数')
         course_id = fix_course_id(course_id)
         query = """
                 select count(vi.id) as video_num, sum(vi.duration) as total_duration from course_video cv join video_info vi on cv.video_id = vi.id where cv.course_id='{0}' and sequential_id= '{1}'
@@ -119,7 +119,7 @@ class MobileWebVideoItem(BaseHandler):
         course_id = self.get_argument('course_id', None)
         item_id = self.get_argument('item_id', None)
         if not course_id or not item_id:
-            self.error_response({'data': {}})
+            self.error_response(502, u'缺少参数')
         course_id = fix_course_id(course_id)
         query = """
                 select count(vi.id) as video_num, sum(vi.duration) as total_duration from course_video cv join video_info vi on cv.video_id = vi.id where cv.course_id='{0}' and item_id= '{1}'
@@ -140,7 +140,7 @@ class MobileWebStudyProgress(BaseHandler):
         sequential_id = self.get_argument('sequential_id', None)
         vertical_id = self.get_argument('vertical_id', None)
         if not course_id or not user_id:
-            self.error_response({'data': {}})
+            self.error_response(502, u'缺少参数')
         course_id = fix_course_id(course_id)
         db,cursor= MysqlConnect().get_db_cursor()
         
@@ -181,7 +181,7 @@ class MobileWebStudyProgressDetail(BaseHandler):
         user_id = self.get_argument('user_id', None)
         course_id = self.get_argument('course_id', None)
         if not course_id or not user_id:
-            self.error_response({'data': []})
+            self.error_response(502, u'缺少参数')
         course_id = fix_course_id(course_id)
         db,cursor= MysqlConnect().get_db_cursor()
 
@@ -226,7 +226,7 @@ class MobileWebStudyProgressDetail(BaseHandler):
             seq = {}
             seq['id'] = seq_id
             watched_percent = seq_video_rate_dict.get(seq_id, {}).get('watched_duration', 0) / float(video_durations.get(seq_id, 1e-10))
-            if watched_percent >= 0.98:
+            if watched_percent >= 0.975:
                 watched_percent = 1.
             seq['watched_percent'] = round(watched_percent, 2)
             seq['watched_num'] = seq_video_rate_dict.get(seq_id, {}).get('watched_num', 0)
@@ -244,7 +244,7 @@ class MobileWebVideoLastPos(BaseHandler):
         user_id = self.get_argument('user_id', None)
         item_id = self.get_argument('item_id', None)
         if not course_id or not user_id or not item_id:
-            self.error_response({'data': {}})
+            self.error_response(502, u'缺少参数')
         course_id = fix_course_id(course_id)
         sp = study_progress.StudyProgress(thrift_server='10.0.2.132', namespace='heartbeat')
         current_point = sp.get_video_last_pos(user_id, course_id, item_id)
@@ -260,7 +260,7 @@ class MobileWebCourseLastPos(BaseHandler):
         course_id = self.get_argument('course_id', None)
         user_id = self.get_argument('user_id', None)
         if not course_id or not user_id:
-            self.error_response({'data': {}})
+            self.error_response(502, u'缺少参数')
         course_id = fix_course_id(course_id)
         sp = study_progress.StudyProgress(thrift_server='10.0.2.132', namespace='heartbeat')
         result = {}
@@ -284,7 +284,7 @@ class MobileWebUserLastPos(BaseHandler):
     def get(self): 
         user_id = self.get_argument('user_id', None)
         if not user_id:
-            self.error_response({'data': {}})
+            self.error_response(502, u'缺少参数')
         sp = study_progress.StudyProgress(thrift_server='10.0.2.132', namespace='heartbeat')
         result = {}
         result['course_id'] = ''
@@ -300,5 +300,4 @@ class MobileWebUserLastPos(BaseHandler):
             result['cur_pos'] = cur_pos
         sp.close()
         self.success_response({'data': result})
-
 

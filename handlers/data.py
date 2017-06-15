@@ -21,6 +21,7 @@ from .base import BaseHandler
 from utils.routes import route
 from utils.tools import fix_course_id, datedelta
 from utils.log import Log
+import settings
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -698,3 +699,91 @@ class DataDownload(BaseHandler):
 
             finally:
                 shutil.rmtree(temp_dir)
+
+
+@route('/data/student_courseenrollment')
+class StudentCourseEnrollment(BaseHandler):
+     """
+     课程累计选课人数
+     """
+     def get_course_ids(self):
+         course_ids = self.get_argument('course_id', None)
+         if not course_ids:
+             self.error_response(502, u'缺少课程id参数')
+         course_ids = course_ids.split(',')
+         new_course_ids = []
+         for course_id in course_ids:
+             course_id = fix_course_id(course_id)
+             if course_id not in new_course_ids:
+                new_course_ids.append(course_id)
+         return new_course_ids
+
+     def get_course_enrollments(self, course_id_pc, course_id_cp, course_enrollment):
+         parent_enrollment_num = {}
+         for parent, children in course_id_pc.items():
+             num = 0
+             for course in course_enrollment:
+                 if course['course_id'] in children:
+                     num += course['enrollment_num']
+             parent_enrollment_num[parent] = num
+         data = []
+         for child, parent in course_id_cp.items():
+             data_ = {}
+             for parent_, enrollment_num in parent_enrollment_num.items():
+                 if parent == parent_:
+                     data_['course_id'] = child
+                     data_['acc_enrollment_num'] = enrollment_num
+             data.append(data_)
+         return data
+
+     def get(self):
+         """
+         先查出课程的parent_id，再根据parent_id查出所有的子课程，再拿这些子课程去查选课人数，进行聚合
+         """
+         #TODO
+         course_ids = self.get_course_ids()
+
+         #查parent_id
+         query = self.es_query(index='main', doc_type='course_ancestor')\
+                     .filter('terms', course_id=course_ids)
+         total = self.es_execute(query[:0]).hits.total
+         result = self.es_execute(query[:total])
+         parent_course_ids = [hit.parrent for hit in result.hits]
+         #子对父
+         course_id_cp = {}
+         for course_id in course_ids:
+            if course_id not in course_id_cp:
+                course_id_cp[course_id] = ''
+         for hit in result.hits:
+            if hit.course_id in course_id_cp:
+                course_id_cp[hit.course_id] = hit.parrent
+
+         #根据parent_id查出所有的子课程id
+         query = self.es_query(index='main', doc_type='course_ancestor')\
+                     .filter('terms', parrent=parent_course_ids)
+         result = self.es_execute(query[:10000])
+         children_course_ids = [hit.course_id for hit in result.hits]
+         #父对子
+         course_id_pc = {}
+         for course_id in parent_course_ids:
+            if course_id not in course_id_pc:
+                course_id_pc[course_id] = []
+         for hit in result.hits:
+            if hit.parrent in course_id_pc:
+                course_id_pc[hit.parrent].append(hit.course_id)
+         
+         #查询这些子课程的数据然后聚合
+         query = self.es_query(doc_type='course_community')\
+                     .filter('terms', course_id=children_course_ids)\
+                     .filter('terms', group_key=[settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY])
+         total = self.es_execute(query[:0]).hits.total
+         query.aggs.bucket('course_ids', 'terms', field='course_id', size=len(children_course_ids))\
+                   .metric('enroll_nums', 'sum', field='enroll_num')
+         result = self.es_execute(query)
+         aggs = result.aggregations
+         course_enrollment = [{'course_id':i.key, 'enrollment_num': int(i.enroll_nums.value or 0)} for i in aggs.course_ids.buckets]
+
+         data = self.get_course_enrollments(course_id_pc, course_id_cp, course_enrollment)
+
+         self.success_response({'data': data})
+

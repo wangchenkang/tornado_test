@@ -55,7 +55,7 @@ class DetailCourseGradeRatioDetail(BaseHandler):
         #        .filter('terms', user_id=problem_users) \
         #        .filter('range', **{'final_grade': {'gte': 0}})
 
-        query = self.es_query(index='tapgrade', doc_type='grade_overview') \
+        query = self.es_query(index='tap_table_grade', doc_type='grade_summary') \
                 .filter('term', course_id=self.course_id) \
                 .filter('terms', user_id=problem_users) \
                 .filter('range', **{'total_grade_rate': {'gt': 0}})
@@ -173,7 +173,7 @@ class DetailHomeworkGrade(BaseHandler):
         from collections import Counter
         chapter_homework_md5 = self.get_argument('chapter_homework_md5', None)
         user_ids = self.get_problem_users()
-        query = self.es_query(index='tapgrade', doc_type='question_overview')\
+        query = self.es_query(index='tap_table_question', doc_type='chapter_question')\
                     .filter('term', course_id=self.course_id)\
                     .filter('terms', user_id=user_ids)
         response = self.es_execute(query[:0])

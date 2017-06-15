@@ -116,9 +116,10 @@ class ElectiveCourseBase(BaseHandler):
             self.error_response(error_code=503,error_msg="参数错误")
         
         
-        school = unquote(school)
+        #school = unquote(school)
+        school = school
         doc_type = request_mapping.get(info_type)
-        infos = get_es_data(self,doc_type,datestr,school,index=es_index,sortkey='series')
+        infos = get_es_data(self,doc_type,datestr,school,index=es_index,sortkey='course_id')
         
          
         if info_type == "base_info":
@@ -329,7 +330,7 @@ class ElectiveCourseDataReport(BaseHandler):
 
 def get_course_list(handler,school):
     datestr = get_datestr()
-    infos = get_es_data(handler,request_mapping.get("base_info"),datestr,school,index=es_index,sortkey="series")
+    infos = get_es_data(handler,request_mapping.get("base_info"),datestr,school,index=es_index,sortkey="course_id")
     coursename_list = [{"course_id":object.course_id,\
                         "course_name":object.course_name,\
                         "category_name":object.series} for object in infos]
