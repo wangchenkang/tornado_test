@@ -308,7 +308,7 @@ class EducationCourseDownload(Academic):
             for i in result:
                 if self.service_line != 'credit':
                     if i['group_key'] not in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY, settings.ELECTIVE_ALL_GROUP_KEY, settings.TSINGHUA_GROUP_KEY]:
-                         if i['group_key'] < settings.COHORT_GROUP_KEY:
+                         if i['group_key'] < settings.COHORT_GROUP_KEY or i['group_key'] >= settings.ELECTIVE_GROUP_KEY:
                             continue
                 else:
                     if i['group_key'] < settings.ELECTIVE_GROUP_KEY:
