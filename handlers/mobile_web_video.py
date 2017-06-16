@@ -174,6 +174,18 @@ class MobileWebStudyProgress(BaseHandler):
         self.success_response({'data': data})
 
 
+@route('/mobile/mobile_user_study')
+class MobileUserStudy(BaseHandler):
+
+    def get(self):
+        user_id = self.get_argument('user_id', None)
+
+        sp = study_progress.StudyProgress(thrift_server='10.0.2.132', namespace='heartbeat')
+        result = sp.get_user_watched_video(user_id)
+        
+        self.success_response({'data': result})
+
+
 @route('/mobile/mobile_web_study_progress_detail')
 class MobileWebStudyProgressDetail(BaseHandler):
 

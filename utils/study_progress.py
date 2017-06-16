@@ -10,7 +10,6 @@ import hashlib
 import time
 import json
 import happybase
-from .log import Log
 
 '''
 以下视频相关数据针对全平台（包括移动端和Web端）
@@ -39,11 +38,7 @@ class StudyProgress:
     def __init__(self, thrift_server, thrift_port=9090, namespace='test'):
         self.thrift_server, self.thrift_port = thrift_server, thrift_port
         self.namespace = namespace
-        try:
-            self.connection = happybase.Connection(host=self.thrift_server, port=self.thrift_port)
-        except Exception as e:
-            Log.error(e)
-            Log.error('Hbase Connect Time Out')
+        self.connection = happybase.Connection(host=self.thrift_server, port=self.thrift_port)
 
     def md5_bytes(self, value, num_bytes):
         return hashlib.md5(value).hexdigest()[:num_bytes]
@@ -64,6 +59,80 @@ class StudyProgress:
 
     def get_table(self, table_name):
         return self.connection.table(table_name)
+
+    def get_user_watched_video(self, user_id):
+        """
+        get user watched video in all courses
+        return course num and total_time
+        """
+        sn_user   = str(user_id).zfill(10)[::-1]
+        rowprefix = sn_user
+
+        watched_courses = set()
+        watched_duration = {}
+        for table_name in self.get_table_names():
+            table = self.get_table(table_name)
+
+            for rowkey, d in table.scan(row_prefix=rowprefix):
+                course_id = d['info:course_id']
+                for k in d:
+                    if k.startswith('heartbeat:i'):
+                        watched_duration.setdefault(course_id + k, Counter()).incr(int(d[k]))
+                watched_courses.add(course_id)
+
+        watched_total_duration = 0
+        for k in watched_duration:
+            watched_total_duration += min(5, watched_duration[k].counter)
+        return {'watched_courses': len(watched_courses), 'watched_duration': watched_total_duration}
+
+    def get_study_progress(self, user_id, course_id, items=None):
+        """
+        lookup user video study progress in a course
+        items: if items is None, get study progress in this course
+               if items is a list of item ids, get study progress of these items
+
+        Arguments:
+        user_id: user's id
+        course_id: course's id
+        items: video item IDs
+
+        Returns:
+        return watched_num, watched_duration
+        """
+        sn_user   = str(user_id).zfill(10)[::-1]
+        sn_course = self.md5_bytes(course_id, 6)
+        rowprefix = sn_user + sn_course
+
+        if items:
+            item_set = set(items)
+            accept_func = lambda x: x in item_set
+        else:
+            accept_func = lambda x: True
+
+        watched_videos = set()
+        watched_duration = {}
+        table_names = self.get_table_names()
+
+        for table_name in table_names:
+            table = self.get_table(table_name)
+
+            for rowkey, d in table.scan(row_prefix=rowprefix):
+                # print d
+                # print rowkey, d
+                v_id = d['info:video_id']
+                if not accept_func(v_id):
+                    continue
+                watched_videos.add(v_id)
+                for k in d:
+                    if k.startswith('heartbeat:i'):
+                        key = v_id + ':' + k
+                        watched_duration.setdefault(key, Counter()).incr(int(d[k]))
+
+        items_watched_duration = 0
+        for key in watched_duration:
+            items_watched_duration += min(5, watched_duration[key].counter)
+
+        return len(watched_videos), items_watched_duration
 
     def get_study_progress(self, user_id, course_id, items=None):
         """
