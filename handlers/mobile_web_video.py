@@ -313,3 +313,23 @@ class MobileWebUserLastPos(BaseHandler):
         sp.close()
         self.success_response({'data': result})
 
+
+@route('/mobile/mobile_demo') # url
+class MobileDemo(BaseHandler): 
+
+    def get(self): 
+        user_id = self.get_argument('user_id', None) # get parameter
+        if not user_id: 
+            self.error_response(502, u'缺少参数') # error
+
+        # logic
+
+        # mysql
+        #MysqlConnect
+
+        # ES
+        # self.es_query
+        # return data
+        self.success_response({'data': result})
+
+
