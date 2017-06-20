@@ -4,6 +4,7 @@ from utils.log import Log
 from utils.routes import route
 from utils import study_progress 
 from utils.tools import fix_course_id
+from utils.service import CourseService
 from .base import BaseHandler
 import MySQLdb
 from MySQLdb.cursors import DictCursor
@@ -319,10 +320,14 @@ class MobileDemo(BaseHandler):
 
     def get(self): 
         user_id = self.get_argument('user_id', None) # get parameter
+        course_id = self.get_argument('course_id', None) # get parameter
         if not user_id: 
             self.error_response(502, u'缺少参数') # error
 
         # logic
+
+        # course service
+        result = self.course_structure(course_id, block_id='course', depth=4)
 
         # mysql
         #MysqlConnect
