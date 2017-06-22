@@ -773,7 +773,7 @@ class StudentCourseEnrollment(BaseHandler):
                 course_id_pc[hit.parrent].append(hit.course_id)
          
          #查询这些子课程的数据然后聚合
-         query = self.es_query(doc_type='course_community')\
+         query = self.es_query(doc_type='course_community_withunenroll')\
                      .filter('terms', course_id=children_course_ids)\
                      .filter('terms', group_key=[settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY])
          total = self.es_execute(query[:0]).hits.total
