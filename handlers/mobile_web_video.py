@@ -8,7 +8,6 @@ from utils.service import CourseService
 from .base import BaseHandler
 import MySQLdb
 from MySQLdb.cursors import DictCursor
-<<<<<<< HEAD
 import json
 import datetime
 
