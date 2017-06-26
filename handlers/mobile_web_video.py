@@ -8,7 +8,9 @@ from utils.service import CourseService
 from .base import BaseHandler
 import MySQLdb
 from MySQLdb.cursors import DictCursor
-
+<<<<<<< HEAD
+import json
+import datetime
 
 Log.create('mobile_web_video')
 
@@ -315,18 +317,154 @@ class MobileWebUserLastPos(BaseHandler):
         self.success_response({'data': result})
 
 
-@route('/mobile/mobile_demo') # url
+@route('/learning/guide') # url
 class MobileDemo(BaseHandler): 
 
     def get(self): 
         user_id = self.get_argument('user_id', None) # get parameter
-        course_id = self.get_argument('course_id', None) # get parameter
+        course_id_list = fix_course_id(self.get_argument('course_id', None)) # get parameter
         if not user_id: 
             self.error_response(502, u'缺少参数') # error
+        #course_id_list = self.get_argument('course_id', None)
+        if not course_id_list:
+            self.error_response(502,u'缺少参数')
+        course_id_ll = course_id_list.split(',')
+        #课程结构查询
+        str_result = {}
+        for course_id in course_id_ll:
+            course_id = course_id.encode('utf-8')
+            result = self.course_structure(course_id, 'course', depth=4)
+            course = result['children']
+            for c in course:
+                chapter_id = c['block_id'].encode('utf-8')
+                ##chapter_name = c['display_name']
+                seq = c['children']
+                for s in seq:
+                    seq_id = s['block_id'].encode('utf-8')
+                    ##seq_name = s['display_name']
+                    ver = s['children']
+                    for v in ver:
+                        vertical_id = v['block_id'].encode('utf-8')
+                        item = v['children']
+                        for i in item:
+                            item_id = i['block_id'].encode('utf-8')
+                            #is_exam = i['is_exam']
+                            #chapter_start = i['chpater_start']
+                            if i['seq_end'] is not None:
+                                end_str = i['seq_end'].encode('utf-8')
+                                end = datetime.datetime.strptime(end_str, "%Y-%m-%dT%H:%M:%S")
+                            stri = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+                            interval = end - datetime.datetime.strptime(stri,'%Y-%m-%dT%H:%M:%S')
+                            if i['seq_end'] is not None:
+                                seq_end = i['seq_end'].encode('utf-8')
+                            else:
+                                seq_end = ''
+                           # interval=1
+                            if interval.days < 2 and interval.days > 0:
+                            #if interval < 2 and interval>0:
+                                str_result_one = {}
+                                str_result_one['course_id'] = course_id
+                                str_result_one['chapter_id'] = chapter_id
+                                ##str_result_one['chapter_name'] = chapter_name
+                                str_result_one['seq_id'] = seq_id
+                                ##str_result_one['seq_name'] = seq_name
+                                str_result_one['vertical_id'] = vertical_id
+                                #str_result_one['seq_end'] = seq_end
+                                #str_result_one['is_exam'] = is_exam
+                                # str_result_one['chapter_start'] =chapter_start
+                                #不要时间差，只要到截止时间还有未提交的作业类型就是homework，没有未提交的作业还有未提交的考试类型就是exam，要不然就是章（是发布时间）
+                                str_result[item_id] = str_result_one
+                                #print str_result
+       
+        #print str_result                     
+        #es查询        
+        cid = []
+        for course_id in course_id_ll:
+            cid.append(course_id)
+        print user_id   #url传过来的用户
+        print cid       #url传过来的课程id
+        query = self.es_query(index = 'learning_guide',doc_type = 'learning_guide')\
+               .filter('term',student_id=user_id) \
+               .filter('terms',course_id=cid) 
+        result = self.es_execute(query)
+        #print result.hits
+        info = []
+        for row in result.hits:
+            info.append(row.item_id)
+        print info  #es里面提交过的item_id
+        result_final = {}
+        #history = {}
+        for key,value in str_result.items(): #str_result是查询课程结构的结果{item_id:{course_id:,chapter_id:,chapter_name:,seq_id:,seq_name:,vertical_id:,seq_end:,is_exam:,chapter_start:}}
+            result_d = {}
+            if key not in info:
+                if result_final.has_key(value['course_id']):
+                    k = value['course_id']
+                    data = result_final[k]#原来就有的
+                    
+                    if value['interval'] < data['interval']:
+                        
+                        ch_id = value['chapter_id']
+                        ##ch_name = value['chapter_name']
+                        s_id = value['seq_id']
+                        ##s_name = value['seq_name']
+                        seq_end = value['seq_end']
+                        #ch_start = value['chapter_start']
+                        #is_exam = value['is_exam']
+                        result_d['chapter_id'] = ch_id
+                        ##result_d['chapter_name'] = ch_name
+                        result_d['seq_id'] = s_id
+                        ##result_d['seq_name'] = s_name
+                        result_d['seq_end'] = seq_end
+                        #result_d['chapter_start'] = ch_start
+                        #result_d['is_exam'] = is_exam
+                        result_final[k] = result_d
+                    else:
+                        pass
 
-        # logic
+                else:
+                    c_id = value['course_id']
+                    ch_id = value['chapter_id']
+                    ##ch_name = value['chapter_name']
+                    s_id = value['seq_id']
+                    ##s_name = value['seq_name']
+                    seq_end = value['end']
+                    inte = value['interval']
+                    #ch_start = value['chapter_start']
+                    #is_exam = value['is_exam']
+                    result_d['chapter_id'] = ch_id
+                    ##result_d['chapter_name'] = ch_name
+                    result_d['seq_id'] = s_id
+                    ##result_d['seq_name'] = s_name
+                    result_d['seq_end'] = seq_end
+                    result_d['interval'] = inte
+                    #result_d['chapter_start'] = ch_start
+                    #result_d['is_exam'] = is_exam
+                    result_final[c_id] = result_d
+            #else:
+                #答过题的记录
+                # history[key] = value #答过题的记录
 
-        # course service
+        if len(result_final) == 0:  #全部考试作业都提交过
+            for course in cid:
+                pass
+                 #对每一门课调接口，拿出章的发布时间，根据章的发布时间作排序
+
+            # chapter_list = []
+            # for k,v in history.items():
+            #     chapter_list.append(v)
+            # #course_id没有做区分
+            # so = lambda s:s['chapter_start']
+            # chapter_list.sort(so)
+            # ch_d = chapter_list[-1]
+            # c_id = ch_d['course_id']
+            # result_final[c_id] = ch_d
+
+            #章发布的时间最近的一章
+        ##if not user_id: 
+        ##    self.error_response(502, u'缺少参数') # error
+     
+        ##if not course_id:
+        ##    self.error_response(502,u'缺少参数')
         result = self.course_structure(course_id, block_id='course', depth=4)
 
         # mysql
@@ -335,6 +473,124 @@ class MobileDemo(BaseHandler):
         # ES
         # self.es_query
         # return data
-        self.success_response({'data': result})
+        self.success_response({'data': result_final})
+
+ #答题记录
+@route('/learning/history')
+class LearningHistory(BaseHandler):
+
+    def get(self):
+        user_id = self.get_argument('user_id', None)  # get parameter
+        course_id_list = fix_course_id(self.get_argument('course_id', None)) # get parameter
+        #参数校验
+        if not user_id:
+            self.error_response(502, u'缺少参数')  # error
+        if not course_id_list:
+            self.error_response(502, u'缺少参数')
+        course_id_ll = course_id_list.split(',')
+        # 课程结构查询
+        str_result = {}
+        for course_id in course_id_ll:
+            course_id = course_id.encode('utf-8')
+            item_list = []
+            result = self.course_structure(course_id, 'course', depth=4)
+            course = result['children']
+            for c in course:
+                chapter_id = c['block_id'].encode('utf-8')
+                chapter_name = c['display_name']
+                seq = c['children']
+                for s in seq:
+                    seq_id = s['block_id'].encode('utf-8')
+                    seq_name = s['display_name']
+                    ver = s['children']
+                    for v in ver:
+                        vertical_id = v['block_id'].encode('utf-8')
+                        item = v['children']
+                        #item_list = []
+                        for i in item:
+                            item_id = i['block_id'].encode('utf-8')
+                            #item_list = []
+                            item_list.append(item_id)
+            str_result[course_id] = item_list
+        print str_result
+        # es查询
+        cid = []
+        for course_id in course_id_ll:
+            cid.append(fix_course_id(course_id))
+        print user_id
+        print cid
+        query = self.es_query(index='learning_guide', doc_type='learning_guide') \
+            .filter('term', student_id=user_id) \
+            .filter('terms', course_id=cid)
+        result = self.es_execute(query)
+        info = []
+        for row in result.hits:
+            info.append(row.item_id)
+        print info
+        result_list = []#[{course_id:,chapter_id:,chapter_name:,seq_id:,seq_name},{},...,{}]
+        for key, value in str_result.items():#key：course_id value:[item_id,item_id,...]
+            #对于每一门课
+            result = {'has_submitted': False, 'id': key}
+            for v in value:#课程结构   中的item
+                if v in info:#提交过
+                    result['has_submitted'] = True
+                    continue
+            result_list.append(result)
+
+        #if len(result_list) < len(cid):
+        #    for c in course_id_ll:
+        #        result_false = {}
+        #        sub_list = []
+        #        print len(result_list)
+        #        for result_one in result_list:   
+        #            course_id = result_one['id']
+        #            sub_list.append(course_id)
+        #            if c not in sub_list:
+        #                result_false['id'] = c
+        #                result_false['has_submitted'] = False
+        #    result_list.append(result_false) 
+
+        self.success_response({'data': result_list})
+                # c_id = value['course_id']
+                # ch_id = value['chapter_id']
+                # ch_name = value['chapter_name']
+                # seq_id = value['seq_id']
+                # seq_name = value['seq_name']
+                # #is_exam = value['is_exam']
+                # k = c_id + seq_id
+                # one['chapter_id'] = ch_id
+                # one['chapter_name'] = ch_name
+                # one['seq_id'] = seq_id
+                # one['seq_name'] = seq_name
+                # one['is_exam']
+                # one['course_id'] = c_id
+                # result[k] = one
+                # print one
+        # print result
+        # for key,value in result.items():
+        #     #d = {}
+        #     course_id = value['course_id']
+        #     chapter_id = value['chapter_id']
+        #     chapter_name = value['chapter_name']
+        #     seq_id = value['seq_id']
+        #     seq_name = value['seq_name']
+            # d['course_id'] = course_id
+            # d['chapter_id'] = chapter_id
+            # d['chapter_name'] = chapter_name
+            # d['seq_id'] = seq_id
+            # d['seq_name'] = seq_name
+            # for k,v in result_final.items():
+            #     seq_list = []
+            #     if k in result_final:
+            #         seq_info = {}
+            #         seq_info['chapter_id'] = chapter_id
+            #         seq_info['chapter_name'] = chapter_name
+            #         seq_info['seq_id'] = seq_id
+            #         seq_info['seq_name'] = seq_name
+            #         seq_list.append()
+            #         pass #加在这个key对应的值的list里面
+            #     else:
+            #         pass #如果没有这个key，也就是没有这门课的记录，就加到result_final
+            #result_list.append(d)
 
 
