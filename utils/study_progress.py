@@ -65,52 +65,26 @@ class StudyProgress:
         get user watched video in all courses
         return course num and total_time
         """
+        course_data = self.get_user_watched_video_by_course(user_id)
+        course_num = len(course_data)
+        total_time = sum(course_data.values())
+        return {'watched_courses': course_num, 'watched_duration': total_time}
+
+    def get_user_watched_video_by_course(self, user_id):
+        """
+        lookup user video study progress in all courses
+
+        Arguments:
+        user_id: user's id
+
+        Returns:
+        return {course_id1: watched_duration1, course_id2: watched_duration2}
+        """
         sn_user   = str(user_id).zfill(10)[::-1]
         rowprefix = sn_user
 
         watched_courses = set()
         watched_duration = {}
-        for table_name in self.get_table_names():
-            table = self.get_table(table_name)
-
-            for rowkey, d in table.scan(row_prefix=rowprefix):
-                course_id = d['info:course_id']
-                for k in d:
-                    if k.startswith('heartbeat:i'):
-                        watched_duration.setdefault(course_id + k, Counter()).incr(int(d[k]))
-                watched_courses.add(course_id)
-
-        watched_total_duration = 0
-        for k in watched_duration:
-            watched_total_duration += min(5, watched_duration[k].counter)
-        return {'watched_courses': len(watched_courses), 'watched_duration': watched_total_duration}
-
-    def get_study_progress(self, user_id, course_id, items=None):
-        """
-        lookup user video study progress in a course
-        items: if items is None, get study progress in this course
-               if items is a list of item ids, get study progress of these items
-
-        Arguments:
-        user_id: user's id
-        course_id: course's id
-        items: video item IDs
-
-        Returns:
-        return watched_num, watched_duration
-        """
-        sn_user   = str(user_id).zfill(10)[::-1]
-        sn_course = self.md5_bytes(course_id, 6)
-        rowprefix = sn_user + sn_course
-
-        if items:
-            item_set = set(items)
-            accept_func = lambda x: x in item_set
-        else:
-            accept_func = lambda x: True
-
-        watched_videos = set()
-        watched_duration = {}
         table_names = self.get_table_names()
 
         for table_name in table_names:
@@ -120,19 +94,22 @@ class StudyProgress:
                 # print d
                 # print rowkey, d
                 v_id = d['info:video_id']
-                if not accept_func(v_id):
-                    continue
-                watched_videos.add(v_id)
+                c_id = d['info:course_id']
                 for k in d:
                     if k.startswith('heartbeat:i'):
                         key = v_id + ':' + k
-                        watched_duration.setdefault(key, Counter()).incr(int(d[k]))
+                        watched_duration.setdefault(c_id, {}).setdefault(key, Counter()).incr(int(d[k]))
 
-        items_watched_duration = 0
-        for key in watched_duration:
-            items_watched_duration += min(5, watched_duration[key].counter)
+        course_watched_duration = {}
+        for course_id in watched_duration:
+            course_data = watched_duration[course_id]
+            items_watched_duration = 0
+            for key in course_data:
+                items_watched_duration += min(5, course_data[key].counter)
+            course_watched_duration[course_id] = items_watched_duration
 
-        return len(watched_videos), items_watched_duration
+        return course_watched_duration
+
 
     def get_study_progress(self, user_id, course_id, items=None):
         """
@@ -171,6 +148,7 @@ class StudyProgress:
                 v_id = d['info:video_id']
                 if not accept_func(v_id):
                     continue
+                print rowkey, d
                 watched_videos.add(v_id)
                 for k in d:
                     if k.startswith('heartbeat:i'):

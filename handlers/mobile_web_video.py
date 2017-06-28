@@ -186,6 +186,43 @@ class MobileUserStudy(BaseHandler):
         self.success_response({'data': result})
 
 
+@route('/mobile/mobile_user_study_by_course')
+class MobileUserStudyByCourse(BaseHandler):
+
+    def get(self):
+        user_id = self.get_argument('user_id', None)
+
+        sp = study_progress.StudyProgress(thrift_server='10.0.2.132', namespace='heartbeat')
+        result = sp.get_user_watched_video_by_course(user_id)
+        course_ids = result.keys()
+        
+        db,cursor= MysqlConnect().get_db_cursor()
+        # get sequential durations
+        sql = """
+             SELECT course_id, sum(vi.duration) AS course_duration 
+             FROM course_video cv 
+             JOIN video_info vi ON cv.video_id = vi.id 
+             WHERE cv.course_id in (%s)
+             GROUP BY cv.course_id
+              """ % ','.join(['"%s"' % course_id for course_id in course_ids])
+        cursor.execute(sql)
+        course_durations = cursor.fetchall()
+        course_durations_d = {}
+        for row in course_durations:
+            course_durations_d[row['course_id']] = row['course_duration']
+
+        final = []
+        Log.info(result)
+        for course_id, study_duration in result.items():
+            record = {}
+            record['course_id'] = course_id
+            record['total_length'] = int(course_durations_d.get(course_id, 0))
+            record['watched_length'] = int(study_duration)
+            final.append(record)
+
+        self.success_response({'data': final})
+
+
 @route('/mobile/mobile_web_study_progress_detail')
 class MobileWebStudyProgressDetail(BaseHandler):
 
