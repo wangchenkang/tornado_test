@@ -97,6 +97,8 @@ class StudyProgress:
                 c_id = d['info:course_id']
                 if not (c_id and v_id):
                     continue
+                if '/' not in c_id and ':' not in c_id:
+                    continue
                 for k in d:
                     if k.startswith('heartbeat:i'):
                         key = v_id + ':' + k
