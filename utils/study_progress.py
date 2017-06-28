@@ -95,6 +95,8 @@ class StudyProgress:
                 # print rowkey, d
                 v_id = d['info:video_id']
                 c_id = d['info:course_id']
+                if not (c_id and v_id):
+                    continue
                 for k in d:
                     if k.startswith('heartbeat:i'):
                         key = v_id + ':' + k
