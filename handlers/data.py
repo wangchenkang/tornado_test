@@ -429,6 +429,8 @@ class DataMOOCAP(BaseHandler):
         self.success_response(user_info)
 
 
+
+
 @route('/data/monthly_report')
 class DataMonthlyReport(BaseHandler):
     """
@@ -454,9 +456,6 @@ class DataMonthlyReport(BaseHandler):
         date = datetime.today()-relativedelta(months=1)
         last_month = "%s%02d"%(date.year,date.month)
         query = query.filter('term',months=last_month)
-        #today = datetime.datetime.today()
-        #query = query.filter('term',update_date='%04d%02d%02d'%(today.year,today.month,run_day))
-        #query = query.filter('term',update_date='%s%s%s'%('2016','11','04'))
         size = query[:0].execute().hits.total
         data = query[:size].execute().hits
 
@@ -465,6 +464,7 @@ class DataMonthlyReport(BaseHandler):
         all_courseids = defaultdict(list)
         view_info = {}
         plan_info = {}
+        update_date = {}
         update_info = {}
         #import reg
         #reg.compile('^\d+年\d月\d日$')
@@ -472,6 +472,7 @@ class DataMonthlyReport(BaseHandler):
             all_coursenames[d.school].append(d.course_name)
             #all_courseids[d.school].append(d.cours_id)
             plan_info[d.school] = d.plan_name
+            update_date[d.school] = d.update_date
             view_info[d.school] = d.zip_url if hasattr(d,"zip_url") else ""
         all_info = {}
         for school in all_coursenames.iterkeys():
@@ -479,7 +480,7 @@ class DataMonthlyReport(BaseHandler):
             all_info["%s"%school.encode('utf-8')] = {"plan_name":plan_info.get(school,'')}
             all_info["%s"%school.encode('utf-8')].update({"org_name":school})
             all_info["%s"%school.encode('utf-8')].update({"course_list":all_coursenames.get(school,[])})
-            all_info["%s"%school.encode('utf-8')].update({"update_time":last_month})
+            all_info["%s"%school.encode('utf-8')].update({"update_time":update_date.get(school)})
             all_info["%s"%school.encode('utf-8')].update({"zip_url":view_info.get(school,'')})
 
         size = len(all_info.keys())
