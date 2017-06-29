@@ -58,12 +58,9 @@ def get_es_data(handlerobj,doc_type,month,school,index='monthly_report',sortkey=
     return data_return
 
 def get_es_course_data(handlerobj,doc_type,month,school,course_id,index='monthly_report'):
-    
-    query = handlerobj.es_query(index=es_index,doc_type=doc_type).filter('term',months=month).filter('term',course_id=course_id)[:]
-    #import pdb
-    #pdb.set_trace()
+    query = handlerobj.es_query(index=es_index,doc_type=doc_type).filter('term',months=month).filter('term',school=school)[:] 
+    #query = handlerobj.es_query(index=es_index,doc_type=doc_type).filter('term',months=month).filter('term',course_id=course_id)[:]
     datas = handlerobj.es_execute(query[:0])
-    #print datas
     try:
         datas = handlerobj.es_execute(query[:datas.hits.total])
     except Exception, e:
@@ -71,7 +68,7 @@ def get_es_course_data(handlerobj,doc_type,month,school,course_id,index='monthly
     data_return = []
     for data in datas.hits:
         #result[item.video_id] = item.to_dict()
-        if data.school==school:
+        if data.course_id==course_id:
             data_return.append(data)
     return data_return
 
