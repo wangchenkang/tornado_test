@@ -21,6 +21,7 @@ from .base import BaseHandler
 from utils.routes import route
 from utils.tools import fix_course_id, datedelta
 from utils.log import Log
+from utils import mysql_connect
 import settings
 
 reload(sys)
@@ -735,13 +736,13 @@ class StudentCourseEnrollment(BaseHandler):
                      data_['course_id'] = child
                      data_['acc_enrollment_num'] = enrollment_num
              data.append(data_)
+         data.sort(lambda x,y: -cmp(x['acc_enrollment_num'], y['acc_enrollment_num']))
          return data
 
      def get(self):
          """
          先查出课程的parent_id，再根据parent_id查出所有的子课程，再拿这些子课程去查选课人数，进行聚合
          """
-         #TODO
          course_ids = self.get_course_ids()
 
          #查parent_id
@@ -774,15 +775,8 @@ class StudentCourseEnrollment(BaseHandler):
                 course_id_pc[hit.parrent].append(hit.course_id)
          
          #查询这些子课程的数据然后聚合
-         query = self.es_query(doc_type='course_community_withunenroll')\
-                     .filter('terms', course_id=children_course_ids)\
-                     .filter('terms', group_key=[settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY])
-         total = self.es_execute(query[:0]).hits.total
-         query.aggs.bucket('course_ids', 'terms', field='course_id', size=len(children_course_ids))\
-                   .metric('enroll_nums', 'sum', field='enroll_num')
-         result = self.es_execute(query)
-         aggs = result.aggregations
-         course_enrollment = [{'course_id':i.key, 'enrollment_num': int(i.enroll_nums.value or 0)} for i in aggs.course_ids.buckets]
+         enrollments = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_enrollment(children_course_ids)
+         course_enrollment = [{'course_id': enrollment['course_id'], 'enrollment_num': enrollment['enroll_all']} for enrollment in enrollments]
 
          data = self.get_course_enrollments(course_id_pc, course_id_cp, course_enrollment)
 
