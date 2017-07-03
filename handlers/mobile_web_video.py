@@ -130,6 +130,7 @@ class MobileWebVideoItem(BaseHandler):
         db.close()
         self.success_response({"data": results[0]})
 
+
 @route('/mobile/mobile_web_study_progress')
 class MobileWebStudyProgress(BaseHandler):
 
@@ -223,6 +224,60 @@ class MobileUserStudyByCourse(BaseHandler):
         self.success_response({'data': final})
 
 
+@route('/mobile/mobile_web_study_progress_item')
+class MobileWebStudyProgressItem(BaseHandler):
+
+    @gen.coroutine
+    def get(self):
+        user_id = self.get_argument('user_id', None)
+        course_id = self.get_argument('course_id', None)
+        if not course_id or not user_id:
+            self.error_response({'data': []})
+        course_id = fix_course_id(course_id)
+        db,cursor= MysqlConnect().get_db_cursor()
+
+        # get all video
+        sql = """
+              SELECT item_id
+              FROM course_video
+              WHERE course_id='%s'
+              """ % (course_id)
+        cursor.execute(sql)
+        video_items = cursor.fetchall()
+        video_items = [video['item_id'] for video in video_items]
+        video_items_d = {video:video for video in video_items}
+
+        # get video durations
+        sql = """
+             SELECT cv.item_id as vid, vi.duration as dur
+             FROM course_video cv
+             JOIN video_info vi ON cv.video_id = vi.id
+             WHERE cv.course_id='%s'
+              """ % course_id
+        cursor.execute(sql)
+        video_durations = cursor.fetchall()
+        video_durations_d = {}
+        for video in video_durations:
+            video_durations_d[video['vid']] = video['dur']
+
+        # get student seq video duration
+        sp = study_progress.StudyProgress(thrift_server='10.0.2.132', namespace='heartbeat')
+        video_rate_dict = sp.get_study_progress_not_class_level(user_id, course_id, video_items_d)
+
+        # combine all these info
+        result = []
+        for video_id in video_items:
+            video = {}
+            video['video_id'] = video_id
+            video['video_length'] = video_durations_d.get(video_id, 0)
+            video['watched_length'] = video_rate_dict.get(video_id, {}).get('watched_duration', 0)
+            video['watched_percent'] =  round(video['watched_length'] / float(video_durations_d.get(video_id, 1e-10)), 4)
+            if video['watched_percent'] > 1:
+                video['watched_percent'] = 1.
+            result.append(video)
+
+        self.success_response({'data': result})
+
 @route('/mobile/mobile_web_study_progress_detail')
 class MobileWebStudyProgressDetail(BaseHandler):
 
@@ -255,7 +310,7 @@ class MobileWebStudyProgressDetail(BaseHandler):
         sql = """
              SELECT sequential_id, count(vi.id) AS seq_video_num, sum(vi.duration) AS seq_duration 
              FROM course_video cv 
-             JOIN video_info vi ON cv.video_id = vi.id 
+             JOIN video_info vi ON cv.video_id = vi.id
              WHERE cv.course_id='%s'
              GROUP BY cv.sequential_id
               """ % course_id
