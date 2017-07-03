@@ -3,6 +3,9 @@ import settings
 import MySQLdb
 from MySQLdb.cursors import DictCursor
 import sys
+from utils.log import Log
+
+Log.create('mysql')
 
 reload (sys)
 sys.setdefaultencoding('utf-8')
@@ -82,4 +85,24 @@ class MysqlConnect(object):
             return results[0]
         return ''
 
-
+    def get_enrollment(self, course_ids):
+        course_ids = [course_id.encode('utf-8') for course_id in course_ids]
+        course_ids = tuple(course_ids)
+        if len(course_ids) == 1:
+            course_id = course_ids[0]
+            query = """
+                    SELECT course_id, enroll_all
+                    FROM enroll_count
+                    WHERE course_id = '{0}'
+                    """.format(course_id)
+        else:
+            query = """
+                    SELECT course_id, enroll_all
+                    FROM enroll_count
+                    where course_id in {0}
+                    """.format(course_ids)
+        try:
+            results = self.execute_query(query)
+        except Exception as e:
+            Log.error(e)
+        return results

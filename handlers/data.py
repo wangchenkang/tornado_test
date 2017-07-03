@@ -21,6 +21,7 @@ from .base import BaseHandler
 from utils.routes import route
 from utils.tools import fix_course_id, datedelta
 from utils.log import Log
+from utils import mysql_connect
 import settings
 
 reload(sys)
@@ -429,6 +430,8 @@ class DataMOOCAP(BaseHandler):
         self.success_response(user_info)
 
 
+
+
 @route('/data/monthly_report')
 class DataMonthlyReport(BaseHandler):
     """
@@ -454,9 +457,6 @@ class DataMonthlyReport(BaseHandler):
         date = datetime.today()-relativedelta(months=1)
         last_month = "%s%02d"%(date.year,date.month)
         query = query.filter('term',months=last_month)
-        #today = datetime.datetime.today()
-        #query = query.filter('term',update_date='%04d%02d%02d'%(today.year,today.month,run_day))
-        #query = query.filter('term',update_date='%s%s%s'%('2016','11','04'))
         size = query[:0].execute().hits.total
         data = query[:size].execute().hits
 
@@ -465,6 +465,7 @@ class DataMonthlyReport(BaseHandler):
         all_courseids = defaultdict(list)
         view_info = {}
         plan_info = {}
+        update_date = {}
         update_info = {}
         #import reg
         #reg.compile('^\d+年\d月\d日$')
@@ -472,6 +473,7 @@ class DataMonthlyReport(BaseHandler):
             all_coursenames[d.school].append(d.course_name)
             #all_courseids[d.school].append(d.cours_id)
             plan_info[d.school] = d.plan_name
+            update_date[d.school] = d.update_date
             view_info[d.school] = d.zip_url if hasattr(d,"zip_url") else ""
         all_info = {}
         for school in all_coursenames.iterkeys():
@@ -479,7 +481,7 @@ class DataMonthlyReport(BaseHandler):
             all_info["%s"%school.encode('utf-8')] = {"plan_name":plan_info.get(school,'')}
             all_info["%s"%school.encode('utf-8')].update({"org_name":school})
             all_info["%s"%school.encode('utf-8')].update({"course_list":all_coursenames.get(school,[])})
-            all_info["%s"%school.encode('utf-8')].update({"update_time":last_month})
+            all_info["%s"%school.encode('utf-8')].update({"update_time":update_date.get(school)})
             all_info["%s"%school.encode('utf-8')].update({"zip_url":view_info.get(school,'')})
 
         size = len(all_info.keys())
@@ -734,13 +736,13 @@ class StudentCourseEnrollment(BaseHandler):
                      data_['course_id'] = child
                      data_['acc_enrollment_num'] = enrollment_num
              data.append(data_)
+         data.sort(lambda x,y: -cmp(x['acc_enrollment_num'], y['acc_enrollment_num']))
          return data
 
      def get(self):
          """
          先查出课程的parent_id，再根据parent_id查出所有的子课程，再拿这些子课程去查选课人数，进行聚合
          """
-         #TODO
          course_ids = self.get_course_ids()
 
          #查parent_id
@@ -773,15 +775,8 @@ class StudentCourseEnrollment(BaseHandler):
                 course_id_pc[hit.parrent].append(hit.course_id)
          
          #查询这些子课程的数据然后聚合
-         query = self.es_query(doc_type='course_community_withunenroll')\
-                     .filter('terms', course_id=children_course_ids)\
-                     .filter('terms', group_key=[settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY])
-         total = self.es_execute(query[:0]).hits.total
-         query.aggs.bucket('course_ids', 'terms', field='course_id', size=len(children_course_ids))\
-                   .metric('enroll_nums', 'sum', field='enroll_num')
-         result = self.es_execute(query)
-         aggs = result.aggregations
-         course_enrollment = [{'course_id':i.key, 'enrollment_num': int(i.enroll_nums.value or 0)} for i in aggs.course_ids.buckets]
+         enrollments = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_enrollment(children_course_ids)
+         course_enrollment = [{'course_id': enrollment['course_id'], 'enrollment_num': enrollment['enroll_all']} for enrollment in enrollments]
 
          data = self.get_course_enrollments(course_id_pc, course_id_cp, course_enrollment)
 

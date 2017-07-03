@@ -49,23 +49,15 @@ class DetailCourseGradeRatioDetail(BaseHandler):
     """
     def get(self):
         problem_users = self.get_problem_users()
-        #query = self.es_query(doc_type='problem_course') \
-        #        .filter('term', course_id=self.course_id) \
-        #        .filter('term', group_key=self.group_key) \
-        #        .filter('terms', user_id=problem_users) \
-        #        .filter('range', **{'final_grade': {'gte': 0}})
-
-        query = self.es_query(index='tap_table_grade', doc_type='grade_summary') \
-                .filter('term', course_id=self.course_id) \
-                .filter('terms', user_id=problem_users) \
-                .filter('range', **{'total_grade_rate': {'gt': 0}})
-
-        response = self.es_execute(query[:0])
-        response = self.es_execute(query[:response.hits.total])
+        query = self.es_query(doc_type='course_grade')\
+                    .filter('term', course_id=self.course_id)\
+                    .filter('terms', user_id=problem_users)
+        total = self.es_execute(query).hits.total
+        response = self.es_execute(query[:total])
 
         result = {}
-        for hit in response.hits:
-            result[hit.user_id] = float(hit.total_grade_rate)
+        for hit in response:
+            result[hit.user_id] = float(hit.total_grade_rate or 0)
         self.success_response({'data': result})
 
 

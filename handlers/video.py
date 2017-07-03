@@ -118,6 +118,48 @@ class CourseVideo(BaseHandler):
 
         self.success_response({'data': result})
 
+@route('/video/user_study')
+class UserStudy(BaseHandler):
+    """ 
+    青海电大需求，某个学生所有课程的学习情况
+    """
+    def get(self):
+        user_id = self.get_argument('user_id', None)
+        if not user_id:
+            self.error_response(502, u'参数错误')
+        query = self.es_query(doc_type='video_course')\
+                    .filter('term', user_id=user_id)\
+                    .source(['course_id', 'user_id', 'user_sec', 'study_rate'])
+        total = self.es_execute(query).hits.total
+        results = self.es_execute(query[:total]).hits
+        course_ids = []
+        course_data = []
+        for result in results:
+            course_data.append(result.to_dict())
+            course_ids.append(result.course_id)
+
+        query = self.es_query(doc_type='study_video')\
+                    .filter('term', user_id=user_id)\
+                    .filter('terms', course_id=course_ids)\
+                    .source(['course_id','la_access'])\
+                    .sort('-la_access')
+        total = self.es_execute(query).hits.total
+        results = self.es_execute(query[:total]).hits
+        data = {}
+        for result in results:
+            if result.course_id not in data:
+                data[result.course_id] = result.la_access
+            else:
+                continue
+            try:
+                data[result.course_id] = str(date_from_new_date(result.la_access)).split('.')[0]
+            except:
+                data[result.course_id] = ''
+        for i in course_data:
+            i['last_watch_time'] = data[i['course_id']] 
+            i['study_rate'] = round(i['study_rate'], 2) if i['study_rate'] else 0
+        course_data.sort(lambda x,y: cmp(x['last_watch_time'], y['last_watch_time']))
+        self.success_response({'data':course_data})
 
 @route('/video/course_study_detail')
 class CourseStudyDetail(BaseHandler):
