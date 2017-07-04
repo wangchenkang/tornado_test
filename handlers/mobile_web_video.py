@@ -224,6 +224,38 @@ class MobileUserStudyByCourse(BaseHandler):
         self.success_response({'data': final})
 
 
+@route('/mobile/mobile_web_study_progress_item_detail')
+class MobileWebStudyProgressItemDetail(BaseHandler):
+
+    @gen.coroutine
+    def get(self):
+        user_id = self.get_argument('user_id', None)
+        course_id = self.get_argument('course_id', None)
+        course_id = fix_course_id(course_id)
+        if not course_id or not user_id:
+            self.error_response({'data': []})
+
+        # get video durations
+        sql = """
+             SELECT cv.item_id as vid, vi.duration as dur
+             FROM course_video cv
+             JOIN video_info vi ON cv.video_id = vi.id
+             WHERE cv.course_id='%s'
+              """ % course_id
+        db,cursor= MysqlConnect().get_db_cursor()
+        cursor.execute(sql)
+        video_durations = cursor.fetchall()
+        video_durations_d = {}
+        for video in video_durations:
+            video_durations_d[video['vid']] = video['dur']
+
+        sp = study_progress.StudyProgress(thrift_server='10.0.2.132', namespace='heartbeat')
+        print video_durations_d
+        result = sp.get_video_progress_detail(user_id, course_id, video_durations_d)
+
+        self.success_response({'data': result})
+
+
 @route('/mobile/mobile_web_study_progress_item')
 class MobileWebStudyProgressItem(BaseHandler):
 
