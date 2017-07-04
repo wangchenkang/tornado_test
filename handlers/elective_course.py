@@ -11,6 +11,7 @@ from base import BaseHandler
 from tornado.web import gen
 from utils.log import Log
 from collections import defaultdict
+from elasticsearch import Elasticsearch
 from dateutil.relativedelta import relativedelta
 
 
@@ -33,6 +34,9 @@ object_json = {"ending_info":["course_id","course_name","category_name","status"
                "analysis_base_info":["course_id","course_name","months","duration""owner_school","subject"],\
                "analysis_check_plan":["course_id","course_name","months","check_plan","check_plan_weight"]}
 
+
+hosts = [{"host":'10.0.2.128',"port":9200},{"host":'10.0.2.130',"port":9200},{"host":'10.0.2.132',"port":9200}, {"host":'10.0.2.133',"port":9200}, {"host":'10.0.2.135',"port":9200}]
+
 Log.create('elective_course')
 def check_token(token):
     checkstr = ""
@@ -46,46 +50,77 @@ def get_datestr():
     datestr = '%04d%02d'%(date.year,date.month)
     return datestr
 
+
+import traceback
+import json
+class jsonObject():
+    def __init__(self, data):
+        self.__dict__ = data
+
+
 def get_es_data(handlerobj,doc_type,month,school,index='monthly_report',sortkey="course_id"):
-    query = handlerobj.es_query(index=es_index,doc_type=doc_type).filter('term',months=month).sort(sortkey)[:]
-    datas = handlerobj.es_execute(query[:0])
-    datas = handlerobj.es_execute(query[:datas.hits.total])
     data_return = []
-    for data in datas.hits:
-        #result[item.video_id] = item.to_dict()
-        if data.school==school:
-            data_return.append(data)
+    client = Elasticsearch(hosts)
+    response = client.search(\
+    index="%s"%index,\
+    doc_type="%s"%doc_type,\
+    size=50000,\
+    body = {"query": { "bool": {"filter": [{"term": {"months": "%s"%month}},{"term": {"school":"%s"%school}}]}},"sort": [{"%s"%sortkey: {"order": "desc"}}]})
+
+    #print response['hits']['hits']
+    for hit in response['hits']['hits']:
+        converted = {}
+        for key,value in hit[u'_source'].iteritems():
+            converted[key.encode('utf-8')]=value
+        converted = json.loads(json.dumps(converted), object_hook=jsonObject)
+        data_return.append(converted)
+
     return data_return
+
+
+
 
 def get_es_course_data(handlerobj,doc_type,month,school,course_id,index='monthly_report'):
-    query = handlerobj.es_query(index=es_index,doc_type=doc_type).filter('term',months=month).filter('term',school=school)[:] 
-    #query = handlerobj.es_query(index=es_index,doc_type=doc_type).filter('term',months=month).filter('term',course_id=course_id)[:]
-    datas = handlerobj.es_execute(query[:0])
-    try:
-        datas = handlerobj.es_execute(query[:datas.hits.total])
-    except Exception, e:
-        return []
     data_return = []
-    for data in datas.hits:
-        #result[item.video_id] = item.to_dict()
-        if data.course_id==course_id:
-            data_return.append(data)
+    client = Elasticsearch(hosts)
+    response = client.search(\
+    index="%s"%index,\
+    doc_type="%s"%doc_type,\
+    size=50000,\
+    body = {"query": { "bool": {"filter": [{"term": {"months": "%s"%month}},{"term": {"course_id": "%s"%course_id}},{"term": {"school":"%s"%school}}]}}})
+
+    #print response['hits']['hits']
+    for hit in response['hits']['hits']:
+        converted = {}
+        for key,value in hit[u'_source'].iteritems():
+            converted[key.encode('utf-8')]=value
+        converted = json.loads(json.dumps(converted), object_hook=jsonObject)
+        data_return.append(converted)
+
     return data_return
-
-
 
 
 
 
 def get_video_rate(handlerobj,index,doc_type,course_id):
-    query = handlerobj.es_query(index=index,doc_type=doc_type).filter('term',course_id=course_id)[:]
-    datas = handlerobj.es_execute(query[:0])
-    datas = handlerobj.es_execute(query[:datas.hits.total])
     data_return = []
-    for data in datas:
-        if data.course_id==course_id:
-            data_return.append(data)
+    client = Elasticsearch(hosts)
+    response = client.search(\
+    index="%s"%index,\
+    doc_type="%s"%doc_type,\
+    size=50000,\
+    body = {"query": { "bool": {"filter": [{"term": {"course_id": "%s"%course_id}}]}}})
+
+    #print response['hits']['hits']
+    for hit in response['hits']['hits']:
+        converted = {}
+        for key,value in hit[u'_source'].iteritems():
+            converted[key.encode('utf-8')]=value
+        converted = json.loads(json.dumps(converted), object_hook=jsonObject)
+        data_return.append(converted)
+
     return data_return
+
 
 
 def get_check_plan(l1,l2):
@@ -175,8 +210,10 @@ def get_info(key,school,video_keys,dict1,dict2,dict3):
 
 
 def str_to_json(teacher_str):
+     
     return_lines = []
     lines = teacher_str.split(',')
+    #print lines
     for line in lines:
         info = line.split('_')
         json_obj = {'name':info[0],'school':info[1],'department':info[2],'position':info[3]}
@@ -203,21 +240,25 @@ class ElectiveCourseDataReport(BaseHandler):
         for course_id in courseid_list:
             ending_info_type = request_mapping.get("ending_info")
             ending_info = get_es_course_data(self,doc_type=ending_info_type,month=datestr,school=school,course_id=course_id,index=es_index)
-            
             try:
                 ending_status = ending_info[0].status
-            except Except,e:
+            except Exception,e:
                 ending_status = ''
             ending_info={"status":ending_status}           
  
             base_info = get_es_course_data(self,doc_type=base_info_type,month=datestr,\
                                            school=school,course_id=course_id,index=es_index)
+            print course_id
+            #print base_info[0].teachers.encode('utf-8')
             if len(base_info)==0:
                 base_info={}
+       
             else:
                 base_info = base_info[0]
                 #print base_info.duration
                 #"duration":base_info.duration,\
+                #import pdb
+                #pdb.set_trace()
                 base_info = {"months":base_info.months,"course_id":base_info.course_id,\
                              "course_name":base_info.course_name,\
                              "owner_school":'' if 'None'==base_info.owner_school else base_info.owner_school,"school":base_info.school,\
@@ -251,6 +292,10 @@ class ElectiveCourseDataReport(BaseHandler):
 
     def get_report_data_info(self,school,course_id,info_quantity):
 
+        #import pdb
+        #pdb.set_trace()
+
+
         doc_type = "tap_elective_course_post_info_m"
         datestr = get_datestr()
         post_infos = get_es_course_data(self,doc_type,datestr,school,course_id,index=es_index)
@@ -265,6 +310,8 @@ class ElectiveCourseDataReport(BaseHandler):
         #doc_id months user_id name course_name hw_type grade school
         doc_type = "tap_elective_course_grade_m"
         
+        #import pdb
+        #pdb.set_trace()
         grade_infos = get_es_course_data(self,doc_type,datestr,school,course_id,index=es_index)
         
         grade_infos = [(object.course_id,object.user_id,object.school,\
@@ -284,6 +331,8 @@ class ElectiveCourseDataReport(BaseHandler):
             else:
                 grade_dict[key]["grade_detail"].update({item[5]:'' if item[6]==None or item[6]=='null' or item[6]<0 else item[6]})
 
+
+        
         #添加视频学习比例
         pass
         #/tap/tap_video_course_all/_search
