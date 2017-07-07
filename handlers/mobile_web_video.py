@@ -439,7 +439,7 @@ class MobileWebUserLastPos(BaseHandler):
         self.success_response({'data': result})
 
 
-@route('/learning/guide') # url
+@route('/mobile/learning_guide') # url
 class MobileDemo(BaseHandler): 
 
     def get(self): 
@@ -570,7 +570,7 @@ class MobileDemo(BaseHandler):
         self.success_response({'data': result_list})
 
  #答题记录
-@route('/learning/history')
+@route('/mobile/learning_history')
 class LearningHistory(BaseHandler):
 
     def get(self):
