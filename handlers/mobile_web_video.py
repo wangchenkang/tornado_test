@@ -252,7 +252,6 @@ class MobileWebStudyProgressItemDetail(BaseHandler):
             video_durations_d[video['vid']] = video['dur']
 
         sp = study_progress.StudyProgress(thrift_server='10.0.2.132', namespace='heartbeat')
-        print video_durations_d
         result = sp.get_video_progress_detail(user_id, course_id, video_durations_d)
 
         self.success_response({'data': result})
@@ -524,7 +523,6 @@ class MobileDemo(BaseHandler):
                         if value['is_exam'] == False and data['is_exam'] == True:#如果已经存在的记录是考试，后来的记录是作业
                             result_final[k]['is_exam'] = value['is_exam']
                             result_final[k]['seq_end'] = value['seq_end']
-                            print value['seq_end']
                         if  value['is_exam'] == False and data['is_exam'] == False:
                             #print str(value['seq_end'])
                             s_end = datetime.datetime.strptime(value['seq_end'], '%Y-%m-%dT%H:%M:%S')
