@@ -739,6 +739,32 @@ class StudentCourseEnrollment(BaseHandler):
          data.sort(lambda x,y: -cmp(x['acc_enrollment_num'], y['acc_enrollment_num']))
          return data
 
+     def get_course_2_ids(self, course_ids, sign, hits=[]):
+         """
+         子对父，父对子字典关系
+         """
+         #sign:1 子对父
+         #sign:2 父对子
+         course_ = {}
+         for course_id in set(course_ids):
+            course_[course_id] = '' if sign == 1 else []
+         
+         if hits:
+            for hit in hits:
+                if sign == 1:
+                    if hit.course_id in course_:
+                        course_[hit.course_id] = hit.parrent
+                else:
+                    if hit.parrent in course_:
+                        course_[hit.parrent].append(hit.course_id)
+         else:
+            for course_id in set(course_ids):
+                if sign == 1:
+                    course_[course_id] = course_id
+                else:
+                    course_[course_id].append(course_id)
+         return course_
+
      def get(self):
          """
          先查出课程的parent_id，再根据parent_id查出所有的子课程，再拿这些子课程去查选课人数，进行聚合
@@ -750,35 +776,22 @@ class StudentCourseEnrollment(BaseHandler):
                      .filter('terms', course_id=course_ids)
          total = self.es_execute(query[:0]).hits.total
          result = self.es_execute(query[:total])
-         parent_course_ids = [hit.parrent for hit in result.hits]
+         parent_course_ids = [hit.parrent for hit in result.hits] if result.hits else course_ids
+         
          #子对父
-         course_id_cp = {}
-         for course_id in course_ids:
-            if course_id not in course_id_cp:
-                course_id_cp[course_id] = ''
-         for hit in result.hits:
-            if hit.course_id in course_id_cp:
-                course_id_cp[hit.course_id] = hit.parrent
+         course_id_cp = self.get_course_2_ids(course_ids, 1, result.hits)
 
          #根据parent_id查出所有的子课程id
          query = self.es_query(index='main', doc_type='course_ancestor')\
                      .filter('terms', parrent=parent_course_ids)
          result = self.es_execute(query[:10000])
-         children_course_ids = [hit.course_id for hit in result.hits]
+         children_course_ids = [hit.course_id for hit in result.hits] if result.hits else course_ids
+
          #父对子
-         course_id_pc = {}
-         for course_id in parent_course_ids:
-            if course_id not in course_id_pc:
-                course_id_pc[course_id] = []
-         for hit in result.hits:
-            if hit.parrent in course_id_pc:
-                course_id_pc[hit.parrent].append(hit.course_id)
-         
+         course_id_pc = self.get_course_2_ids(parent_course_ids, 2, result.hits)
          #查询这些子课程的数据然后聚合
          enrollments = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_enrollment(children_course_ids)
          course_enrollment = [{'course_id': enrollment['course_id'], 'enrollment_num': enrollment['enroll_all']} for enrollment in enrollments]
-
          data = self.get_course_enrollments(course_id_pc, course_id_cp, course_enrollment)
-
          self.success_response({'data': data})
 

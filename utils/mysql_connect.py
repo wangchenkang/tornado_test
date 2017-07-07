@@ -103,6 +103,11 @@ class MysqlConnect(object):
                     """.format(course_ids)
         try:
             results = self.execute_query(query)
+            if not results:
+                data = []
+                for course_id in set(course_ids):
+                    data.append({'course_id': course_id, 'enroll_all': 0})
+                results = data
         except Exception as e:
             Log.error(e)
         return results
