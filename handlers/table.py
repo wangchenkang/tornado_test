@@ -5,6 +5,7 @@ from utils.routes import route
 from elasticsearch_dsl import Q
 from .base import BaseHandler
 import settings
+import json
 
 Log.create('student')
 
@@ -43,15 +44,21 @@ class TableHandler(BaseHandler):
         num = int(self.get_argument('num', 10))
         sort = self.get_argument('sort', 'grade')
         sort_type = int(self.get_argument('sort_type', 0))
+
+        data_type = self.get_argument('data_type')
         fields = self.get_argument('fields', '')
-        fields = fields.split(',') if fields else []
+        kpi = self.get_argument('kpi', '')
+        
+        fields = json.loads(fields) if fields else []
+        kpi = json.loads(kpi) if kpi else []
+        
         course_id = self.course_id
         
         if student_keyword:
             user_ids = self.student_search(course_id, self.group_key, student_keyword)
         else:
             user_ids = self.get_users()
-        result = self.search_es(course_id, user_ids, page, num, sort, sort_type, student_keyword, fields)
+        result = self.search_es(course_id, user_ids, page, num, sort, sort_type, student_keyword, fields, kpi, data_type)
         
         total = len(user_ids)
         #NEED
@@ -80,26 +87,25 @@ class TableJoinHandler(TableHandler):
         self.es_types.insert(0, first_es_type)
         return self.es_types
 
-    def iterate_search(self, es_index_types, course_id, user_ids, page, num, sort, fields):
+    def iterate_search(self, es_index_types, course_id, user_ids, page, num, sort, fields, kpi, data_type):
+        
         if 'user_id' not in fields:
             fields.append('user_id')
         result = []
+
+        if kpi:
+            user_ids = self.row_filter(course_id, user_ids, data_type, kpi)
+
         for idx, es_index_type in enumerate(es_index_types):
             es_index, es_type = es_index_type.split('/')
+
             if idx == 0 and es_type == 'study_warning_person':
-                query = self.es_query(index=es_index, doc_type=es_type)\
-                            .filter('term', course_id=course_id)\
-                            .filter('term', group_key=self.group_key)\
-                            .filter('terms', user_id=user_ids)
-                query.aggs.bucket('user_ids', 'terms', field='user_id', size=len(user_ids))
-                aggs = self.es_execute(query).aggregations
-                buckets = aggs.user_ids.buckets 
-                user_ids = [bucket.key for bucket in buckets]
+                user_ids = self.study_warning_filter(course_id, user_ids, es_index, es_type)
+
             query = self.es_query(index=es_index, doc_type=es_type) \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids) \
                         .source(fields)
-
             if es_type == 'student_enrollment_info' or es_type == 'study_warning_person':
                 query = query.filter('term', group_key=self.group_key)
             
@@ -116,39 +122,39 @@ class TableJoinHandler(TableHandler):
             if es_type == 'study_warning_person' and len(data_result) == 0:
                 result = []
                 continue
+
             # 如果是第一个查询，在查询后更新user_ids列表，后续查询只查这些学生
             if idx == 0:
                 result.extend(data_result)
-                user_ids = [r['user_id'] for r in result]
+                user_ids = [r['user_id'] for r in data_result]
             else:
-                data_result_dict = {}
+                data_result_dict = {}    
                 for row in data_result:
                     data_result_dict[row['user_id']] = row
                 for r in result:
                     dr = data_result_dict.get(r['user_id'], {})
                     r.update(dr)
-        
         return result
 
-    def iterate_download(self, es_index_types, course_id, user_ids, sort, fields, part_num=10000):
+    def iterate_download(self, es_index_types, course_id, user_ids, sort, fields, kpi, data_type, part_num=10000):
         num = len(user_ids)
         times = num / part_num
         if num % part_num:
             times += 1
         result = []
         for i in range(times):
-            result.extend(self.iterate_search(es_index_types, course_id, user_ids, i, part_num, sort, fields))
+            result.extend(self.iterate_search(es_index_types, course_id, user_ids, i, part_num, sort, fields, kpi, data_type))
         return result 
 
-    def search_es(self, course_id, user_ids, page, num, sort, sort_type, student_keyword, fields):
+    def search_es(self, course_id, user_ids, page, num, sort, sort_type, student_keyword, fields, kpi, data_type):
         es_index_types = self.get_query_plan(sort)
 
         reverse = True if sort_type else False
         sort = '-' + sort if reverse else sort
         if num == -1:
-            result = self.iterate_download(es_index_types, course_id, user_ids, sort, fields)
+            result = self.iterate_download(es_index_types, course_id, user_ids, sort, fields, kpi, data_type)
         else:
-            result = self.iterate_search(es_index_types, course_id, user_ids, page, num, sort, fields)
+            result = self.iterate_search(es_index_types, course_id, user_ids, page, num, sort, fields, kpi, data_type)
 
         result = self.postprocess(result)
 
@@ -157,6 +163,72 @@ class TableJoinHandler(TableHandler):
     def postprocess(self, result):
         return result
 
+    def row_grade_filter(self, course_id, user_ids, kpi, total):
+        """
+        共同点得分，得分率
+        """
+        query = self.es_query(doc_type='course_grade')\
+                                 .filter('term', course_id=course_id)\
+                                 .filter('terms', user_id=user_ids)
+        for item in kpi:
+            query = query.filter('range', **{item['field']: {'gte': item['min'], 'lte': item['max']}})
+        user_ids = [item.user_id for item in self.es_execute(query[:total]).hits]
+
+        return user_ids
+
+    def row_kpi_filter(self, course_id, user_ids, kpi, total, query):
+        """
+        各个独立指标过滤相应学生
+        """
+        temp_ = []
+        temp__ = []
+
+        for i in kpi:
+            if i['field'] in self.GRADE_FIELDS:
+                temp_.append(i)
+            else:
+                temp__.append(1)
+                query = query.filter('range', **{i['field']: {'gte': i['min'], 'lte': i['max']}})
+
+        return temp_, temp__, query
+
+    def row_filter(self, course_id, user_ids, data_type, kpi):
+        """
+        根据不同的type,过滤相应学生
+        """
+        total = 50000 if len(user_ids) > 50000 else len(user_ids)
+        es = settings.ROW_FILTER.get(data_type, None)
+        if not es:
+            es_index = settings.ES_INDEX
+            es_doc_type = 'course_grade'
+        else:
+            es_index = es['index']
+            es_doc_type = es['doc_type']
+
+        query = self.es_query(index=es_index, doc_type=es_doc_type)\
+                    .filter('term', course_id=course_id)\
+                    .filter('terms', user_id=user_ids)
+        temp_, temp__, query = self.row_kpi_filter(course_id, user_ids, kpi, total, query)
+
+        user_ids_ =  self.row_grade_filter(course_id, user_ids, temp_, total) if temp_ else user_ids
+        user_ids__ = [item.user_id for item in self.es_execute(query[:total]).hits] if temp__ else user_ids
+        user_ids = list(set(user_ids_).intersection(set(user_ids__)))
+
+        return user_ids
+
+    def study_warning_filter(self, course_id, user_ids,  es_index, es_type):
+        """
+        学业预警单拿出来筛选学生
+        """
+        query = self.es_query(index=es_index, doc_type=es_type)\
+                    .filter('term', course_id=course_id)\
+                    .filter('term', group_key=self.group_key)\
+                    .filter('terms', user_id=user_ids)
+        query.aggs.bucket('user_ids', 'terms', field='user_id', size=len(user_ids))
+        aggs = self.es_execute(query).aggregations
+        buckets = aggs.user_ids.buckets 
+        user_ids = [bucket.key for bucket in buckets]
+        return user_ids
 
 @route('/table/grade_overview')
 class GradeDetail(TableJoinHandler):
