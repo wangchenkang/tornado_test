@@ -7,3 +7,5 @@ es_cluster:
     - 10.0.0.227:9200
     - 10.0.0.228:9200
     - 10.0.0.236:9200
+
+course_service_api: course-service.xuetangx.info
