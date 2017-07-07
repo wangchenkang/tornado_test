@@ -4,7 +4,6 @@ from utils.log import Log
 from utils.routes import route
 from utils import study_progress 
 from utils.tools import fix_course_id
-from utils.service import CourseService
 from .base import BaseHandler
 import MySQLdb
 from MySQLdb.cursors import DictCursor
