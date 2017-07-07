@@ -189,7 +189,7 @@ class BaseHandler(RequestHandler):
         else:
             structure_data = CourseService.get('courses/tree_structure', {'course_id': course_id, 'block_id': block_id, 'depth': depth})
         if not structure_data:
-            self.error_response(u'课程数据获取失败')
+            self.error_response(100, u'课程数据获取失败')
 
         return structure_data
 

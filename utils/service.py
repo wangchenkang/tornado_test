@@ -84,6 +84,7 @@ class ServiceRequest(object):
         try:
             url = cls._build_url(api)
             response = requests.get(url, params)
+            print url, params
         except (ConnectionError, ConnectTimeout):
             Log.error('service request error, url: %s' % url)
             return None
