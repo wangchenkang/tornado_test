@@ -42,7 +42,8 @@ class TableHandler(BaseHandler):
         time_begin = time.time()
         page = int(self.get_argument('page', 0))
         num = int(self.get_argument('num', 10))
-        sort = self.get_argument('sort', 'grade')
+        sort = self.get_argument('sort', None)
+        sort = 'grade' if not sort else sort
         sort_type = int(self.get_argument('sort_type', 0))
 
         data_type = self.get_argument('data_type')
@@ -92,7 +93,6 @@ class TableJoinHandler(TableHandler):
         if 'user_id' not in fields:
             fields.append('user_id')
         result = []
-
         if kpi:
             user_ids = self.row_filter(course_id, user_ids, data_type, kpi)
 
@@ -171,7 +171,7 @@ class TableJoinHandler(TableHandler):
                                  .filter('term', course_id=course_id)\
                                  .filter('terms', user_id=user_ids)
         for item in kpi:
-            query = query.filter('range', **{item['field']: {'gte': item['min'], 'lte': item['max']}})
+            query = query.filter('range', **{item['field']: {'gte': float(item['min'] or 0 )/100, 'lte': float(item['max'] or 100 )/100}})
         user_ids = [item.user_id for item in self.es_execute(query[:total]).hits]
 
         return user_ids
