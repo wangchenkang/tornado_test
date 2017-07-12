@@ -36,9 +36,19 @@ class TableHandler(BaseHandler):
                     .filter('terms', user_id=self.get_users())
         total = self.es_execute(query).hits.total
         return total
+    
+    def get_user_ids(self, student_keyword=None):
+        """
+        获取user_ids
+        """
+        if student_keyword:
+            user_ids = self.student_search(self.course_id, self.group_key, student_keyword)
+        else:
+            user_ids = self.get_users()
+        return user_ids
 
     def post(self):
-        student_keyword = self.get_argument('student_keyword', '')
+        student_keyword = self.get_argument('student_keyword', None)
         time_begin = time.time()
         page = int(self.get_argument('page', 0))
         num = int(self.get_argument('num', 10))
@@ -49,18 +59,15 @@ class TableHandler(BaseHandler):
         data_type = self.get_argument('data_type')
         fields = self.get_argument('fields', '')
         kpi = self.get_argument('kpi', '')
-        
+
         fields = json.loads(fields) if fields else []
         kpi = json.loads(kpi) if kpi else []
-        
-        course_id = self.course_id
-        
-        if student_keyword:
-            user_ids = self.student_search(course_id, self.group_key, student_keyword)
-        else:
-            user_ids = self.get_users()
-        result = self.search_es(course_id, user_ids, page, num, sort, sort_type, student_keyword, fields, kpi, data_type)
-        
+
+        user_ids = self.get_user_ids(student_keyword)
+        result = self.search_es(self.course_id, user_ids, page, num, sort, sort_type, fields, kpi, data_type)
+    
+        if kpi:
+            user_ids = self.row_filter(self.course_id, user_ids, data_type, kpi)
         total = len(user_ids)
         #NEED
         if 'warning_date' in fields:
@@ -146,7 +153,7 @@ class TableJoinHandler(TableHandler):
             result.extend(self.iterate_search(es_index_types, course_id, user_ids, i, part_num, sort, fields, kpi, data_type))
         return result 
 
-    def search_es(self, course_id, user_ids, page, num, sort, sort_type, student_keyword, fields, kpi, data_type):
+    def search_es(self, course_id, user_ids, page, num, sort, sort_type, fields, kpi, data_type):
         es_index_types = self.get_query_plan(sort)
 
         reverse = True if sort_type else False
@@ -171,7 +178,10 @@ class TableJoinHandler(TableHandler):
                                  .filter('term', course_id=course_id)\
                                  .filter('terms', user_id=user_ids)
         for item in kpi:
-            query = query.filter('range', **{item['field']: {'gte': float(item['min'] or 0 )/100, 'lte': float(item['max'] or 100 )/100}})
+            if item['field'] == 'grade':
+                query = query.filter('range', **{item['field']: {'gte': item['min'] or 0, 'lte': item['max'] or 100}})
+            else:
+                query = query.filter('range', **{item['field']: {'gte': float(item['min'] or 0 )/100, 'lte': float(item['max'] or 100 )/100}})
         user_ids = [item.user_id for item in self.es_execute(query[:total]).hits]
 
         return user_ids
@@ -188,7 +198,7 @@ class TableJoinHandler(TableHandler):
                 temp_.append(i)
             else:
                 temp__.append(1)
-                query = query.filter('range', **{i['field']: {'gte': i['min'], 'lte': i['max']}})
+                query = query.filter('range', **{i['field']: {'gte': i['min'] or 0, 'lte': i['max'] or 100}})
 
         return temp_, temp__, query
 
