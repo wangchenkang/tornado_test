@@ -10,7 +10,6 @@ import hashlib
 import time
 import json
 import happybase
-from .log import Log
 
 '''
 以下视频相关数据针对全平台（包括移动端和Web端）
@@ -35,15 +34,12 @@ class Counter:
     def incr(self, amount=1):
         self.counter += amount
 
+
 class StudyProgress:
     def __init__(self, thrift_server, thrift_port=9090, namespace='test'):
         self.thrift_server, self.thrift_port = thrift_server, thrift_port
         self.namespace = namespace
-        try:
-            self.connection = happybase.Connection(host=self.thrift_server, port=self.thrift_port)
-        except Exception as e:
-            Log.error(e)
-            Log.error('Hbase Connect Time Out')
+        self.connection = happybase.Connection(host=self.thrift_server, port=self.thrift_port)
 
     def md5_bytes(self, value, num_bytes):
         return hashlib.md5(value).hexdigest()[:num_bytes]
@@ -64,6 +60,111 @@ class StudyProgress:
 
     def get_table(self, table_name):
         return self.connection.table(table_name)
+
+    def get_video_progress_detail(self, user_id, course_id, video_duartions):
+        """
+        get user's detailed data on watched video
+        return {video_id: {seg_key: seg_value}}
+        """
+        sn_user   = str(user_id).zfill(10)[::-1]
+        sn_course = self.md5_bytes(course_id, 6)
+
+        rowprefix = sn_user + sn_course
+
+        accept_func = lambda x: x in video_duartions
+
+        watched_duration = {}
+        for table_name in self.get_table_names():
+            table = self.get_table(table_name)
+
+            for rowkey, d in table.scan(row_prefix=rowprefix):
+                v_id = d['info:video_id']
+                if not accept_func(v_id): continue
+                for k in d:
+                    if k.startswith('heartbeat:i'):
+                        watched_duration.setdefault(v_id, {}).setdefault(k, Counter()).incr(int(d[k]))
+
+        ret = {}
+        for v_id in watched_duration:
+            d = {}
+            video_data = watched_duration[v_id]
+            for k in video_data:
+                d[k] = min(5, video_data[k].counter)
+
+            i = 0
+            merged = []
+            duration = video_duartions[v_id]
+            while i * 5 < duration:
+                k = 'heartbeat:i%d' % i
+                v = d.get(k, 0)
+                if merged:
+                    last = merged[-1]
+                    if last['v'] == v:
+                        last['end'] = i
+                    else:
+                        merged.append({'start':i, 'end':i, 'v':v})
+                else:
+                    merged.append({'start':i, 'end':i, 'v':v})
+
+                i += 1
+
+            ret[v_id] = merged
+        return ret
+
+    def get_user_watched_video(self, user_id):
+        """
+        get user watched video in all courses
+        return course num and total_time
+        """
+        course_data = self.get_user_watched_video_by_course(user_id)
+        course_num = len(course_data)
+        total_time = sum(course_data.values())
+        return {'watched_courses': course_num, 'watched_duration': total_time}
+
+    def get_user_watched_video_by_course(self, user_id):
+        """
+        lookup user video study progress in all courses
+
+        Arguments:
+        user_id: user's id
+
+        Returns:
+        return {course_id1: watched_duration1, course_id2: watched_duration2}
+        """
+        sn_user   = str(user_id).zfill(10)[::-1]
+        rowprefix = sn_user
+
+        watched_courses = set()
+        watched_duration = {}
+        table_names = self.get_table_names()
+
+        for table_name in table_names:
+            table = self.get_table(table_name)
+
+            for rowkey, d in table.scan(row_prefix=rowprefix):
+                # print d
+                # print rowkey, d
+                v_id = d['info:video_id']
+                c_id = d['info:course_id']
+                if not (c_id and v_id):
+                    continue
+                if '/' not in c_id and ':' not in c_id:
+                    continue
+                for k in d:
+                    if k.startswith('heartbeat:i'):
+                        key = v_id + ':' + k
+                        watched_duration.setdefault(c_id, {}).setdefault(key, Counter()).incr(int(d[k]))
+
+        course_watched_duration = {}
+        for course_id in watched_duration:
+            course_data = watched_duration[course_id]
+            items_watched_duration = 0
+            for key in course_data:
+                items_watched_duration += min(5, course_data[key].counter)
+            course_watched_duration[course_id] = items_watched_duration
+
+        return course_watched_duration
+
 
     def get_study_progress(self, user_id, course_id, items=None):
         """
@@ -102,6 +203,7 @@ class StudyProgress:
                 v_id = d['info:video_id']
                 if not accept_func(v_id):
                     continue
+                print rowkey, d
                 watched_videos.add(v_id)
                 for k in d:
                     if k.startswith('heartbeat:i'):

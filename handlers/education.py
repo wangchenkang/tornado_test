@@ -41,12 +41,20 @@ class Academic(BaseHandler):
         return 0
 
     @property
+    def get_term(self):
+        term = self.get_argument('term', '')
+        return term
+
+    @property
     def summary_query(self):
         query = self.es_query(index='academics',doc_type='tap_academics_summary')\
                     .filter('term', service_line=self.service_line)\
                     .filter('term', course_status=COURSE_STATUS.get(self.course_status))
         if self.service_line != 'mooc':
             query = query.filter('term', orgid_or_host=self.orgid_or_host)
+        #加学期
+        if self.get_term:
+            query = query.filter('term', term=self.get_term)
         return query
     
     @property
@@ -57,6 +65,8 @@ class Academic(BaseHandler):
                     .sort('-start_time')
         if self.service_line != 'mooc':
             query = query.filter('term', orgid_or_host=self.orgid_or_host)
+        if self.get_term:
+            query = query.filter('term', term=self.get_term)
         return query
 
     def get_summary(self, course_ids=None):
@@ -225,7 +235,6 @@ class EducationCourseNameSearch(Academic):
                     continue
             #查健康度以及相关数据
             result = self.get_health(course_id_group_key)
-            
             for i in data_courses:
                 i['dynamics'] = []
                 for j in result:
@@ -308,7 +317,7 @@ class EducationCourseDownload(Academic):
             for i in result:
                 if self.service_line != 'credit':
                     if i['group_key'] not in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY, settings.ELECTIVE_ALL_GROUP_KEY, settings.TSINGHUA_GROUP_KEY]:
-                        if i['group_key'] < settings.COHORT_GROUP_KEY:
+                         if i['group_key'] < settings.COHORT_GROUP_KEY or i['group_key'] >= settings.ELECTIVE_GROUP_KEY:
                             continue
                 else:
                     if i['group_key'] < settings.ELECTIVE_GROUP_KEY:

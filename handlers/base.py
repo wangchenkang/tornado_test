@@ -1,11 +1,13 @@
 #! -*- coding: utf-8 -*-
 import json
 import hashlib
+from tornado import gen
 from tornado.web import RequestHandler, Finish, MissingArgumentError
 from tornado.options import options
-from tornado.escape import url_unescape, json_encode
+from tornado.escape import url_unescape, json_encode, json_decode
 from elasticsearch import ConnectionError, ConnectionTimeout, RequestError
 from elasticsearch_dsl import Search, Q
+from utils.service import CourseService, AsyncService, AsyncCourseService 
 from utils.tools import fix_course_id
 from utils.tools import get_group_type
 import settings
@@ -176,7 +178,21 @@ class BaseHandler(RequestHandler):
         for course in result.aggregations.course.buckets:
             course_num[course.key] = course.doc_count
         return course_num
-    
+
+
+    def course_structure(self, course_id, block_id, depth=2):
+        """ 
+        获取课件block_id指定章或节以及向下depth深度的课件
+        """
+        if block_id == "course":
+            structure_data = CourseService.get('courses/tree_structure', {'course_id': course_id, 'depth': depth})
+        else:
+            structure_data = CourseService.get('courses/tree_structure', {'course_id': course_id, 'block_id': block_id, 'depth': depth})
+        if not structure_data:
+            self.error_response(100, u'课程数据获取失败')
+
+        return structure_data
+
     def get_student_num(self, course_group_key=None):
     
         result = {}
