@@ -191,7 +191,7 @@ class TableJoinHandler(TableHandler):
                 temp_.append(i)
             else:
                 temp__.append(1)
-                if i['field'] in ['low_grade_rate', 'low_video_rate']:
+                if i['field'] in ['low_grade_rate', 'low_video_rate', 'study_rate']:
                     query = query.filter('range', **{i['field']: {'gte': float(i['min'] or 0) /100, 'lte': float(i['max'] or 100) /100}})
                 else:
                     query = query.filter('range', **{i['field']: {'gte': i['min'] or 0, 'lte': i['max'] or 100}})
