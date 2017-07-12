@@ -62,16 +62,14 @@ class TableHandler(BaseHandler):
 
         fields = json.loads(fields) if fields else []
         kpi = json.loads(kpi) if kpi else []
-
         user_ids = self.get_user_ids(student_keyword)
         result = self.search_es(self.course_id, user_ids, page, num, sort, sort_type, fields, kpi, data_type)
-    
         if kpi:
             user_ids = self.row_filter(self.course_id, user_ids, data_type, kpi)
         total = len(user_ids)
         #NEED
         if 'warning_date' in fields:
-            total = self.get_study_warning_num()
+            total = self.get_study_warning_num() if not kpi else total
         final = {}
         final['total'] = total
         final['data'] = result
@@ -102,20 +100,16 @@ class TableJoinHandler(TableHandler):
         result = []
         if kpi:
             user_ids = self.row_filter(course_id, user_ids, data_type, kpi)
-
         for idx, es_index_type in enumerate(es_index_types):
             es_index, es_type = es_index_type.split('/')
-
             if idx == 0 and es_type == 'study_warning_person':
-                user_ids = self.study_warning_filter(course_id, user_ids, es_index, es_type)
-
+                user_ids = self.study_warning_filter(course_id, es_index, es_type, user_ids)
             query = self.es_query(index=es_index, doc_type=es_type) \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids) \
                         .source(fields)
             if es_type == 'student_enrollment_info' or es_type == 'study_warning_person':
                 query = query.filter('term', group_key=self.group_key)
-            
             # 如果是第一个查询，需要排序，查询后更新学生列表
             if idx == 0:
                 query = query.sort(sort)
@@ -183,7 +177,6 @@ class TableJoinHandler(TableHandler):
             else:
                 query = query.filter('range', **{item['field']: {'gte': float(item['min'] or 0 )/100, 'lte': float(item['max'] or 100 )/100}})
         user_ids = [item.user_id for item in self.es_execute(query[:total]).hits]
-
         return user_ids
 
     def row_kpi_filter(self, course_id, user_ids, kpi, total, query):
@@ -198,7 +191,10 @@ class TableJoinHandler(TableHandler):
                 temp_.append(i)
             else:
                 temp__.append(1)
-                query = query.filter('range', **{i['field']: {'gte': i['min'] or 0, 'lte': i['max'] or 100}})
+                if i['field'] in ['low_grade_rate', 'low_video_rate']:
+                    query = query.filter('range', **{i['field']: {'gte': float(i['min'] or 0) /100, 'lte': float(i['max'] or 100) /100}})
+                else:
+                    query = query.filter('range', **{i['field']: {'gte': i['min'] or 0, 'lte': i['max'] or 100}})
 
         return temp_, temp__, query
 
@@ -219,14 +215,12 @@ class TableJoinHandler(TableHandler):
                     .filter('term', course_id=course_id)\
                     .filter('terms', user_id=user_ids)
         temp_, temp__, query = self.row_kpi_filter(course_id, user_ids, kpi, total, query)
-
         user_ids_ =  self.row_grade_filter(course_id, user_ids, temp_, total) if temp_ else user_ids
         user_ids__ = [item.user_id for item in self.es_execute(query[:total]).hits] if temp__ else user_ids
         user_ids = list(set(user_ids_).intersection(set(user_ids__)))
-
         return user_ids
 
-    def study_warning_filter(self, course_id, user_ids,  es_index, es_type):
+    def study_warning_filter(self, course_id, es_index, es_type, user_ids):
         """
         学业预警单拿出来筛选学生
         """
@@ -234,7 +228,7 @@ class TableJoinHandler(TableHandler):
                     .filter('term', course_id=course_id)\
                     .filter('term', group_key=self.group_key)\
                     .filter('terms', user_id=user_ids)
-        query.aggs.bucket('user_ids', 'terms', field='user_id', size=len(user_ids))
+        query.aggs.bucket('user_ids', 'terms', field='user_id', size=len(user_ids) or 1)
         aggs = self.es_execute(query).aggregations
         buckets = aggs.user_ids.buckets 
         user_ids = [bucket.key for bucket in buckets]
