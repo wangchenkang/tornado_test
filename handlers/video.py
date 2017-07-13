@@ -156,8 +156,9 @@ class UserStudy(BaseHandler):
             except:
                 data[result.course_id] = ''
         for i in course_data:
-            i['last_watch_time'] = data[i['course_id']] 
-            i['study_rate'] = round(i['study_rate'], 2) if i['study_rate'] else 0
+            if data.get(i['course_id'], None):
+                i['last_watch_time'] = data[i['course_id']]
+                i['study_rate'] = round(i['study_rate'], 2) if i['study_rate'] else 0
         course_data.sort(lambda x,y: cmp(x['last_watch_time'], y['last_watch_time']))
         self.success_response({'data':course_data})
 
