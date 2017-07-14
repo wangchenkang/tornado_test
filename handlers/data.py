@@ -735,7 +735,7 @@ class StudentCourseEnrollment(BaseHandler):
                  if parent == parent_:
                      data_['course_id'] = child
                      data_['acc_enrollment_num'] = enrollment_num
-             data.append(data_)
+                     data.append(data_)
          data.sort(lambda x,y: -cmp(x['acc_enrollment_num'], y['acc_enrollment_num']))
          return data
 
@@ -748,7 +748,6 @@ class StudentCourseEnrollment(BaseHandler):
          course_ = {}
          for course_id in set(course_ids):
             course_[course_id] = '' if sign == 1 else []
-         
          if hits:
             for hit in hits:
                 if sign == 1:
@@ -793,5 +792,11 @@ class StudentCourseEnrollment(BaseHandler):
          enrollments = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_enrollment(children_course_ids)
          course_enrollment = [{'course_id': enrollment['course_id'], 'enrollment_num': enrollment['enroll_all']} for enrollment in enrollments]
          data = self.get_course_enrollments(course_id_pc, course_id_cp, course_enrollment)
+         actual_course_ids = [i['course_id'] for i in data]
+         for i in course_ids:
+            if i not in actual_course_ids:
+                enrollments = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_enrollment([i])
+                course_enrollment = [{'course_id': enrollment['course_id'], 'enrollment_num': enrollment['enroll_all']} for enrollment in enrollments]
+                data.extend(course_enrollment)
          self.success_response({'data': data})
 
