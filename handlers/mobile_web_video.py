@@ -327,6 +327,7 @@ class MobileDemo(BaseHandler):
         if not user_id or not course_ids: 
             self.error_response(502, u'缺少参数') # error
         course_id_list = course_ids.split(',')
+        print course_id_list
 
         #课程结构查询
         str_result = {}
@@ -417,7 +418,7 @@ class MobileDemo(BaseHandler):
                         c_id = value['course_id']
                         result_final[c_id] = result_d
 
-        #print result_final
+        print result_final
         result_list = []
         for k,v in result_final.items():
             one = {}
@@ -430,6 +431,28 @@ class MobileDemo(BaseHandler):
                 one['remind_type'] = -1
             one['deadline'] = v['seq_end']
             result_list.append(one)
+        result_course_list = []#提示考试或者作业的课程id
+        for key,value in result_final.items():
+            result_course_list.append(key)
+        #print result_course_list
+        #print str_result
+        #course_id_list请求传进来的课
+        for co in course_id_list:
+            #print co
+            if fix_course_id(co) not in result_course_list:
+                result = self.course_structure(fix_course_id(co), 'course', depth=4)
+                course = result['children']
+                max_start = None
+                result_one = {'id': fix_course_id(co),'remind_type':'chapter'}
+                for c in course:#针对一门课的每一章
+                    name = c['display_name']
+                    result_one['name'] = name
+                    chapter_id = c['block_id']
+                    chapter_start =  c['start']
+                    if chapter_start > max_start :
+                        max_start = chapter_start
+                    result_one['deadline'] = max_start
+                result_list.append(result_one)
 
         if len(result_list) == 0 or len(str_result) == 0:  #全部考试作业都提交过
             for course_id in course_id_list:
