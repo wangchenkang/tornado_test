@@ -796,7 +796,7 @@ class StudentCourseEnrollment(BaseHandler):
          for i in course_ids:
             if i not in actual_course_ids:
                 enrollments = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_enrollment([i])
-                course_enrollment = [{'course_id': enrollment['course_id'], 'enrollment_num': enrollment['enroll_all']} for enrollment in enrollments]
+                course_enrollment = [{'course_id': enrollment['course_id'], 'acc_enrollment_num': enrollment['enroll_all']} for enrollment in enrollments]
                 data.extend(course_enrollment)
          self.success_response({'data': data})
 
