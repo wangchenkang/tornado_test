@@ -525,7 +525,6 @@ class MobileDemo(BaseHandler):
                             result_final[k]['is_exam'] = value['is_exam']
                             result_final[k]['seq_end'] = value['seq_end']
                         if  value['is_exam'] == False and data['is_exam'] == False:
-                            #print str(value['seq_end'])
                             s_end = datetime.datetime.strptime(value['seq_end'], '%Y-%m-%dT%H:%M:%S')
                             seq_end = datetime.datetime.strftime(s_end,'%Y-%m-%d %H:%M:%S')
                             ss = time.mktime(time.strptime(seq_end,'%Y-%m-%d %H:%M:%S'))
@@ -539,7 +538,6 @@ class MobileDemo(BaseHandler):
                         c_id = value['course_id']
                         result_final[c_id] = result_d
 
-        print result_final
         result_list = []
         for k,v in result_final.items():
             one = {}
@@ -555,33 +553,14 @@ class MobileDemo(BaseHandler):
         result_course_list = []#提示考试或者作业的课程id
         for key,value in result_final.items():
             result_course_list.append(key)
-        #print result_course_list
-        #print str_result
         #course_id_list请求传进来的课
         for co in course_id_list:
-            #print co
             if fix_course_id(co) not in result_course_list:
                 result = self.course_structure(fix_course_id(co), 'course', depth=4)
                 course = result['children']
                 max_start = None
                 result_one = {'id': fix_course_id(co),'remind_type':'chapter'}
                 for c in course:#针对一门课的每一章
-                    name = c['display_name']
-                    result_one['name'] = name
-                    chapter_id = c['block_id']
-                    chapter_start =  c['start']
-                    if chapter_start > max_start :
-                        max_start = chapter_start
-                    result_one['deadline'] = max_start
-                result_list.append(result_one)
-
-        if len(result_list) == 0 or len(str_result) == 0:  #全部考试作业都提交过
-            for course_id in course_id_list:
-                result = self.course_structure(course_id, 'course', depth=4)
-                course = result['children']
-                max_start = None
-                result_one = {'id': course_id,'remind_type':'chapter'}
-                for c in course:
                     name = c['display_name']
                     result_one['name'] = name
                     chapter_id = c['block_id']
