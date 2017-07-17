@@ -150,7 +150,6 @@ class DetailCourseDiscussion(BaseHandler):
             result['comment_mean'] = round(response.aggregations.comment_mean.value or 0, 4)
             result['total_mean'] = round(float(result['total']) / response.hits.total, 4) if response.hits.total else 0
             self.set_memcache_data(hash_key, result)
-
         self.success_response({'data': result})
 
 
@@ -221,7 +220,6 @@ class DetailStudentDiscussionStat(BaseHandler):
 
         response = self.es_execute(query[:0])
         response = self.es_execute(query[:response.hits.total])
-
         result = {}
         for hit in response.hits:
             post_num = hit['post_num'] or 0
@@ -232,7 +230,7 @@ class DetailStudentDiscussionStat(BaseHandler):
             if total_num not in result:
                 result[total_num] = 0
             result[total_num] += 1
-
+        
         self.success_response({'data': result})
 
 
@@ -283,7 +281,6 @@ class DetailChapterStudyRatioDetail(BaseHandler):
         response = self.es_execute(query[:0])
         response = self.es_execute(query[:response.hits.total])
         result = {}
-
         for chapter in response.aggregations.chapter.buckets:
             chapter_study_rate = {}
             chapter_study_rate['distribution'] = []

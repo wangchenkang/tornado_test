@@ -221,20 +221,16 @@ class BaseHandler(RequestHandler):
         users = self.memcache.get(hashcode)
         if users:
             return users
-        query = self.es_query(doc_type='student_enrollment_info')#\
-                # .fields(fields="user_id")
+        query = self.es_query(doc_type='student_enrollment_info')
+
         if self.group_key:
             query = query.filter('term', group_key=self.group_key)
-        #else:
-        #    query = query.filter(~F('exists', field='group_key'))
         if is_active:
             query = query.filter('term', is_active=1)
         elif is_active == False:
             query = query.filter('term', is_active=0)
-
         if self.course_id:
             query = query.filter('term', course_id=self.course_id)
-
         size = self.es_execute(query[:0]).hits.total
         size = 50000
         hits = self.es_execute(query[:size]).hits
