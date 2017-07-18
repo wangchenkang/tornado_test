@@ -5,7 +5,7 @@ from utils.routes import route
 from utils.tools import utc_to_cst, date_to_str, datedelta
 from elasticsearch_dsl import A
 import json
-
+import settings
 
 @route('/course/week_activity')
 class CourseActivity(BaseHandler):
@@ -376,8 +376,8 @@ class CourseDetail(BaseHandler):
 class CourseQueryDate(BaseHandler):
     def get(self):
         query = self.es_query(doc_type='course_community')\
-                            .filter('term', course_id=self.course_id)\
-                            .filter('term', group_key=self.group_key)
+                    .filter('term', course_id=self.course_id)\
+                    .filter('term', group_key=self.group_key)
         data = self.es_execute(query[:1])
         course_data = []
         course_data.append(data.hits[0].to_dict())
@@ -397,3 +397,24 @@ class CourseHealth(BaseHandler):
             data = result[0].to_dict()
         self.success_response({'data': data})
 
+@route('/course/cohort_info')
+class CohortInfo(BaseHandler):
+    """
+    cohort分组的组信息
+    """
+    def post(self):
+        group_keys = json.loads(self.get_argument('group_key'))
+        query = self.es_query(doc_type='course_community')\
+                    .filter('term', course_id=self.course_id)\
+                    .filter('terms', group_key=group_keys)\
+                    .filter('range', **{'group_key': {'gte': settings.COHORT_GROUP_KEY, 'lt': settings.ELECTIVE_GROUP_KEY}})\
+                    .sort('group_key')\
+                    .source(['group_name', 'enroll_num', 'group_key'])
+        total = len(group_keys) if group_keys else 1
+        result = self.es_execute(query[:total]).hits
+        data = []
+        if len(result) !=0:
+            data = [item.to_dict() for item in result]
+        for item in data:
+            item['school'] = item['group_name']
+        self.success_response({'data': data})

@@ -66,6 +66,14 @@ class MysqlConnect(object):
             data[result['course_id']].append(result['group_key'])
         course_ids = data.keys()
         return data,course_ids
+    
+    def get_cohort_group_keys(self, host, user_id, course_id):
+        query = """
+                select distinct(group_key) from teacher_power where host='{0}' and user_id='{1}' and course_id='{2}'
+                """.format(host, user_id, course_id)
+        results = self.execute_query(query)
+        data = results if results else []
+        return data
 
     def course_permission(self, user_id, course_id, group_key):
         query = """
