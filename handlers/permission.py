@@ -105,7 +105,6 @@ class CohortGroupKey(BaseHandler):
     教师在某个平台上某门课的cohort group_key
     """
     def get(self):
-        #TEST
-        host = 'studio-yzu.xuetangx.com'
-        result = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_cohort_group_keys(host, self.user_id, self.course_id)
+        
+        result = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_cohort_group_keys(self.host, self.user_id, self.course_id)
         self.success_response({'data': result})
