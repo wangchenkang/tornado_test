@@ -21,6 +21,15 @@ MYSQL_PARAMS = {
             'teacher_power': {'host': 'tap-authority.xuetangx.info', 'db': 'tap_authority', 'user': 'data', 'password': 'data@xuetangx'}
 }
 
+ROW_FILTER = {
+                'grade':{'index': 'tap_table_grade', 'doc_type': 'grade_summary'},\
+                'question':{'index': 'tap_table_question', 'doc_type': 'chapter_question'},\
+                'discussion': {'index':'tap_table_discussion', 'doc_type': 'discussion_summary'},\
+                'video': {'index': 'tap_table_video', 'doc_type': 'chapter_seq_video'},\
+                'enroll': {'index': 'tap_table_enroll', 'doc_type': 'enroll_summary'},\
+                'focus': {'index': 'problems_focused', 'doc_type': 'video_seek_summary'},\
+                'warning': {'index': 'problems_focused', 'doc_type': 'study_warning_person'}
+                }
 DISPATCH_OPTIMIZE = True
 ES_INDEX = 'tap'
 #ES_INDEX = 'tapgo'
