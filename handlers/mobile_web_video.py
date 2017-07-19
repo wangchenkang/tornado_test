@@ -198,7 +198,8 @@ class MobileUserStudyByCourse(BaseHandler):
         sp = study_progress.StudyProgress(thrift_server='10.0.2.132', namespace='heartbeat')
         result = sp.get_user_watched_video_by_course(user_id)
         course_ids = result.keys()
-        
+        if not course_ids:
+            self.success_response({'data': []})
         db,cursor= MysqlConnect().get_db_cursor()
         # get sequential durations
         sql = """
