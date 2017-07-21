@@ -466,7 +466,6 @@ class MobileDemo(BaseHandler):
         for course_id in course_id_list:
             course_id  = fix_course_id(course_id)
             result = self.course_structure(course_id, 'course', depth=4)
-            print result
             course_end = result['end'] if result else ''
             chapters = result['children'] if result else []
 
@@ -514,19 +513,19 @@ class MobileDemo(BaseHandler):
                     .filter('terms',course_id=course_ids)
         total = self.es_execute(query).hits.total
         result = self.es_execute(query[:total]).hits
-        print result
         item_ids = []
         for row in result:
             item_ids.append(row.item_id)
 
         result_final = {}
+        time_list = []
         if len(str_result) != 0:
             for key,value in str_result.items(): #str_result是查询课程结构的结果{item_id:{course_id:,chapter_id:,chapter_name:,seq_id:,seq_name:,vertical_id:,seq_end:,is_exam:,chapter_start:}}
                 result_d = {}
                 result_d['chapter_id'] = value['chapter_id']
                 result_d['seq_id'] = value['seq_id']
                 result_d['seq_end'] = value['seq_end']
-                print value['seq_end']
+                time_list.append(value['seq_end'])
                 result_d['chapter_start'] = value['chapter_start']
                 result_d['is_exam'] = value['is_exam']
                 if key not in item_ids: #未提交的记录
@@ -536,20 +535,20 @@ class MobileDemo(BaseHandler):
                         if value['is_exam'] == False and data['is_exam'] == True:#如果已经存在的记录是考试，后来的记录是作业
                             result_final[k]['is_exam'] = value['is_exam']
                             result_final[k]['seq_end'] = value['seq_end']
-                        if  value['is_exam'] == False and data['is_exam'] == False:
+                        if  value['is_exam'] == False and data['is_exam'] == False:#如果已经存在的是作业，后来的记录是作业
                             s_end = datetime.datetime.strptime(value['seq_end'], '%Y-%m-%dT%H:%M:%S')
                             seq_end = datetime.datetime.strftime(s_end,'%Y-%m-%d %H:%M:%S')
                             ss = time.mktime(time.strptime(seq_end,'%Y-%m-%d %H:%M:%S'))
                             d_end = datetime.datetime.strptime(data['seq_end'],'%Y-%m-%dT%H:%M:%S')
                             ss_end = datetime.datetime.strftime(d_end,'%Y-%m-%d %H:%M:%S')
                             dd = time.mktime(time.strptime(ss_end,'%Y-%m-%d %H:%M:%S'))
-                            if ss>dd:
+                            if ss<dd:
                                 result_final[k]['seq_end'] = value['seq_end']
+                        #if 
 
                     else:
                         c_id = value['course_id']
                         result_final[c_id] = result_d
-
         result_list = []
         for k,v in result_final.items():
             one = {}

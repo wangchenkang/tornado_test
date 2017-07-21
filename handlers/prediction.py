@@ -1,5 +1,5 @@
 #! -*- coding: utf-8 -*-
-#from __future__ import division
+from __future__ import division
 from .base import BaseHandler
 from utils.routes import route
 from datetime import datetime, timedelta
