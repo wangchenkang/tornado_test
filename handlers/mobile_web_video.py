@@ -449,13 +449,13 @@ class MobileDemo(BaseHandler):
         if not user_id or not course_ids: 
             self.error_response(502, u'缺少参数') # error
         course_id_list = course_ids.split(',')
-        print course_id_list
 
         #课程结构查询
         str_result = {}
         for course_id in course_id_list:
             course_id  = fix_course_id(course_id)
             result = self.course_structure(course_id, 'course', depth=4)
+            print result
             course_end = result['end'] if result else ''
             chapters = result['children'] if result else []
 
@@ -503,7 +503,7 @@ class MobileDemo(BaseHandler):
                     .filter('terms',course_id=course_ids)
         total = self.es_execute(query).hits.total
         result = self.es_execute(query[:total]).hits
-
+        print result
         item_ids = []
         for row in result:
             item_ids.append(row.item_id)
@@ -515,6 +515,7 @@ class MobileDemo(BaseHandler):
                 result_d['chapter_id'] = value['chapter_id']
                 result_d['seq_id'] = value['seq_id']
                 result_d['seq_end'] = value['seq_end']
+                print value['seq_end']
                 result_d['chapter_start'] = value['chapter_start']
                 result_d['is_exam'] = value['is_exam']
                 if key not in item_ids: #未提交的记录

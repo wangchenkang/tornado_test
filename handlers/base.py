@@ -130,9 +130,10 @@ class BaseHandler(RequestHandler):
             param = self.get_argument(key)
         except MissingArgumentError:
             self.error_response(200, u'参数错误')
-
+        
         try:
-            return url_unescape(param)
+            param = url_unescape(param).replace(' ', '+') if key == 'course_id' else url_unescape(param)
+            return param
         except TypeError:
             return param
 

@@ -318,9 +318,10 @@ class CourseTopicKeywords(BaseHandler):
     获取课程提取关键字
     """
     def get(self):
-        query = self.es_query(doc_type='course_keywords') \
-                .filter('term', course_id=self.course_id)[:1]
 
+        query = self.es_query(index='rollup',doc_type='course_keywords') \
+                    .filter('term', course_id=self.get_param('course_id'))[:1]
+        
         data = self.es_execute(query)
         try:
             source = data.hits[0].to_dict()

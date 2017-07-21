@@ -6,35 +6,34 @@ from utils.log import Log
 Log.create('difficulty')
 
 
-@route('/video/chapter_review_detail')
+@route('/difficulty/chapter_review_detail')
 class ChapterReviewDetail(BaseHandler):
+
     def get(self):
-        chapter_id = self.get_param('chapter_id')
 
         query = self.es_query(index='rollup', doc_type='video_review') \
-                .filter('term', course_id=self.course_id) \
-                .filter('term', chapter_id=chapter_id)
-
-        data = self.es_execute(query[:0])
-        data = self.es_execute(query[:data.hits.total])
+                    .filter('term', course_id=self.get_param('course_id')) \
+                    .filter('term', chapter_id=self.get_param('chapter_id'))
+        total = self.es_execute(query).hits.total
+        data = self.es_execute(query[:total])
 
         result = {}
         for item in data.hits:
             result[item.video_id] = item.to_dict()
-
+    
         self.success_response({'data': result})
 
 
 @route('/difficulty/video_problem_wrong')
 class VideoProblemWrong(BaseHandler):
-    def get(self):
-        chapter_id = self.get_param('chapter_id')
 
+    def get(self):
+        
         query = self.es_query(index='rollup', doc_type='video_problem_wrong') \
-                .filter('term', course_id=self.course_id) \
-                .filter('term', chapter_id=chapter_id)
-        data = self.es_execute(query[:0])
-        data = self.es_execute(query[:data.hits.total])
+                    .filter('term', course_id=self.get_param('course_id')) \
+                    .filter('term', chapter_id=self.get_param('chapter_id'))
+        total = self.es_execute(query).hits.total
+        data = self.es_execute(query[:total])
 
         result = {}
         for item in data.hits:
@@ -45,14 +44,14 @@ class VideoProblemWrong(BaseHandler):
 
 @route('/difficulty/chapter_difficulty_detail')
 class ChapterDifficultyDetail(BaseHandler):
+
     def get(self):
-        chapter_id = self.get_param('chapter_id')
 
         query = self.es_query(index='rollup', doc_type='difficulty_detail') \
-                .filter('term', course_id=self.course_id) \
-                .filter('term', chapter_id=chapter_id)
-        data = self.es_execute(query[:0])
-        data = self.es_execute(query[:data.hits.total])
+                    .filter('term', course_id=self.get_param('course_id')) \
+                    .filter('term', chapter_id=self.get_param('chapter_id'))
+        total = self.es_execute(query).hits.total
+        data = self.es_execute(query[:total])
 
         result = {}
         for item in data.hits:
@@ -66,9 +65,9 @@ class ChapterVideoDurationStat(BaseHandler):
     def get(self):
 
         query = self.es_query(index='rollup', doc_type='difficulty_detail_aggs') \
-                .filter('term', course_id=self.course_id)
-        data = self.es_execute(query[:0])
-        data = self.es_execute(query[:data.hits.total])
+                    .filter('term', course_id=self.get_param('course_id'))
+        total = self.es_execute(query).hits.total
+        data = self.es_execute(query[:total])
 
         result = {}
         for item in data.hits:
@@ -86,9 +85,9 @@ class ChapterReviewDurationStat(BaseHandler):
     def get(self):
 
         query = self.es_query(index='rollup', doc_type='video_review_aggs') \
-                .filter('term', course_id=self.course_id)
-        data = self.es_execute(query[:0])
-        data = self.es_execute(query[:data.hits.total])
+                    .filter('term', course_id=self.get_param('course_id'))
+        total = self.es_execute(query).hits.total
+        data = self.es_execute(query[:total])
 
         result = {}
         for item in data.hits:
@@ -106,9 +105,9 @@ class ChapterProblemStat(BaseHandler):
     def get(self):
 
         query = self.es_query(index='rollup', doc_type='video_problem_stats') \
-                .filter('term', course_id=self.course_id)
-        data = self.es_execute(query[:0])
-        data = self.es_execute(query[:data.hits.total])
+                    .filter('term', course_id=self.get_param('course_id'))
+        total = self.es_execute(query).hits.total
+        data = self.es_execute(query[:total])
 
         result = {}
         for item in data.hits:
@@ -119,3 +118,17 @@ class ChapterProblemStat(BaseHandler):
             }
 
         self.success_response({'data': result})
+
+@route('/difficulty/course_status')
+class Courses(BaseHandler):
+    
+    def get(self):
+
+        course_id = self.get_param('course_id')
+        query = self.es_query(index='rollup', doc_type='course_keywords')\
+                    .filter('term', course_id=course_id)
+        
+        total = self.es_execute(query).hits.total
+        status = True if total != 0 else False
+    
+        self.success_response({'status': status})
