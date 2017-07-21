@@ -196,9 +196,20 @@ class MobileUserStudyByCourse(BaseHandler):
         user_id = self.get_argument('user_id', None)
 
         sp = study_progress.StudyProgress(thrift_server='10.0.2.132', namespace='heartbeat')
-        result = sp.get_user_watched_video_by_course(user_id)
-        course_ids = result.keys()
-        
+        course_study = sp.get_user_watched_video_by_course(user_id)
+        course_ids = course_study.keys()
+
+        # get all enroll course
+        query = self.es_query(index='enrollment', doc_type='enroll_student') \
+            .filter('term', user_id=user_id)
+        result = self.es_execute(query)
+        result = self.es_execute(query[:result.hits.total])
+        for r in result:
+            if r['course_id'] not in course_ids:
+                course_ids.append(r['course_id'])
+        if not course_ids:
+            self.success_response({'data': final})
+
         db,cursor= MysqlConnect().get_db_cursor()
         # get sequential durations
         sql = """
@@ -216,11 +227,11 @@ class MobileUserStudyByCourse(BaseHandler):
 
         final = []
         Log.info(result)
-        for course_id, study_duration in result.items():
+        for course_id in course_ids:
             record = {}
             record['course_id'] = course_id
             record['total_length'] = int(course_durations_d.get(course_id, 0))
-            record['watched_length'] = int(study_duration)
+            record['watched_length'] = int(course_study.get(course_id, 0))
             final.append(record)
 
         self.success_response({'data': final})
