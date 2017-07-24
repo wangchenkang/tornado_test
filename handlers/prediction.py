@@ -51,8 +51,8 @@ class DropoutPrediction(BaseHandler):
         dropout_ratio = 0.0
         if last:
             predict_dropout = "%.4f" % float(last.predict_dropout if last.predict_dropout else 0.0)
-            predict_active = "%.4f" %  float(last.predict_active_num if last.predict_active_num else 0.0)/\
-                                      (float(last.predict_active_num if last.predict_active_num else 0.01) + float(last.predict_dropout_num if last.predict_dropout_num else 0.01))
+            predict_active = "%.4f" % (float(last.predict_active_num if last.predict_active_num else 0.0)/\
+                                      (float(last.predict_active_num if last.predict_active_num else 0.01) + float(last.predict_dropout_num if last.predict_dropout_num else 0.01)))
             last_week_error = "%.4f" % float(last.last_bias if last.last_bias else 0.0)
             dropout_num = int(last.predict_dropout_num if last.predict_dropout_num else 0)
             dropout_ratio = "%.4f" % ((int(last.predict_dropout_num if last.predict_dropout_num else 0) - int(last.last_dropout_num if last.last_dropout_num else 0))/\
