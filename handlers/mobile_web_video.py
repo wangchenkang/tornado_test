@@ -451,7 +451,7 @@ class MobileWebUserLastPos(BaseHandler):
 
 
 @route('/mobile/learning_guide') # url
-class MobileDemo(BaseHandler): 
+class LearningGuide(BaseHandler): 
 
     def get(self): 
 
@@ -477,6 +477,7 @@ class MobileDemo(BaseHandler):
                     seq_type = seq['block_type'] #sequential
                     me = seq['metadata']
                     seq_end = me.get('due',course_end)
+                    exam_end = me.get('exam_end',course_end)
                     verticals = seq['children']
                     for vertical in verticals:
                         items = vertical['children']
@@ -493,16 +494,16 @@ class MobileDemo(BaseHandler):
                                 str_result_one['chapter_id'] = chapter['block_id']
                                 str_result_one['seq_id'] = seq['block_id']
                                 str_result_one['vertical_id'] = vertical['block_id']
-                                str_result_one['seq_end'] = seq_end
+                                #str_result_one['seq_end'] = seq_end
                                 str_result_one['is_exam'] = is_exam
                                 str_result_one['chapter_start'] =chapter['start']
 
                                 if interval.days <= 2 and interval.days >= 0 and item_type == 'problem':
-                                    #不要时间差，只要到截止时间还有未提交的作业类型就是homework，没有未提交的作业还有未提交的考试类型就是exam，要不然就是章（是发布时间）
+                                    str_result_one['seq_end'] = seq_end
                                     str_result[item_id] = str_result_one
                                 if seq_type == 'sequential' and is_exam == True and interval.days <= 2 and interval.days >= 0:
                                     str_result_one['is_exam'] = is_exam
-                                    #不要时间差，只要到截止时间还有未提交的作业类型就是homework，没有未提交的作业还有未提交的考试类型就是exam，要不然就是章（是发布时间）
+                                    str_result_one['seq_end'] = exam_end
                                     str_result[seq['block_id']] = str_result_one
         course_ids = []
         for course_id in course_id_list:
@@ -544,7 +545,16 @@ class MobileDemo(BaseHandler):
                             dd = time.mktime(time.strptime(ss_end,'%Y-%m-%d %H:%M:%S'))
                             if ss<dd:
                                 result_final[k]['seq_end'] = value['seq_end']
-                        #if 
+                        if  value['is_exam'] == True and data['is_exam'] == True:#如果已经存在的是考试，后来的记录是考试
+                            s_end = datetime.datetime.strptime(value['seq_end'], '%Y-%m-%dT%H:%M:%S')
+                            seq_end = datetime.datetime.strftime(s_end,'%Y-%m-%d %H:%M:%S')
+                            ss = time.mktime(time.strptime(seq_end,'%Y-%m-%d %H:%M:%S'))
+                            d_end = datetime.datetime.strptime(data['seq_end'],'%Y-%m-%dT%H:%M:%S')
+                            ss_end = datetime.datetime.strftime(d_end,'%Y-%m-%d %H:%M:%S')
+                            dd = time.mktime(time.strptime(ss_end,'%Y-%m-%d %H:%M:%S'))
+                            if ss<dd:
+                                result_final[k]['seq_end'] = value['seq_end']
+
 
                     else:
                         c_id = value['course_id']
