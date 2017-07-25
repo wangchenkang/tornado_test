@@ -479,32 +479,35 @@ class LearningGuide(BaseHandler):
                     seq_end = me.get('due',course_end)
                     exam_end = me.get('exam_end',course_end)
                     verticals = seq['children']
-                    for vertical in verticals:
-                        items = vertical['children']
-                        for item in items:
-                            item_id = item['block_id']
-                            item_type = item['block_type'] 
-                            if seq_end is not None:
-                                end = datetime.datetime.strptime(seq_end, "%Y-%m-%dT%H:%M:%S")
-                                stri = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
-                                interval = end - datetime.datetime.strptime(stri,'%Y-%m-%dT%H:%M:%S')
+                    str_result_one={}
+                    str_result_one['course_id'] = course_id
+                    str_result_one['chapter_id'] = chapter['block_id']
+                    str_result_one['seq_id'] = seq['block_id']
+                    str_result_one['chapter_start'] =chapter['start']
+                    if seq_type=='sequential' and is_exam==True :
+                        if seq_end is not None:
+                            end = datetime.datetime.strptime(seq_end, "%Y-%m-%dT%H:%M:%S")
+                            stri = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+                            interval = end - datetime.datetime.strptime(stri,'%Y-%m-%dT%H:%M:%S')
+                            if interval.days<=2 and interval.days>=0:
+                                str_result_one['is_exam'] = True
+                                str_result_one['seq_end'] = exam_end
+                                str_result[seq['block_id']] = str_result_one
+                    else:
+                        for vertical in verticals:
+                            items = vertical['children']
+                            for item in items:
+                                item_id = item['block_id']
+                                item_type = item['block_type']
+                                if seq_end is not None:
+                                    end = datetime.datetime.strptime(seq_end, "%Y-%m-%dT%H:%M:%S")
+                                    stri = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
+                                    interval = end - datetime.datetime.strptime(stri,'%Y-%m-%dT%H:%M:%S')
 
-                                str_result_one = {}
-                                str_result_one['course_id'] = course_id
-                                str_result_one['chapter_id'] = chapter['block_id']
-                                str_result_one['seq_id'] = seq['block_id']
-                                str_result_one['vertical_id'] = vertical['block_id']
-                                #str_result_one['seq_end'] = seq_end
-                                str_result_one['is_exam'] = is_exam
-                                str_result_one['chapter_start'] =chapter['start']
-
-                                if interval.days <= 2 and interval.days >= 0 and item_type == 'problem':
-                                    str_result_one['seq_end'] = seq_end
-                                    str_result[item_id] = str_result_one
-                                if seq_type == 'sequential' and is_exam == True and interval.days <= 2 and interval.days >= 0:
-                                    str_result_one['is_exam'] = is_exam
-                                    str_result_one['seq_end'] = exam_end
-                                    str_result[seq['block_id']] = str_result_one
+                                    if interval.days <= 2 and interval.days >= 0 and item_type == 'problem':
+                                        str_result_one['is_exam'] = False
+                                        str_result_one['seq_end'] = seq_end
+                                        str_result[item_id] = str_result_one
         course_ids = []
         for course_id in course_id_list:
             course_ids.append(course_id)
