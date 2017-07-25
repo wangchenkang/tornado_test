@@ -7,7 +7,7 @@ from .base import BaseHandler
 import settings
 import json
 
-Log.create('student')
+Log.create('table')
 
 class TableHandler(BaseHandler):
 
@@ -29,7 +29,7 @@ class TableHandler(BaseHandler):
         user_ids = [r.user_id for r in result]
         return user_ids
     
-    def get_study_warning_num(self):
+    def get_warning_total(self):
         query = self.es_query(index='problems_focused',doc_type='study_warning_person')\
                     .filter('term', course_id=self.course_id)\
                     .filter('term', group_key=self.group_key)\
@@ -48,6 +48,7 @@ class TableHandler(BaseHandler):
         return user_ids
 
     def post(self):
+
         student_keyword = self.get_argument('student_keyword', None)
         time_begin = time.time()
         page = int(self.get_argument('page', 0))
@@ -55,21 +56,19 @@ class TableHandler(BaseHandler):
         sort = self.get_argument('sort', None)
         sort = 'grade' if not sort else sort
         sort_type = int(self.get_argument('sort_type', 0))
-
         data_type = self.get_argument('data_type')
         fields = self.get_argument('fields', '')
         kpi = self.get_argument('kpi', '')
-
         fields = json.loads(fields) if fields else []
         kpi = json.loads(kpi) if kpi else []
+
         user_ids = self.get_user_ids(student_keyword)
         result = self.search_es(self.course_id, user_ids, page, num, sort, sort_type, fields, kpi, data_type)
         if kpi:
-            user_ids = self.row_filter(self.course_id, user_ids, data_type, kpi)
+            user_ids = self.get_filter_user_ids(self.course_id, user_ids, data_type, kpi)
         total = len(user_ids)
-        #NEED
-        if 'warning_date' in fields:
-            total = self.get_study_warning_num() if not kpi else total
+        if data_type == 'warning':
+            total = self.get_warning_total() if not kpi else total
         final = {}
         final['total'] = total
         final['data'] = result
@@ -99,16 +98,19 @@ class TableJoinHandler(TableHandler):
             fields.append('user_id')
         result = []
         if kpi:
-            user_ids = self.row_filter(course_id, user_ids, data_type, kpi)
+            user_ids = self.get_filter_user_ids(course_id, user_ids, data_type, kpi)
         for idx, es_index_type in enumerate(es_index_types):
             es_index, es_type = es_index_type.split('/')
             if idx == 0 and es_type == 'study_warning_person':
-                user_ids = self.study_warning_filter(course_id, es_index, es_type, user_ids)
+                user_ids = self.get_warning_user_ids(course_id, es_index, es_type, user_ids)
+
             query = self.es_query(index=es_index, doc_type=es_type) \
                         .filter('term', course_id=course_id) \
                         .filter('terms', user_id=user_ids) \
                         .source(fields)
-            if es_type == 'student_enrollment_info' or es_type == 'study_warning_person':
+           
+            #不同的group_key下，user_id是一样的
+            if es_type in ('study_warning_person', 'student_enrollment_info'):
                 query = query.filter('term', group_key=self.group_key)
             # 如果是第一个查询，需要排序，查询后更新学生列表
             if idx == 0:
@@ -116,14 +118,8 @@ class TableJoinHandler(TableHandler):
                 query = query[page*num:(page+1)*num]
             else:
                 query = query[:len(user_ids)]
-
             data = self.es_execute(query)
             data_result = [item.to_dict() for item in data.hits]
-            
-            if es_type == 'study_warning_person' and len(data_result) == 0:
-                result = []
-                continue
-
             # 如果是第一个查询，在查询后更新user_ids列表，后续查询只查这些学生
             if idx == 0:
                 result.extend(data_result)
@@ -164,13 +160,13 @@ class TableJoinHandler(TableHandler):
     def postprocess(self, result):
         return result
 
-    def row_grade_filter(self, course_id, user_ids, kpi, total):
+    def course_grade_filter(self, course_id, user_ids, kpi, total):
         """
         共同点得分，得分率
         """
         query = self.es_query(doc_type='course_grade')\
-                                 .filter('term', course_id=course_id)\
-                                 .filter('terms', user_id=user_ids)
+                    .filter('term', course_id=course_id)\
+                    .filter('terms', user_id=user_ids)
         for item in kpi:
             if item['field'] == 'grade':
                 query = query.filter('range', **{item['field']: {'gte': item['min'] or 0, 'lte': item['max'] or 100}})
@@ -179,26 +175,26 @@ class TableJoinHandler(TableHandler):
         user_ids = [item.user_id for item in self.es_execute(query[:total]).hits]
         return user_ids
 
-    def row_kpi_filter(self, course_id, user_ids, kpi, total, query):
+    def row_filter(self, course_id, user_ids, kpi, total, query):
         """
         各个独立指标过滤相应学生
         """
-        temp_ = []
-        temp__ = []
+        course_grade_fields = []
+        status = False
 
         for i in kpi:
             if i['field'] in self.GRADE_FIELDS:
-                temp_.append(i)
+                course_grade_fields_.append(i)
             else:
-                temp__.append(1)
+                status = True
                 if i['field'] in ['low_grade_rate', 'low_video_rate', 'study_rate']:
                     query = query.filter('range', **{i['field']: {'gte': float(i['min'] or 0) /100, 'lte': float(i['max'] or 100) /100}})
                 else:
                     query = query.filter('range', **{i['field']: {'gte': i['min'] or 0, 'lte': i['max'] or 100}})
 
-        return temp_, temp__, query
+        return course_grade_fields, status, query
 
-    def row_filter(self, course_id, user_ids, data_type, kpi):
+    def get_filter_user_ids(self, course_id, user_ids, data_type, kpi):
         """
         根据不同的type,过滤相应学生
         """
@@ -214,13 +210,13 @@ class TableJoinHandler(TableHandler):
         query = self.es_query(index=es_index, doc_type=es_doc_type)\
                     .filter('term', course_id=course_id)\
                     .filter('terms', user_id=user_ids)
-        temp_, temp__, query = self.row_kpi_filter(course_id, user_ids, kpi, total, query)
-        user_ids_ =  self.row_grade_filter(course_id, user_ids, temp_, total) if temp_ else user_ids
-        user_ids__ = [item.user_id for item in self.es_execute(query[:total]).hits] if temp__ else user_ids
-        user_ids = list(set(user_ids_).intersection(set(user_ids__)))
+        course_grade_fields, status, query = self.row_filter(course_id, user_ids, kpi, total, query)
+        course_grade_filter_user_ids =  self.course_grade_filter(course_id, user_ids, course_grade_fields, total) if course_grade_fields else user_ids
+        other_filter_user_ids = [item.user_id for item in self.es_execute(query[:total]).hits] if status else user_ids
+        user_ids = list(set(course_grade_filter_user_ids).intersection(set(other_filter_user_ids)))
         return user_ids
 
-    def study_warning_filter(self, course_id, es_index, es_type, user_ids):
+    def get_warning_user_ids(self, course_id, es_index, es_type, user_ids):
         """
         学业预警单拿出来筛选学生
         """
