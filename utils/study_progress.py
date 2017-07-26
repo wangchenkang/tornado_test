@@ -10,6 +10,9 @@ import hashlib
 import time
 import json
 import happybase
+import settings
+import random
+from log import Log
 
 '''
 以下视频相关数据针对全平台（包括移动端和Web端）
@@ -39,7 +42,13 @@ class StudyProgress:
     def __init__(self, thrift_server, thrift_port=9090, namespace='test'):
         self.thrift_server, self.thrift_port = thrift_server, thrift_port
         self.namespace = namespace
-        self.connection = happybase.Connection(host=self.thrift_server, port=self.thrift_port)
+        try:
+            self.connection = happybase.Connection(host=self.thrift_server, port=self.thrift_port)
+        except Exception as e:
+            Log.error(e)
+            thrift_server = settings.THRIFT_SERVER[random.randint(0,3)]
+            self.connection = happybase.Connection(host=thrift_server, port=self.thrift_port)
+
 
     def md5_bytes(self, value, num_bytes):
         return hashlib.md5(value).hexdigest()[:num_bytes]
