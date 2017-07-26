@@ -466,9 +466,9 @@ class LearningGuide(BaseHandler):
         for course_id in course_id_list:
             course_id  = fix_course_id(course_id)
             result = self.course_structure(course_id, 'course', depth=4)
+            print result
             course_end = result['end'] if result else ''
             chapters = result['children'] if result else []
-
             for chapter in chapters:
                 metadata = chapter['metadata']
                 is_exam = metadata['is_exam']
@@ -476,6 +476,7 @@ class LearningGuide(BaseHandler):
                 for seq in seqs:
                     seq_type = seq['block_type'] #sequential
                     me = seq['metadata']
+                    print seq['block_id'], me.get('due', '')
                     seq_end = me.get('due',course_end)
                     exam_end = me.get('exam_end',course_end)
                     verticals = seq['children']
@@ -499,6 +500,7 @@ class LearningGuide(BaseHandler):
                             for item in items:
                                 item_id = item['block_id']
                                 item_type = item['block_type']
+                                print seq_end
                                 if seq_end is not None:
                                     end = datetime.datetime.strptime(seq_end, "%Y-%m-%dT%H:%M:%S")
                                     stri = datetime.datetime.now().strftime('%Y-%m-%dT%H:%M:%S')
@@ -508,92 +510,93 @@ class LearningGuide(BaseHandler):
                                         str_result_one['is_exam'] = False
                                         str_result_one['seq_end'] = seq_end
                                         str_result[item_id] = str_result_one
-        course_ids = []
-        for course_id in course_id_list:
-            course_ids.append(course_id)
+            print str_result
+        #course_ids = []
+        #for course_id in course_id_list:
+        #    course_ids.append(course_id)
 
-        query = self.es_query(index = 'learning_guide',doc_type = 'learning_guide')\
-                    .filter('term',student_id=user_id) \
-                    .filter('terms',course_id=course_ids)
-        total = self.es_execute(query).hits.total
-        result = self.es_execute(query[:total]).hits
-        item_ids = []
-        for row in result:
-            item_ids.append(row.item_id)
+        #query = self.es_query(index = 'learning_guide',doc_type = 'learning_guide')\
+        #            .filter('term',student_id=user_id) \
+        #            .filter('terms',course_id=course_ids)
+        #total = self.es_execute(query).hits.total
+        #result = self.es_execute(query[:total]).hits
+        #item_ids = []
+        #for row in result:
+        #    item_ids.append(row.item_id)
 
-        result_final = {}
-        time_list = []
-        if len(str_result) != 0:
-            for key,value in str_result.items(): #str_result是查询课程结构的结果{item_id:{course_id:,chapter_id:,chapter_name:,seq_id:,seq_name:,vertical_id:,seq_end:,is_exam:,chapter_start:}}
-                result_d = {}
-                result_d['chapter_id'] = value['chapter_id']
-                result_d['seq_id'] = value['seq_id']
-                result_d['seq_end'] = value['seq_end']
-                time_list.append(value['seq_end'])
-                result_d['chapter_start'] = value['chapter_start']
-                result_d['is_exam'] = value['is_exam']
-                if key not in item_ids: #未提交的记录
-                    if result_final.has_key(value['course_id']):
-                        k = value['course_id']
-                        data = result_final[k]#已经存在的
-                        if value['is_exam'] == False and data['is_exam'] == True:#如果已经存在的记录是考试，后来的记录是作业
-                            result_final[k]['is_exam'] = value['is_exam']
-                            result_final[k]['seq_end'] = value['seq_end']
-                        if  value['is_exam'] == False and data['is_exam'] == False:#如果已经存在的是作业，后来的记录是作业
-                            s_end = datetime.datetime.strptime(value['seq_end'], '%Y-%m-%dT%H:%M:%S')
-                            seq_end = datetime.datetime.strftime(s_end,'%Y-%m-%d %H:%M:%S')
-                            ss = time.mktime(time.strptime(seq_end,'%Y-%m-%d %H:%M:%S'))
-                            d_end = datetime.datetime.strptime(data['seq_end'],'%Y-%m-%dT%H:%M:%S')
-                            ss_end = datetime.datetime.strftime(d_end,'%Y-%m-%d %H:%M:%S')
-                            dd = time.mktime(time.strptime(ss_end,'%Y-%m-%d %H:%M:%S'))
-                            if ss<dd:
-                                result_final[k]['seq_end'] = value['seq_end']
-                        if  value['is_exam'] == True and data['is_exam'] == True:#如果已经存在的是考试，后来的记录是考试
-                            s_end = datetime.datetime.strptime(value['seq_end'], '%Y-%m-%dT%H:%M:%S')
-                            seq_end = datetime.datetime.strftime(s_end,'%Y-%m-%d %H:%M:%S')
-                            ss = time.mktime(time.strptime(seq_end,'%Y-%m-%d %H:%M:%S'))
-                            d_end = datetime.datetime.strptime(data['seq_end'],'%Y-%m-%dT%H:%M:%S')
-                            ss_end = datetime.datetime.strftime(d_end,'%Y-%m-%d %H:%M:%S')
-                            dd = time.mktime(time.strptime(ss_end,'%Y-%m-%d %H:%M:%S'))
-                            if ss<dd:
-                                result_final[k]['seq_end'] = value['seq_end']
+        #result_final = {}
+        #time_list = []
+        #if len(str_result) != 0:
+        #    for key,value in str_result.items(): #str_result是查询课程结构的结果{item_id:{course_id:,chapter_id:,chapter_name:,seq_id:,seq_name:,vertical_id:,seq_end:,is_exam:,chapter_start:}}
+        #        result_d = {}
+        #        result_d['chapter_id'] = value['chapter_id']
+        #        result_d['seq_id'] = value['seq_id']
+        #        result_d['seq_end'] = value['seq_end']
+        #        time_list.append(value['seq_end'])
+        #        result_d['chapter_start'] = value['chapter_start']
+        #        result_d['is_exam'] = value['is_exam']
+        #        if key not in item_ids: #未提交的记录
+        #            if result_final.has_key(value['course_id']):
+        #                k = value['course_id']
+        #                data = result_final[k]#已经存在的
+        #                if value['is_exam'] == False and data['is_exam'] == True:#如果已经存在的记录是考试，后来的记录是作业
+        #                    result_final[k]['is_exam'] = value['is_exam']
+        #                    result_final[k]['seq_end'] = value['seq_end']
+        #                if  value['is_exam'] == False and data['is_exam'] == False:#如果已经存在的是作业，后来的记录是作业
+        #                    s_end = datetime.datetime.strptime(value['seq_end'], '%Y-%m-%dT%H:%M:%S')
+        #                    seq_end = datetime.datetime.strftime(s_end,'%Y-%m-%d %H:%M:%S')
+        #                    ss = time.mktime(time.strptime(seq_end,'%Y-%m-%d %H:%M:%S'))
+        #                    d_end = datetime.datetime.strptime(data['seq_end'],'%Y-%m-%dT%H:%M:%S')
+        #                    ss_end = datetime.datetime.strftime(d_end,'%Y-%m-%d %H:%M:%S')
+        #                    dd = time.mktime(time.strptime(ss_end,'%Y-%m-%d %H:%M:%S'))
+        #                    if ss<dd:
+        #                        result_final[k]['seq_end'] = value['seq_end']
+        #                if  value['is_exam'] == True and data['is_exam'] == True:#如果已经存在的是考试，后来的记录是考试
+        #                    s_end = datetime.datetime.strptime(value['seq_end'], '%Y-%m-%dT%H:%M:%S')
+        #                    seq_end = datetime.datetime.strftime(s_end,'%Y-%m-%d %H:%M:%S')
+        #                    ss = time.mktime(time.strptime(seq_end,'%Y-%m-%d %H:%M:%S'))
+        #                    d_end = datetime.datetime.strptime(data['seq_end'],'%Y-%m-%dT%H:%M:%S')
+        #                    ss_end = datetime.datetime.strftime(d_end,'%Y-%m-%d %H:%M:%S')
+        #                    dd = time.mktime(time.strptime(ss_end,'%Y-%m-%d %H:%M:%S'))
+        #                    if ss<dd:
+        #                        result_final[k]['seq_end'] = value['seq_end']
 
 
-                    else:
-                        c_id = value['course_id']
-                        result_final[c_id] = result_d
-        result_list = []
-        for k,v in result_final.items():
-            one = {}
-            one['id'] = k
-            if v['is_exam'] == False:
-                one['remind_type'] = 'homework'
-            elif v['is_exam'] == True:
-                one['remind_type'] = 'exam'
-            else:
-                one['remind_type'] = -1
-            one['deadline'] = v['seq_end']
-            result_list.append(one)
-        result_course_list = []#提示考试或者作业的课程id
-        for key,value in result_final.items():
-            result_course_list.append(key)
-        #course_id_list请求传进来的课
-        for co in course_id_list:
-            if fix_course_id(co) not in result_course_list:
-                result = self.course_structure(fix_course_id(co), 'course', depth=4)
-                course = result['children']
-                max_start = None
-                result_one = {'id': fix_course_id(co),'remind_type':'chapter'}
-                for c in course:#针对一门课的每一章
-                    name = c['display_name']
-                    result_one['name'] = name
-                    chapter_id = c['block_id']
-                    chapter_start =  c['start']
-                    if chapter_start > max_start :
-                        max_start = chapter_start
-                    result_one['deadline'] = max_start
-                result_list.append(result_one)
-        self.success_response({'data': result_list})
+        #            else:
+        #                c_id = value['course_id']
+        #                result_final[c_id] = result_d
+        #result_list = []
+        #for k,v in result_final.items():
+        #    one = {}
+        #    one['id'] = k
+        #    if v['is_exam'] == False:
+        #        one['remind_type'] = 'homework'
+        #    elif v['is_exam'] == True:
+        #        one['remind_type'] = 'exam'
+        #    else:
+        #        one['remind_type'] = -1
+        #    one['deadline'] = v['seq_end']
+        #    result_list.append(one)
+        #result_course_list = []#提示考试或者作业的课程id
+        #for key,value in result_final.items():
+        #    result_course_list.append(key)
+        ##course_id_list请求传进来的课
+        #for co in course_id_list:
+        #    if fix_course_id(co) not in result_course_list:
+        #        result = self.course_structure(fix_course_id(co), 'course', depth=4)
+        #        course = result['children']
+        #        max_start = None
+        #        result_one = {'id': fix_course_id(co),'remind_type':'chapter'}
+        #        for c in course:#针对一门课的每一章
+        #            name = c['display_name']
+        #            result_one['name'] = name
+        #            chapter_id = c['block_id']
+        #            chapter_start =  c['start']
+        #            if chapter_start > max_start :
+        #                max_start = chapter_start
+        #            result_one['deadline'] = max_start
+        #        result_list.append(result_one)
+        #self.success_response({'data': result_list})
 
  #答题记录
 @route('/mobile/learning_history')

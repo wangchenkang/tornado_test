@@ -71,21 +71,21 @@ class BaseHandler(RequestHandler):
     def user_id(self):
         user_id = self.get_argument('user_id', None)
         if user_id is None:
-            self.error_response(200, u'参数错误')
+            self.error_response(100, u'参数错误')
         return user_id
 
     @property
     def course_id(self):
         course_id = self.get_argument('course_id', None)
         if course_id is None:
-            self.error_response(200, u'参数错误')
+            self.error_response(100, u'参数错误')
         return fix_course_id(course_id)
 
     @property
     def chapter_id(self):
         chapter_id = self.get_argument('chapter_id', None)
         if chapter_id is None:
-            self.error_response(200, u'参数错误')
+            self.error_response(100, u'参数错误')
         return chapter_id
 
     @property
@@ -329,21 +329,21 @@ class BaseHandler(RequestHandler):
     def host(self):
         host = self.get_argument('host', None)
         if not host:
-            self.error_response(502, u'缺少参数')
+            self.error_response(100, u'缺少参数')
         return host
 
     @property
     def course_status(self):
         course_status = self.get_argument('course_status', None)
         if not course_status:
-            self.error_response(502, u'缺少参数')
+            self.error_response(100, u'缺少参数')
         return course_status
 
     @property
     def service_line(self):
         service_line = self.get_argument('service_line', None)
         if not service_line:
-            self.error_response(502, u'缺少参数')
+            self.error_response(100, u'缺少参数')
         return service_line
 
     @property
@@ -359,7 +359,7 @@ class BaseHandler(RequestHandler):
     def chapter_id(self):
         chapter_id = self.get_argument('chapter_id', None)
         if not chapter_id:
-            self.error_response(502, u'缺少参数')
+            self.error_response(100, u'缺少参数')
         return chapter_id
 
     @property

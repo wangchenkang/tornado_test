@@ -58,17 +58,17 @@ class TableHandler(BaseHandler):
         sort_type = int(self.get_argument('sort_type', 0))
         data_type = self.get_argument('data_type')
         fields = self.get_argument('fields', '')
-        kpi = self.get_argument('kpi', '')
+        screen_index = self.get_argument('screen_index', '')
         fields = json.loads(fields) if fields else []
-        kpi = json.loads(kpi) if kpi else []
+        screen_index = json.loads(screen_index) if screen_index else []
 
         user_ids = self.get_user_ids(student_keyword)
-        result = self.search_es(self.course_id, user_ids, page, num, sort, sort_type, fields, kpi, data_type)
-        if kpi:
-            user_ids = self.get_filter_user_ids(self.course_id, user_ids, data_type, kpi)
+        result = self.search_es(self.course_id, user_ids, page, num, sort, sort_type, fields, screen_index, data_type)
+        if screen_index:
+            user_ids = self.get_filter_user_ids(self.course_id, user_ids, data_type, screen_index)
         total = len(user_ids)
         if data_type == 'warning':
-            total = self.get_warning_total() if not kpi else total
+            total = self.get_warning_total() if not screen_index else total
         final = {}
         final['total'] = total
         final['data'] = result
@@ -92,13 +92,13 @@ class TableJoinHandler(TableHandler):
         self.es_types.insert(0, first_es_type)
         return self.es_types
 
-    def iterate_search(self, es_index_types, course_id, user_ids, page, num, sort, fields, kpi, data_type):
+    def iterate_search(self, es_index_types, course_id, user_ids, page, num, sort, fields, screen_index, data_type):
         
         if 'user_id' not in fields:
             fields.append('user_id')
         result = []
-        if kpi:
-            user_ids = self.get_filter_user_ids(course_id, user_ids, data_type, kpi)
+        if screen_index:
+            user_ids = self.get_filter_user_ids(course_id, user_ids, data_type, screen_index)
         for idx, es_index_type in enumerate(es_index_types):
             es_index, es_type = es_index_type.split('/')
             if idx == 0 and es_type == 'study_warning_person':
@@ -133,25 +133,25 @@ class TableJoinHandler(TableHandler):
                     r.update(dr)
         return result
 
-    def iterate_download(self, es_index_types, course_id, user_ids, sort, fields, kpi, data_type, part_num=10000):
+    def iterate_download(self, es_index_types, course_id, user_ids, sort, fields, screen_index, data_type, part_num=10000):
         num = len(user_ids)
         times = num / part_num
         if num % part_num:
             times += 1
         result = []
         for i in range(times):
-            result.extend(self.iterate_search(es_index_types, course_id, user_ids, i, part_num, sort, fields, kpi, data_type))
+            result.extend(self.iterate_search(es_index_types, course_id, user_ids, i, part_num, sort, fields, screen_index, data_type))
         return result 
 
-    def search_es(self, course_id, user_ids, page, num, sort, sort_type, fields, kpi, data_type):
+    def search_es(self, course_id, user_ids, page, num, sort, sort_type, fields, screen_index, data_type):
         es_index_types = self.get_query_plan(sort)
 
         reverse = True if sort_type else False
         sort = '-' + sort if reverse else sort
         if num == -1:
-            result = self.iterate_download(es_index_types, course_id, user_ids, sort, fields, kpi, data_type)
+            result = self.iterate_download(es_index_types, course_id, user_ids, sort, fields, screen_index, data_type)
         else:
-            result = self.iterate_search(es_index_types, course_id, user_ids, page, num, sort, fields, kpi, data_type)
+            result = self.iterate_search(es_index_types, course_id, user_ids, page, num, sort, fields, screen_index, data_type)
 
         result = self.postprocess(result)
 
@@ -160,14 +160,14 @@ class TableJoinHandler(TableHandler):
     def postprocess(self, result):
         return result
 
-    def course_grade_filter(self, course_id, user_ids, kpi, total):
+    def course_grade_filter(self, course_id, user_ids, screen_index, total):
         """
         共同点得分，得分率
         """
         query = self.es_query(doc_type='course_grade')\
                     .filter('term', course_id=course_id)\
                     .filter('terms', user_id=user_ids)
-        for item in kpi:
+        for item in screen_index:
             if item['field'] == 'grade':
                 query = query.filter('range', **{item['field']: {'gte': item['min'] or 0, 'lte': item['max'] or 100}})
             else:
@@ -175,16 +175,16 @@ class TableJoinHandler(TableHandler):
         user_ids = [item.user_id for item in self.es_execute(query[:total]).hits]
         return user_ids
 
-    def row_filter(self, course_id, user_ids, kpi, total, query):
+    def row_filter(self, course_id, user_ids, screen_index, total, query):
         """
         各个独立指标过滤相应学生
         """
         course_grade_fields = []
         status = False
 
-        for i in kpi:
+        for i in screen_index:
             if i['field'] in self.GRADE_FIELDS:
-                course_grade_fields_.append(i)
+                course_grade_fields.append(i)
             else:
                 status = True
                 if i['field'] in ['low_grade_rate', 'low_video_rate', 'study_rate']:
@@ -194,7 +194,7 @@ class TableJoinHandler(TableHandler):
 
         return course_grade_fields, status, query
 
-    def get_filter_user_ids(self, course_id, user_ids, data_type, kpi):
+    def get_filter_user_ids(self, course_id, user_ids, data_type, screen_index):
         """
         根据不同的type,过滤相应学生
         """
@@ -210,7 +210,7 @@ class TableJoinHandler(TableHandler):
         query = self.es_query(index=es_index, doc_type=es_doc_type)\
                     .filter('term', course_id=course_id)\
                     .filter('terms', user_id=user_ids)
-        course_grade_fields, status, query = self.row_filter(course_id, user_ids, kpi, total, query)
+        course_grade_fields, status, query = self.row_filter(course_id, user_ids, screen_index, total, query)
         course_grade_filter_user_ids =  self.course_grade_filter(course_id, user_ids, course_grade_fields, total) if course_grade_fields else user_ids
         other_filter_user_ids = [item.user_id for item in self.es_execute(query[:total]).hits] if status else user_ids
         user_ids = list(set(course_grade_filter_user_ids).intersection(set(other_filter_user_ids)))

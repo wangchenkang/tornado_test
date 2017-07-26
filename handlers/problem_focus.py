@@ -11,15 +11,13 @@ Log.create('problem_focus')
 class ProblemFocus(BaseHandler):
 
     def query_video_seeking_event(self, event_type):
-        
         user_ids = self.get_users()
         query = self.es_query(index='problems_focused',doc_type='video_seeking_event')\
-                                .filter('term', course_id=self.course_id)\
-                                .filter('term', event_type=event_type)\
-                                .filter('terms', user_id=user_ids)
+                    .filter('term', course_id=self.course_id)\
+                    .filter('term', event_type=event_type)\
+                    .filter('terms', user_id=user_ids)
 
         query.aggs.metric('num', 'cardinality',field='user_id')
-        
         query.aggs.bucket('user_ids', 'terms', field='user_id', size=len(user_ids))\
                   .metric('num', 'cardinality',field='video_id')
         
