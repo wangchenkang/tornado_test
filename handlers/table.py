@@ -61,8 +61,9 @@ class TableHandler(BaseHandler):
         screen_index = self.get_argument('screen_index', '')
         fields = json.loads(fields) if fields else []
         screen_index = json.loads(screen_index) if screen_index else []
-
         user_ids = self.get_user_ids(student_keyword)
+        if sort == 'grade' and data_type == 'warning':
+            sort = 'study_week'
         result = self.search_es(self.course_id, user_ids, page, num, sort, sort_type, fields, screen_index, data_type)
         if screen_index:
             user_ids = self.get_filter_user_ids(self.course_id, user_ids, data_type, screen_index)
