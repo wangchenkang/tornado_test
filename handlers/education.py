@@ -35,7 +35,7 @@ class Academic(BaseHandler):
         results = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_role(self.user_id, self.host)
         role = []
         role.extend([result['mode'] for result in results])
-        for i in ['staff', 'vpc_admin', 'plateducaion']:
+        for i in ['staff', 'vpc_admin']:
             if i in role:
                 return 1
         return 0
@@ -226,16 +226,16 @@ class EducationCourseNameSearch(Academic):
             #course_id:[group_key]
             course_ids = [result.course_id for result in statics_result]
             course_id_group_key = {}
-            data_courses = []
             for data_course in data:
-                try:
+                is_exist = teacher_power.get(data_course['course_id'], None)
+                if is_exist:
                     course_id_group_key[data_course['course_id']] = teacher_power[data_course['course_id']]
-                    data_courses.append(data_course)
-                except KeyError:
-                    continue
+                else:
+                    Log.error('Academic Warning course_id:%s user_id:%s host:%s' % (data_course['course_id'], self.user_id, self.host))
+
             #查健康度以及相关数据
             result = self.get_health(course_id_group_key)
-            for course in data_courses:
+            for course in data:
                 course['dynamics'] = []
                 for j in result:
                     if j not in course['dynamics']:
@@ -256,10 +256,10 @@ class EducationCourseNameSearch(Academic):
                                 elif j['group_key'] >= settings.ELECTIVE_GROUP_KEY:
                                     j['school'] = '%s.%s' % (j['group_name'], '学分课')
                                 course['dynamics'].append(j)
-            for course in data_courses:
+            for course in data:
                 course['dynamics'].sort(lambda x,y: cmp(x["group_key"], y["group_key"]))
 
-            result_data.extend(data_courses)
+            result_data.extend(data)
 
         self.success_response({'data': result_data, 'load_more': load_more})
 
