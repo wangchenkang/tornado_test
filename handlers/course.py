@@ -381,8 +381,9 @@ class CourseQueryDate(BaseHandler):
                     .filter('term', course_id=self.course_id)\
                     .filter('term', group_key=self.group_key)
         data = self.es_execute(query[:1])
-        course_data = []
-        course_data.append(data.hits[0].to_dict())
+        course_data = {}
+        if data.hits:
+            course_data.update(data.hits[0].to_dict())
 
         self.success_response({'data': course_data})
 
