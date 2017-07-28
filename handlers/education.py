@@ -83,8 +83,8 @@ class Academic(BaseHandler):
             result = [{'course_num': total, 'enrollment_num': int(aggs.enrollment_num.value or 0), 'pass_num': int(aggs.pass_num.value or 0), 'video_length': round(int(aggs.video_length.value or 0)/3600,2), \
                            'active_num': int(aggs.active_num.value or 0), 'no_num': int(aggs.no_num.value or 0)}]
         else:
-            total = self.es_execute(self.summary_query).hits.total
-            result = self.es_execute(self.summary_query[:total]).hits
+            #total = self.es_execute(self.summary_query).hits.total
+            result = self.es_execute(self.summary_query[:1]).hits
         return result
 
     def get_statics(self, course_ids=None):
@@ -131,8 +131,7 @@ class EducationCourseOverview(Academic):
     """
     教务数据课程概览关键参数
     """
-    def get(self):
-    
+    def get(self):    
         _, course_ids = self.teacher_power
         result = self.get_summary() if self.role == 1 else self.get_summary(course_ids)   
         overview_result = {}
@@ -153,10 +152,10 @@ class EducationCourseOverview(Academic):
         if self.course_status == 'process':
             del overview_result['pass_num']
             del overview_result['no_num']
-        if self.course_status == 'close':
+        elif self.course_status == 'close':
             del overview_result['active_num']
             del overview_result['no_num']
-        if self.course_status == 'unopen':
+        else:
             del overview_result['active_num']
             del overview_result['pass_num']
 
@@ -169,7 +168,6 @@ class EducationCourseStudy(Academic):
     教务数据气泡图数据
     """
     def get(self):
-
         teacher_power, course_ids = self.teacher_power
         result = self.get_statics() if self.role == 1 else self.get_statics(course_ids)
     
@@ -196,7 +194,6 @@ class EducationCourseNameSearch(Academic):
     教务数据课程概览课程名称搜索数据
     """
     def get(self):
-
         page = int(self.get_argument('page'))
         size = int(self.get_argument('size'))
         course_name = self.get_argument('course_name', None)

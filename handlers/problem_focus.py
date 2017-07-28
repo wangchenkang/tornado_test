@@ -7,7 +7,6 @@ from elasticsearch_dsl import Q
 
 Log.create('problem_focus')
 
-
 class ProblemFocus(BaseHandler):
 
     def query_video_seeking_event(self, event_type):
@@ -39,7 +38,6 @@ class ProblemFocus(BaseHandler):
         return seek_persons, seek_video_avg
 
     def get_video_not_watch(self, event_type):
-
         #未看完人数，人均未看玩视频数和,有观看行为
         result = self.es_execute(self.query_video_seeking_event(event_type))
         aggs = result.aggregations
@@ -71,7 +69,6 @@ class ProblemFocus(BaseHandler):
 
     @property
     def get_video_seek_avg(self):
-        
         result = self.es_execute(self.query_video_seeking_event('seek_video'))
         aggs = result.aggregations
         buckets = aggs.user_ids.buckets
@@ -92,29 +89,26 @@ class ProblemFocus(BaseHandler):
         total = len(aggs)
         return total
             
-
 @route('/problem_focus/seek_video_overview')
 class SeekVideoOverview(ProblemFocus):
 
     def get(self):
-
-        #课程选课人数
         enroll_num = len(self.get_users())
-        
+
         #查出本门课选课状态中的所有user_id
         user_ids = self.get_users()
 
         #course_video_open,课程视频发布数
         open_num = self.course_open_num
 
-        #seek_video拖拽漏看视频人数,无拖拽漏看视频数，人均拖拽漏看视频数，对比
+        #seek_video拖拽漏看视频人数，人均拖拽漏看视频数，对比
         seek_persons, seek_video_avg = self.get_video_seek('seek_video')
         seek_persons_percent = round(float(seek_persons)/enroll_num, 4) if enroll_num != 0 else 0
         
         #无拖拽漏看人数（观看比例大于等于90%的人数）
         not_seek_persons = self.get_video_rate
-
         not_seek_persons_percent = round(float(not_seek_persons)/enroll_num, 4) if enroll_num != 0 else 0
+
         seek_video_avg_percent = round(float(seek_video_avg)/open_num, 4) if open_num != 0 else 0
 
         #not_watch有观看行为
@@ -149,7 +143,6 @@ class SeekVideoOverview(ProblemFocus):
 class SeekVideoStudy(ProblemFocus):
 
     def get(self):
-
         seek_avg = self.get_video_seek_avg
         user_ids = self.get_users()
         result = {
@@ -170,7 +163,7 @@ class SeekVideoStudy(ProblemFocus):
             for key in result.keys():
                 value = key.split('-')
                 if len(value) > 1:
-                    if v >= int(value[0]) and v <= int(value[1]):
+                    if int(value[0]) <= v <= int(value[1]):
                         result[key] +=1
                 if v == 0:
                      result['0'] +=1
@@ -186,7 +179,6 @@ class SeekVideoStudy(ProblemFocus):
 class PersonalStudy(BaseHandler):
 
     def get(self):
-   
         #用户在课程级别拖拽漏看视频数量,未观看视频数量，课程发布视频数量
         query= self.es_query(index='problems_focused',doc_type='video_seek_summary')\
                    .filter('term', course_id=self.course_id)\
@@ -291,7 +283,6 @@ class PersonalStudy(BaseHandler):
 class StudyChapter(BaseHandler):
 
     def get(self):
-
         #节级别视频发布数量
         seq_open_num = self.seq_open_num
         #节级别有学习比例的视频数
@@ -307,9 +298,9 @@ class StudyChapter(BaseHandler):
 
         #节级别拖拽漏看，未观看视频数
         query = self.es_query(index='problems_focused', doc_type='video_seeking_event')\
-                        .filter('term', course_id=self.course_id)\
-                        .filter('term', chapter_id=self.chapter_id)\
-                        .filter('term', user_id=self.user_id)
+                    .filter('term', course_id=self.course_id)\
+                    .filter('term', chapter_id=self.chapter_id)\
+                    .filter('term', user_id=self.user_id)
         
         query_seq_seek_video = query.filter('term', event_type='seek_video')
         query_seq_seek_video.aggs.bucket('seq_ids', 'terms', field='seq_id', size=1000)\
@@ -383,11 +374,10 @@ class StudyChapter(BaseHandler):
 class SchoolInfo(BaseHandler):
 
     def get(self):
-        
         #查用户的学校
         query_org = self.es_query(doc_type='course_student_location')\
-                    .filter('term', uid=self.user_id)\
-                    .source(['binding_org'])
+                        .filter('term', uid=self.user_id)\
+                        .source(['binding_org'])
         total = self.es_execute(query_org).hits.total
         result = self.es_execute(query_org[:total]).hits
         binding_org = result[0].binding_org if len(result) != 0 else ''
@@ -400,20 +390,19 @@ class SchoolInfo(BaseHandler):
         result = self.es_execute(query_person_info[:total]).hits
         result = [hit.to_dict()for hit in result]
         result[0]['binding_org'] = binding_org
-
+        result[0]['rname'] = result[0]['rname'] or ''
+        result[0]['faculty'] = result[0]['faculty'] or ''
+        result[0]['major'] = result[0]['major'] or ''
         self.success_response({'data': result[0]})
 
 @route('/problem_focus/study_warning_overview')
 class StudyWarningOverview(BaseHandler):
 
     def get(self):
-        
-        #enroll_num
         user_ids = self.get_users()
         enroll_num = len(user_ids)
 
         field = ['warning_num', 'least_2_week_num', 'low_video_rate_num', 'low_grade_rate_num', 'warning_date']
-        
         query = self.es_query(index='problems_focused', doc_type='study_warning')\
                     .filter('term', course_id=self.course_id)\
                     .filter('term', group_key=self.group_key)\
