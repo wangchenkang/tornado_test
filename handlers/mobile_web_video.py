@@ -511,7 +511,7 @@ class LearningGuide(BaseHandler):
         for course_id in course_id_list:
             course_ids.append(course_id)
 
-        query = self.es_query(index = 'learning_guide',doc_type = 'learning_guide')\
+        query = self.es_query(index = 'learning_records',doc_type = 'learning_guide')\
                     .filter('term',student_id=user_id) \
                     .filter('terms',course_id=course_ids)
         total = self.es_execute(query).hits.total
@@ -634,7 +634,7 @@ class LearningHistory(BaseHandler):
         course_ids = []
         for course_id in course_id_list:
             course_ids.append(fix_course_id(course_id))
-        query = self.es_query(index='learning_guide', doc_type='learning_guide') \
+        query = self.es_query(index='learning_records', doc_type='learning_guide') \
                     .filter('term', student_id=user_id) \
                     .filter('terms', course_id=course_ids)
         total = self.es_execute(query).hits.total
