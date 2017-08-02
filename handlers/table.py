@@ -62,8 +62,12 @@ class TableHandler(BaseHandler):
         fields = json.loads(fields) if fields else []
         screen_index = json.loads(screen_index) if screen_index else []
         user_ids = self.get_user_ids(student_keyword)
+        
         if sort == 'grade' and data_type == 'warning':
             sort = 'study_week'
+        elif sort == 'grade' and data_type == 'newcloud_grade':
+            sort = 'total_grade'
+
         result = self.search_es(self.course_id, user_ids, page, num, sort, sort_type, fields, screen_index, data_type)
         if screen_index:
             user_ids = self.get_filter_user_ids(self.course_id, user_ids, data_type, screen_index)
@@ -83,6 +87,7 @@ class TableJoinHandler(TableHandler):
     USER_FIELDS = ['user_id', 'nickname', 'xid', 'rname', 'binding_uid', 'faculty', 'major', 'the_class', 'entrance_year']
     SEEK_FIELDS = ['is_watch', 'is_seek', 'not_watch_total', 'seek_total', 'video_open_num']
     WARNING_FIELDS = ['warning_date', 'study_week', 'least_2_week', 'low_video_rate', 'low_grade_rate']
+    NEWCLOUD_GRADE_FIELDS = ['is_pass', 'total_grade', 'edx', 'video', 'post', 'import']
 
     def get_es_type(self, sort_field):
         pass
@@ -335,10 +340,20 @@ class Studywarning(TableJoinHandler):
                                 
     es_types = ['%s/study_warning_person' %('problems_focused'), '%s/student_enrollment_info' % settings.ES_INDEX]
     
-    def get_es_type(self, sort_field):
-        if sort_field in self.USER_FIELDS:
+    def get_es_type(self, sort):
+        if sort in self.USER_FIELDS:
             return '%s/student_enrollment_info' % settings.ES_INDEX
         return '%s/study_warning_person' % ('problems_focused')
+
+@route('/table/newcloud_grade')
+class NewcloudGrade(TableJoinHandler):
+    #TODO
+    es_types = ['%s/newcloud_grade' % '', '%s/student_enrollment_info' % settings.ES_INDEX]
+
+    def get_es_type(self, sort):
+        if sort in self.USER_FIELDS:
+            return '%s/student_enrollment_info' % settings.ES_INDEX
+        return '%s/newcloud_grade' % ''
 
 @route('/small_question_structure')
 class SmallQuestionStructure(BaseHandler):
