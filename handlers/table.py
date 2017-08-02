@@ -355,3 +355,12 @@ class SmallQuestionStructure(BaseHandler):
         result = {item.compact_order_id: item.to_dict() for item in data.hits}
         self.success_response({'data': result})
 
+
+@route('/data/update_time')
+class UpdateTime(BaseHandler):
+    def get(self):
+        query = self.es_query(index='processstate_test', doc_type='processstate_test') \
+                    .filter('term', topic='edxapp')
+
+        data = self.es_execute(query[:1])
+        self.success_response({'data': {'update_time': data[0]['current_time'].replace('T', ' ')}})
