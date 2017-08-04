@@ -11,11 +11,21 @@ Log.create('table')
 
 class TableHandler(BaseHandler):
 
-    def student_search(self, course_id, group_key, student_keyword):
-        query = self.es_query(index=settings.ES_INDEX, doc_type='student_enrollment_info') \
+    def student_search(self, course_id, group_key, student_keyword, data_type):
+        # enroll表格临时逻辑
+        if data_type == 'enroll':
+            index = 'realtime'
+        else:
+            index = settings.ES_INDEX
+
+        query = self.es_query(index=index, doc_type='student_enrollment_info') \
                     .filter('term', course_id=course_id) \
-                    .filter('term', group_key=group_key) \
-                    .filter(Q('bool', should=[Q('wildcard', rname='*%s*' % student_keyword)\
+                    .filter('term', group_key=group_key)
+        if data_type != 'enroll':
+            query=query.filter('term', is_active=1)
+
+        if student_keyword:
+                    query = query.filter(Q('bool', should=[Q('wildcard', rname='*%s*' % student_keyword)\
                                               | Q('wildcard', binding_uid='*%s*'% student_keyword) \
                                               | Q('wildcard', nickname='*%s*' % student_keyword)\
                                               | Q('wildcard', xid='*%s*' % student_keyword)\
@@ -28,7 +38,7 @@ class TableHandler(BaseHandler):
         result = self.es_execute(query[:size]).hits
         user_ids = [r.user_id for r in result]
         return user_ids
-    
+
     def get_warning_total(self):
         query = self.es_query(index='problems_focused',doc_type='study_warning_person')\
                     .filter('term', course_id=self.course_id)\
@@ -36,16 +46,6 @@ class TableHandler(BaseHandler):
                     .filter('terms', user_id=self.get_users())
         total = self.es_execute(query).hits.total
         return total
-    
-    def get_user_ids(self, student_keyword=None):
-        """
-        获取user_ids
-        """
-        if student_keyword:
-            user_ids = self.student_search(self.course_id, self.group_key, student_keyword)
-        else:
-            user_ids = self.get_users()
-        return user_ids
 
     def post(self):
 
@@ -61,7 +61,10 @@ class TableHandler(BaseHandler):
         screen_index = self.get_argument('screen_index', '')
         fields = json.loads(fields) if fields else []
         screen_index = json.loads(screen_index) if screen_index else []
-        user_ids = self.get_user_ids(student_keyword)
+        user_ids = self.student_search(self.course_id, self.group_key, student_keyword, data_type)
+        # enroll表临时逻辑
+        if data_type == 'enroll' and sort == 'grade':
+            sort = 'enroll_time'
         if sort == 'grade' and data_type == 'warning':
             sort = 'study_week'
         result = self.search_es(self.course_id, user_ids, page, num, sort, sort_type, fields, screen_index, data_type)
@@ -301,12 +304,10 @@ class DiscussionDetail(TableJoinHandler):
 @route('/table/enroll_overview')
 class EnrollDetail(TableJoinHandler):
 
-    es_types = ['%s/course_grade' % settings.ES_INDEX, 'realtime/student_enrollment_info']
+    es_types = ['realtime/student_enrollment_info']
 
     def get_es_type(self, sort_field):
-        if sort_field in self.GRADE_FIELDS:
-            return '%s/course_grade' % settings.ES_INDEX
-        elif sort_field in self.USER_FIELDS:
+        if sort_field in self.USER_FIELDS:
             return 'realtime/student_enrollment_info'
         return 'realtime/student_enrollment_info'
 

@@ -216,14 +216,14 @@ class CourseEnrollmentsDate(BaseHandler):
         self.success_response({"data": data})
 
 @route('/course/enrollments_date_realtime')
-class CourseEnrollmentsDate(BaseHandler):
+class CourseEnrollmentsDateRealtime(BaseHandler):
     """
     课程选课退课每日数据
     """
     def get(self):
         start = self.get_param("start")
         end = self.get_param("end")
-        
+        end = '2017-08-04'
         enroll_query = self.es_query(index='realtime', doc_type="student_enrollment_info")
         enroll_query = enroll_query.filter("range", **{'enroll_time': {'lte': end, 'gte': start}}) \
                     .filter('term', group_key=self.group_key) \
