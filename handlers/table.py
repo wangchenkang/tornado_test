@@ -301,14 +301,14 @@ class DiscussionDetail(TableJoinHandler):
 @route('/table/enroll_overview')
 class EnrollDetail(TableJoinHandler):
 
-    es_types = ['tap_table_enroll/enroll_summary', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
+    es_types = ['%s/course_grade' % settings.ES_INDEX, 'realtime/student_enrollment_info']
 
     def get_es_type(self, sort_field):
         if sort_field in self.GRADE_FIELDS:
             return '%s/course_grade' % settings.ES_INDEX
         elif sort_field in self.USER_FIELDS:
-            return '%s/student_enrollment_info' % settings.ES_INDEX
-        return 'tap_table_enroll/enroll_summary'
+            return 'realtime/student_enrollment_info'
+        return 'realtime/student_enrollment_info'
 
     def postprocess(self, result):
         for record in result:
@@ -359,7 +359,7 @@ class SmallQuestionStructure(BaseHandler):
 @route('/data/update_time')
 class UpdateTime(BaseHandler):
     def get(self):
-        query = self.es_query(index='processstate_test', doc_type='processstate_test') \
+        query = self.es_query(index='processstate', doc_type='processstate') \
                     .filter('term', topic='edxapp')
 
         data = self.es_execute(query[:1])
