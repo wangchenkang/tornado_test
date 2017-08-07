@@ -224,7 +224,8 @@ class CourseEnrollmentsDate(BaseHandler):
                     item["enrollment"] = unused_item['enrollment']
                     item['total_enroll'] = unused_item['total_enroll']
                 break
-        data.remove(unused_item)
+        if unused_item:
+            data.remove(unused_item)
         self.success_response({"data": data})
 
 @route('/course/enrollments_date_realtime')
