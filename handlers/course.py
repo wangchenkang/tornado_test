@@ -252,7 +252,7 @@ class CourseEnrollmentsDateRealtime(BaseHandler):
             res_dict[date] = data
         for x in unenroll_buckets:
             date = str(x["key_as_string"][:10])
-            data = res_dict[date]
+            data = res_dict.get(date, {'date': date, 'enroll': 0})
             data['unenroll'] = x["doc_count"]
 
         item = start
