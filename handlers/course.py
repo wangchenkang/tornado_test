@@ -149,12 +149,12 @@ class CourseEnrollmentsDate(BaseHandler):
     def get(self):
         start = self.get_param("start")
         end = self.get_param("end")
-        
+       
         query = self.es_query(doc_type="student_courseenrollment")
-        query = query.filter("range", **{'event_time': {'lte': end, 'gte': start}}) \
+        query = query.filter("range", **{'event_time': {'lt': '%s%s' % (datedelta(end,2),'T00:00:00+08:00'), 'gte': '%s%s' %(start, 'T00:00:00+08:00')}}) \
                     .filter('term', group_key=self.group_key) \
                     .filter("term", course_id=self.course_id)[:0]
-        query.aggs.bucket('value', A("date_histogram", field="event_time", interval="day")) \
+        query.aggs.bucket('value', A("date_histogram", field="event_time", interval="day", time_zone='+08:00')) \
                 .metric('count', "terms", field="is_active", size=2)
         results = self.es_execute(query)
         aggs = results.aggregations
@@ -165,10 +165,12 @@ class CourseEnrollmentsDate(BaseHandler):
             data = {}
             aggs_buckets = x["count"]["buckets"]
             for aggs_bucket in aggs_buckets:
+                data['unenroll'] = 0
                 if str(aggs_bucket["key"]) == '1':
                     data['enroll'] = aggs_bucket["doc_count"]
                 elif str(aggs_bucket['key']) == '0':
                     data['unenroll'] = aggs_bucket["doc_count"]
+
             data["date"] = date
             res_dict[date] = data
         item = start
@@ -188,7 +190,7 @@ class CourseEnrollmentsDate(BaseHandler):
             item = datedelta(item, 1)
         # 取end的数据
         query = self.es_query(doc_type="student_courseenrollment")
-        query = query.filter("range", **{'event_time': {'lt': start}})
+        query = query.filter("range", **{'event_time': {'lt': '%s%s' %(start,'T00:00:00+08:00')}})
         query = query.filter('term', group_key=self.group_key)
         query = query.filter("term", course_id=self.course_id)
         query = query[:0]
@@ -204,12 +206,22 @@ class CourseEnrollmentsDate(BaseHandler):
             elif str(x['key']) == '0':
                 unenroll = x["doc_count"]
         data = sorted(res_dict.values(), key=lambda x: x["date"])
+        unused_item = None
         for item in data:
             enroll += item["enroll"]
             unenroll += item["unenroll"]
             item["total_enroll"] = enroll + unenroll
             item["total_unenroll"] = unenroll
             item["enrollment"] = enroll
+            if item['date'] == end_1:
+                unused_item = item
+        for item in data:
+            if item['date'] == end:
+                if unused_item:
+                    item["enrollment"] = unused_item['enrollment']
+                    item['total_enroll'] = unused_item['total_enroll']
+                break
+        data.remove(unused_item)
         self.success_response({"data": data})
 
 @route('/course/active_num')
