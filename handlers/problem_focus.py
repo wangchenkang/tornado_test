@@ -1,11 +1,9 @@
 #! -*- coding: utf-8 -*-
 from .base import BaseHandler
 from utils.routes import route
-from utils.log import Log
 import settings
 from elasticsearch_dsl import Q
 
-Log.create('problem_focus')
 
 class ProblemFocus(BaseHandler):
 

@@ -20,14 +20,12 @@ from elasticsearch import NotFoundError
 from .base import BaseHandler
 from utils.routes import route
 from utils.tools import fix_course_id, datedelta
-from utils.log import Log
 from utils import mysql_connect
 import settings
 
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
-Log.create('data')
 
 download_data_type = { 
     'study_progress': u'学习进度数据',

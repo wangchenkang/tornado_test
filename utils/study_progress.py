@@ -45,6 +45,7 @@ class StudyProgress:
         try:
             self.connection = happybase.Connection(host=self.thrift_server, port=self.thrift_port)
         except Exception as e:
+            Log.create('hbase')
             Log.error(e)
             thrift_server = settings.THRIFT_SERVER[random.randint(0,3)]
             self.connection = happybase.Connection(host=thrift_server, port=self.thrift_port)

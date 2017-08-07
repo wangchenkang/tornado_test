@@ -1,13 +1,11 @@
 #! -*- coding: utf-8 -*-
 import time
-from utils.log import Log
 from utils.routes import route
 from elasticsearch_dsl import Q
 from .base import BaseHandler
 import settings
 import json
 
-Log.create('table')
 
 class TableHandler(BaseHandler):
 

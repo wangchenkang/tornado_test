@@ -2,12 +2,11 @@
 from __future__ import division
 from .base import BaseHandler
 from utils.routes import route
-from utils.log import Log
 import time
 from elasticsearch_dsl import Q
 from elasticsearch import Elasticsearch
 import settings
-Log.create('student')
+
 
 @route('/student/binding_org')
 class StudentOrg(BaseHandler):

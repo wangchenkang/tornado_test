@@ -1,10 +1,7 @@
 #! -*- coding: utf-8 -*-
 from .base import BaseHandler
 from utils.routes import route
-from utils.log import Log
 
-
-Log.create('config')
 
 @route('/config/data_date')
 class DataDateConfig(BaseHandler):

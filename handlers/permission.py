@@ -2,13 +2,10 @@
 from elasticsearch_dsl import Q
 from utils.routes import route
 from utils.tools import var
-from utils.log import Log
 from utils import mysql_connect
 from .base import BaseHandler
 import settings
 import datetime
-
-Log.create('permission')
 
 
 @route('/permission/teacher_permission')

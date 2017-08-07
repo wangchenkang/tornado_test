@@ -1,12 +1,9 @@
 #! -*- coding: utf-8 -*-
 from .base import BaseHandler
 from utils.routes import route
-from utils.log import Log
 import ast
 from collections import defaultdict
 
-
-Log.create('problem')
 
 @route('/problem/chapter_stat')
 class ChapterProblem(BaseHandler):

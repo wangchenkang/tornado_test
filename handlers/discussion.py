@@ -3,10 +3,9 @@ from datetime import datetime, timedelta
 from elasticsearch_dsl import Q
 from .base import BaseHandler
 from utils.routes import route
-from utils.log import Log
 from utils.tools import date_from_query, date_to_str, utc_to_cst
 from collections import defaultdict
-Log.create('discussion')
+
 
 @route('/discussion/course_stat')
 class CourseDiscussion(BaseHandler):
