@@ -26,8 +26,8 @@ class CourseActivity(BaseHandler):
             .filter('terms', course_id=courses) \
             .filter('term', group_key=self.group_key)
 
-        result = self.es_execute(query)
-        hits = self.es_execute(query[:result.hits.total]).hits
+        total = self.es_execute(query[:0]).hits.total
+        hits = self.es_execute(query[:total]).hits
         result = {'active_user_num': 0, 'percent': 0, 'overcome': 0 }
         # 计算该课程该group的7日活跃率
         for hit in hits:
@@ -326,11 +326,8 @@ class CourseActive(BaseHandler):
 
         query = self.es_query(doc_type="course_active_num") \
                 .filter("range", **{'time_d': {'lte': end, 'gte': start}}) \
-                .filter("term", course_id=self.course_id)
-        if self.group_key:
-            query = query.filter("term", group_key=self.group_key)
-        #else:
-        #    query = query.filter(~F("exists", field="group_key"))
+                .filter("term", course_id=self.course_id)\
+                .filter("term", group_key=self.group_key)
         total = self.es_execute(query[:0]).hits.total
         results = self.es_execute(query[:total])
         res_dict = {}
@@ -353,7 +350,7 @@ class CourseActive(BaseHandler):
                     "revival": 0
                 }
             item = datedelta(item, 1)
-        data = sorted(res_dict.values(), key=lambda x: x["date"])
+        data = sorted(res_dict.values(), key=lambda x:x['date'])
         self.success_response({'data': data})
 
 @route('/course/distribution')
@@ -362,12 +359,11 @@ class CourseDistribution(BaseHandler):
     获取用户省份统计
     """
     def get(self):
-        query = self.es_query(doc_type="course_student_location")
-        if self.group_key:
-            query = query.filter("term", group_key=self.group_key)
-        top = int(self.get_argument("top", 10))
-        query = query.filter("term", course_id=self.course_id)\
-                     .filter("term", country='中国')[:0]
+        top = int(self.get_argument('top', 10))
+        query = self.es_query(doc_type="course_student_location")\
+                    .filter("term", group_key=self.group_key)\
+                    .filter("term", course_id=self.course_id)\
+                    .filter("term", country='中国')[:0]
         query.aggs.bucket("area", "terms", field="province", size=top)
         results = self.es_execute(query)
         aggs = results.aggregations["area"]["buckets"]
@@ -387,13 +383,10 @@ class CourseVideoWatch(BaseHandler):
     def get(self):
         start = self.get_param("start")
         end = self.get_param("end")
-        group_key = self.group_key
-        query = self.es_query(doc_type="course_video_learning")
-        query = query.filter("term", course_id=self.course_id)
-        if group_key:
-            query = query.filter("term", group_key=group_key)
-        query = query.filter("range", **{'date': {'lte': end, 'gte': start}})[:100]
-
+        query = self.es_query(doc_type="course_video_learning")\
+                    .filter("term", course_id=self.course_id)\
+                    .filter("term", group_key=self.group_key)\
+                    .filter("range", **{'date': {'lte': end, 'gte': start}})[:15]
         results = self.es_execute(query)
         hits = results.hits
         res_dict = {}
@@ -411,7 +404,7 @@ class CourseVideoWatch(BaseHandler):
                     "hour_watch_num": [0]*24
                 }
             item = datedelta(item, 1)
-        data = sorted(res_dict.values(), key=lambda x: x["date"])
+        data = sorted(res_dict.values(), key=lambda x: x['date'])
         self.success_response({'data': data})
 
 
@@ -445,7 +438,7 @@ class CourseTsinghuaStudent(BaseHandler):
                 .filter('term', binding_org=u'清华大学') \
                 .filter('term', group_key=self.group_key)
 
-        size = self.es_execute(query).hits.total
+        size = self.es_execute(query[:0]).hits.total
         data = self.es_execute(query[:size])
 
         result = [item.to_dict() for item in data.hits]
@@ -468,7 +461,6 @@ class CourseDetail(BaseHandler):
         course_ids = self.course_id.split(",")
         query = self.es_query(doc_type='course_community')\
                             .filter('terms', course_id=course_ids)
-                            #.filter('term', group_key=self.group_key)
         size = self.es_execute(query[:0]).hits.total
         data = self.es_execute(query[:size])
         course_data = []
@@ -496,7 +488,7 @@ class CourseHealth(BaseHandler):
         query = self.es_query(doc_type='course_health')\
                     .filter('term', course_id=self.course_id)\
                     .filter('term', group_key=self.group_key).source(['active_rate', 'active_user_num', 'active_rank', 'enroll_num', 'enroll_rank', 'reply_rate', 'noreply_num', 'reply_rank', 'interactive_per', 'interactive_rank', 'comment_num', 'comment_rank'])
-        total = self.es_execute(query).hits.total
+        total = self.es_execute(query[:0]).hits.total
         result = self.es_execute(query[:total]).hits
         data = {}
         if len(result) !=0:
