@@ -27,7 +27,6 @@ class Application(tornado.web.Application):
             'debug': options.debug,
         }
         routed_handlers = route.get_routes()
-        print routed_handlers
         routed_handlers.append(
             (r'.*', NotFoundHandler)
         )

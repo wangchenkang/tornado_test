@@ -17,7 +17,6 @@ class route(object):
         name = self.name or _handler.__name__
         route_path = route_path_convert('{}:{}'.format(_handler.__module__, _handler.__name__))
         self._routes[route_path] = tornado.web.url(self.uri, _handler, name=name)
-        print route_path, '**************', _handler.__module__
         return _handler
 
     @classmethod
@@ -31,7 +30,6 @@ class route(object):
 def route_path_convert(*args):
     name = []
     for item in args:
-        print item
         for s in item:
             if s == '.':
                 name.append('_')
