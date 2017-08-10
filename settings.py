@@ -9,6 +9,7 @@ CONFIG_FILE = os.path.join(PROJECT_PATH, "settings.yaml")
 COOKIE_SECRET = "11a0f5a5df09021b09ae9811ee0c2c11e64c781b"
 
 MOOC_GROUP_KEY = 1
+
 SPOC_GROUP_KEY = 2
 TSINGHUA_GROUP_KEY = 3
 ELECTIVE_ALL_GROUP_KEY = 4
@@ -32,6 +33,7 @@ ROW_FILTER = {
                 }
 DISPATCH_OPTIMIZE = True
 ES_INDEX = 'tap'
+NEWCLOUD_ES_INDEX = 'newcloud_tap'
 #ES_INDEX = 'tapgo'
 with open(CONFIG_FILE) as f:
     document = f.read()

@@ -66,7 +66,7 @@ class TableHandler(BaseHandler):
         if sort == 'grade' and data_type == 'warning':
             sort = 'study_week'
         elif sort == 'grade' and data_type == 'newcloud_grade':
-            sort = 'total_grade'
+            sort = 'final_score'
 
         result = self.search_es(self.course_id, user_ids, page, num, sort, sort_type, fields, screen_index, data_type)
         if screen_index:
@@ -105,6 +105,7 @@ class TableJoinHandler(TableHandler):
         result = []
         if screen_index:
             user_ids = self.get_filter_user_ids(course_id, user_ids, data_type, screen_index)
+        user_ids = [580553]
         for idx, es_index_type in enumerate(es_index_types):
             es_index, es_type = es_index_type.split('/')
             if idx == 0 and es_type == 'study_warning_person':
@@ -348,12 +349,12 @@ class Studywarning(TableJoinHandler):
 @route('/table/newcloud_grade')
 class NewcloudGrade(TableJoinHandler):
     #TODO
-    es_types = ['%s/newcloud_grade' % '', '%s/student_enrollment_info' % settings.ES_INDEX]
+    es_types = ['%s/score_realtime' % settings.NEWCLOUD_ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
 
     def get_es_type(self, sort):
         if sort in self.USER_FIELDS:
             return '%s/student_enrollment_info' % settings.ES_INDEX
-        return '%s/newcloud_grade' % ''
+        return '%s/score_realtime' % settings.NEWCLOUD_ES_INDEX
 
 @route('/small_question_structure')
 class SmallQuestionStructure(BaseHandler):
