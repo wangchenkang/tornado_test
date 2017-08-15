@@ -29,7 +29,8 @@ ROW_FILTER = {
                 'video': {'index': 'tap_table_video', 'doc_type': 'chapter_seq_video'},\
                 'enroll': {'index': 'tap_table_enroll', 'doc_type': 'enroll_summary'},\
                 'focus': {'index': 'problems_focused', 'doc_type': 'video_seek_summary'},\
-                'warning': {'index': 'problems_focused', 'doc_type': 'study_warning_person'}
+                'warning': {'index': 'problems_focused', 'doc_type': 'study_warning_person'},\
+                'newcloud_grade': {'index': 'newcloud_type', 'doc_type': 'score_realtime'},\
                 }
 DISPATCH_OPTIMIZE = True
 ES_INDEX = 'tap'

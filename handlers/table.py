@@ -45,6 +45,14 @@ class TableHandler(BaseHandler):
         total = self.es_execute(query).hits.total
         return total
 
+    def get_newcloud_grade_total(self):
+        query = self.es_query(index=settings.NEWCLOUD_ES_INDEX, doc_type='score_realtime')\
+                    .filter('term', course_id=self.course_id)\
+                    .filter('term', group_key=self.group_key)\
+                    .filter('terms', user_id=self.get_users())
+        total = self.es_execute(query).hits.total
+        return total
+
     def post(self):
 
         student_keyword = self.get_argument('student_keyword', None)
@@ -65,13 +73,16 @@ class TableHandler(BaseHandler):
             sort = 'enroll_time'
         if sort == 'grade' and data_type == 'warning':
             sort = 'study_week'
-        
+        if sort == 'grade' and data_type == 'newcloud_grade':
+            sort = 'final_score'
         result = self.search_es(self.course_id, user_ids, page, num, sort, sort_type, fields, screen_index, data_type)
         if screen_index:
             user_ids = self.get_filter_user_ids(self.course_id, user_ids, data_type, screen_index)
         total = len(user_ids)
         if data_type == 'warning':
             total = self.get_warning_total() if not screen_index else total
+        if data_type == 'newcloud_grade':
+            total = self.get_newcloud_grade_total() if not screen_index else total
         final = {}
         final['total'] = total
         final['data'] = result
@@ -135,7 +146,7 @@ class TableJoinHandler(TableHandler):
                 for r in result:
                     dr = data_result_dict.get(r['user_id'], {})
                     r.update(dr)
-            print result
+            
         return result
 
     def iterate_download(self, es_index_types, course_id, user_ids, sort, fields, screen_index, data_type, part_num=10000):
@@ -164,6 +175,18 @@ class TableJoinHandler(TableHandler):
 
     def postprocess(self, result):
         return result
+ 
+    def newcloud_grade_filter(self, course_id, user_ids, screen_index, total):
+        """
+        新学堂云成绩过滤
+        """
+        query = self.es_query(index=settings.NEWCLOUD_ES_INDEX, doc_type='score_realtime')\
+                    .filter('term', course_id=course_id)\
+                    .filter('terms', user_id=user_ids)
+        for item in screen_index:
+            query = query.filter('range', **{item['field']: {'gte': item['min'] or 0, 'lte': item['max'] or 100}})
+        user_ids = [item.user_id for item in self.es_execute(query[:total]).hits]
+        return user_ids
 
     def course_grade_filter(self, course_id, user_ids, screen_index, total):
         """
@@ -211,14 +234,16 @@ class TableJoinHandler(TableHandler):
         else:
             es_index = es['index']
             es_doc_type = es['doc_type']
-
-        query = self.es_query(index=es_index, doc_type=es_doc_type)\
+        if data_type == 'newcloud_grade':
+            user_ids = self.newcloud_grade_filter(course_id, user_ids, screen_index, total)
+        else:
+            query = self.es_query(index=es_index, doc_type=es_doc_type)\
                     .filter('term', course_id=course_id)\
                     .filter('terms', user_id=user_ids)
-        course_grade_fields, status, query = self.row_filter(course_id, user_ids, screen_index, total, query)
-        course_grade_filter_user_ids =  self.course_grade_filter(course_id, user_ids, course_grade_fields, total) if course_grade_fields else user_ids
-        other_filter_user_ids = [item.user_id for item in self.es_execute(query[:total]).hits] if status else user_ids
-        user_ids = list(set(course_grade_filter_user_ids).intersection(set(other_filter_user_ids)))
+            course_grade_fields, status, query = self.row_filter(course_id, user_ids, screen_index, total, query)
+            course_grade_filter_user_ids =  self.course_grade_filter(course_id, user_ids, course_grade_fields, total) if course_grade_fields else user_ids
+            other_filter_user_ids = [item.user_id for item in self.es_execute(query[:total]).hits] if status else user_ids
+            user_ids = list(set(course_grade_filter_user_ids).intersection(set(other_filter_user_ids)))
         return user_ids
 
     def get_warning_user_ids(self, course_id, es_index, es_type, user_ids):
@@ -344,7 +369,6 @@ class Studywarning(TableJoinHandler):
 
 @route('/table/newcloud_grade')
 class NewcloudGrade(TableJoinHandler):
-    #TODO
     es_types = ['%s/score_realtime' % settings.NEWCLOUD_ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
 
     def get_es_type(self, sort):
