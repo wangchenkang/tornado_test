@@ -65,9 +65,7 @@ class TableHandler(BaseHandler):
         
         if sort == 'grade' and data_type == 'warning':
             sort = 'study_week'
-        elif sort == 'grade' and data_type == 'newcloud_grade':
-            sort = 'final_score'
-
+        
         result = self.search_es(self.course_id, user_ids, page, num, sort, sort_type, fields, screen_index, data_type)
         if screen_index:
             user_ids = self.get_filter_user_ids(self.course_id, user_ids, data_type, screen_index)
@@ -87,7 +85,7 @@ class TableJoinHandler(TableHandler):
     USER_FIELDS = ['user_id', 'nickname', 'xid', 'rname', 'binding_uid', 'faculty', 'major', 'the_class', 'entrance_year']
     SEEK_FIELDS = ['is_watch', 'is_seek', 'not_watch_total', 'seek_total', 'video_open_num']
     WARNING_FIELDS = ['warning_date', 'study_week', 'least_2_week', 'low_video_rate', 'low_grade_rate']
-    NEWCLOUD_GRADE_FIELDS = ['is_pass', 'total_grade', 'edx', 'video', 'post', 'import']
+    NEWCLOUD_GRADE_FIELDS = ['has_passed', 'final_score', 'edx_score', 'video_score', 'post_score', 'import_score']
 
     def get_es_type(self, sort_field):
         pass
@@ -105,7 +103,6 @@ class TableJoinHandler(TableHandler):
         result = []
         if screen_index:
             user_ids = self.get_filter_user_ids(course_id, user_ids, data_type, screen_index)
-        user_ids = [580553]
         for idx, es_index_type in enumerate(es_index_types):
             es_index, es_type = es_index_type.split('/')
             if idx == 0 and es_type == 'study_warning_person':
@@ -138,6 +135,7 @@ class TableJoinHandler(TableHandler):
                 for r in result:
                     dr = data_result_dict.get(r['user_id'], {})
                     r.update(dr)
+            print result
         return result
 
     def iterate_download(self, es_index_types, course_id, user_ids, sort, fields, screen_index, data_type, part_num=10000):

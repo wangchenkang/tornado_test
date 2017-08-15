@@ -105,8 +105,8 @@ class Distribution(BaseHandler):
         ranges = []
         for i in xrange(10):
             _ = {}
-            _['from'] = i*10 + 1
-            _['to'] = i*10 + 10
+            _['from'] = i*10 + 0.1
+            _['to'] = i*10 + 10.01
             ranges.append(_)
         return ranges
 
@@ -115,7 +115,7 @@ class Distribution(BaseHandler):
                       .filter('term', course_id=self.course_id)\
                       .filter('term', group_key=self.group_key)
         query.aggs.metric('num', 'range', field='final_score', ranges=self.ranges)
-        query_2 = query.filter('range', **{'grade': {'lte':0}})
+        query_2 = query.filter('range', **{'final_score': {'lte':0}})
         result_1 = self.es_execute(query)
         result_2 = self.es_execute(query_2).hits
         nums = result_2.total
