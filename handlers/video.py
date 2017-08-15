@@ -1,10 +1,8 @@
 #! -*- coding: utf-8 -*-
 from .base import BaseHandler
 from utils.routes import route
-from utils.log import Log
 from utils.tools import date_from_new_date
 
-Log.create('video')
 
 @route('/video/chapter_stat')
 class ChapterVideo(BaseHandler):

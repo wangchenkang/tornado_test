@@ -4,10 +4,8 @@ import hashlib
 import memcache
 from utils.routes import route
 from utils.tools import var
-from utils.log import Log
 from .base import BaseHandler
 
-Log.create('detail')
 
 @route('/detail/course_grade_ratio')
 class DetailCourseGradeRatio(BaseHandler):

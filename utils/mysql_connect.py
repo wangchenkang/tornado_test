@@ -5,7 +5,6 @@ from MySQLdb.cursors import DictCursor
 import sys
 from utils.log import Log
 
-Log.create('mysql')
 
 reload (sys)
 sys.setdefaultencoding('utf-8')
@@ -117,5 +116,6 @@ class MysqlConnect(object):
                     data.append({'course_id': course_id, 'enroll_all': 0})
                 results = data
         except Exception as e:
+            Log.create('mysql')
             Log.error(e)
         return results

@@ -9,7 +9,6 @@ import settings
 import datetime
 import time
 
-Log.create('education')
 
 COURSE_STATUS = {'process': '开课中', 'close': '已结课', 'unopen': '即将开课'}
 COURSE_TYPE = {1: '自主模式', 0: '随堂模式'}
@@ -231,6 +230,7 @@ class EducationCourseNameSearch(Academic):
                 if is_exist:
                     course_id_group_key[data_course['course_id']] = teacher_power[data_course['course_id']]
                 else:
+                    Log.create('academic')
                     Log.error('Academic Warning course_id:%s user_id:%s host:%s' % (data_course['course_id'], self.user_id, self.host))
 
             #查健康度以及相关数据

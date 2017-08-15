@@ -9,7 +9,6 @@ from urllib import unquote
 from utils.routes import route
 from base import BaseHandler
 from tornado.web import gen
-from utils.log import Log
 from collections import defaultdict
 from elasticsearch import Elasticsearch
 from dateutil.relativedelta import relativedelta
@@ -37,7 +36,6 @@ object_json = {"ending_info":["course_id","course_name","category_name","status"
 
 hosts = [{"host":'10.0.2.128',"port":9200},{"host":'10.0.2.130',"port":9200},{"host":'10.0.2.132',"port":9200}, {"host":'10.0.2.133',"port":9200}, {"host":'10.0.2.135',"port":9200}]
 
-Log.create('elective_course')
 def check_token(token):
     checkstr = ""
     md5str = hashlib.md5(checkstr).hexdigest()

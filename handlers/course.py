@@ -6,7 +6,9 @@ from utils.tools import utc_to_cst, date_to_str, datedelta
 from elasticsearch_dsl import A
 import json
 import settings
+from utils.log import Log
 from elasticsearch_dsl import Q
+
 
 @route('/course/week_activity')
 class CourseActivity(BaseHandler):
@@ -24,8 +26,8 @@ class CourseActivity(BaseHandler):
             .filter('terms', course_id=courses) \
             .filter('term', group_key=self.group_key)
 
-        result = self.es_execute(query)
-        hits = self.es_execute(query[:result.hits.total]).hits
+        total = self.es_execute(query[:0]).hits.total
+        hits = self.es_execute(query[:total]).hits
         result = {'active_user_num': 0, 'percent': 0, 'overcome': 0 }
         # 计算该课程该group的7日活跃率
         for hit in hits:
@@ -150,12 +152,12 @@ class CourseEnrollmentsDate(BaseHandler):
     def get(self):
         start = self.get_param("start")
         end = self.get_param("end")
-        
+       
         query = self.es_query(doc_type="student_courseenrollment")
-        query = query.filter("range", **{'event_time': {'lte': end, 'gte': start}}) \
+        query = query.filter("range", **{'event_time': {'lt': '%s%s' % (datedelta(end,2),'T00:00:00+08:00'), 'gte': '%s%s' %(start, 'T00:00:00+08:00')}}) \
                     .filter('term', group_key=self.group_key) \
                     .filter("term", course_id=self.course_id)[:0]
-        query.aggs.bucket('value', A("date_histogram", field="event_time", interval="day")) \
+        query.aggs.bucket('value', A("date_histogram", field="event_time", interval="day", time_zone='+08:00')) \
                 .metric('count', "terms", field="is_active", size=2)
         results = self.es_execute(query)
         aggs = results.aggregations
@@ -166,10 +168,12 @@ class CourseEnrollmentsDate(BaseHandler):
             data = {}
             aggs_buckets = x["count"]["buckets"]
             for aggs_bucket in aggs_buckets:
+                data['unenroll'] = 0
                 if str(aggs_bucket["key"]) == '1':
                     data['enroll'] = aggs_bucket["doc_count"]
                 elif str(aggs_bucket['key']) == '0':
                     data['unenroll'] = aggs_bucket["doc_count"]
+
             data["date"] = date
             res_dict[date] = data
         item = start
@@ -189,7 +193,7 @@ class CourseEnrollmentsDate(BaseHandler):
             item = datedelta(item, 1)
         # 取end的数据
         query = self.es_query(doc_type="student_courseenrollment")
-        query = query.filter("range", **{'event_time': {'lt': start}})
+        query = query.filter("range", **{'event_time': {'lt': '%s%s' %(start,'T00:00:00+08:00')}})
         query = query.filter('term', group_key=self.group_key)
         query = query.filter("term", course_id=self.course_id)
         query = query[:0]
@@ -204,6 +208,105 @@ class CourseEnrollmentsDate(BaseHandler):
                 enroll = x["doc_count"]
             elif str(x['key']) == '0':
                 unenroll = x["doc_count"]
+        data = sorted(res_dict.values(), key=lambda x: x["date"])
+        unused_item = None
+        for item in data:
+            enroll += item["enroll"]
+            unenroll += item["unenroll"]
+            item["total_enroll"] = enroll + unenroll
+            item["total_unenroll"] = unenroll
+            item["enrollment"] = enroll
+            if item['date'] == end_1:
+                unused_item = item
+        for item in data:
+            if item['date'] == end:
+                if unused_item:
+                    item["enrollment"] = unused_item['enrollment']
+                    item['total_enroll'] = unused_item['total_enroll']
+                break
+        if unused_item:
+            data.remove(unused_item)
+        self.success_response({"data": data})
+
+@route('/course/enrollments_date_realtime')
+class CourseEnrollmentsDateRealtime(BaseHandler):
+    """
+    课程选课退课每日数据
+    """
+    def get(self):
+        start = self.get_param("start")
+        end = self.get_param("end")
+        enroll_query = self.es_query(index='realtime', doc_type="student_enrollment_info")
+        enroll_query = enroll_query.filter("range", **{'enroll_time': {'lte': end, 'gte': start}}) \
+                    .filter('term', group_key=self.group_key) \
+                    .filter("term", course_id=self.course_id) \
+                    .filter("term", is_active=1)[:0]
+        enroll_query.aggs.bucket('value', A("date_histogram", field="enroll_time", interval="day"))
+
+        unenroll_query = self.es_query(index='realtime', doc_type="student_enrollment_info")
+        unenroll_query = unenroll_query.filter("range", **{'unenroll_time': {'lte': end, 'gte': start}}) \
+                    .filter('term', group_key=self.group_key) \
+                    .filter("term", course_id=self.course_id) \
+                    .filter("term", is_active=0)[:0]
+        unenroll_query.aggs.bucket('value', A("date_histogram", field="unenroll_time", interval="day"))
+
+        enroll_results = self.es_execute(enroll_query)
+        enroll_aggs = enroll_results.aggregations.value
+        enroll_buckets = enroll_aggs['buckets']
+        unenroll_results = self.es_execute(unenroll_query)
+        unenroll_aggs = unenroll_results.aggregations.value
+        unenroll_buckets = unenroll_aggs['buckets']
+        res_dict = {}
+        for x in enroll_buckets:
+            date = str(x["key_as_string"][:10])
+            data = {}
+            data['enroll'] = x["doc_count"]
+            data["date"] = date
+            res_dict[date] = data
+        for x in unenroll_buckets:
+            date = str(x["key_as_string"][:10])
+            data = res_dict.get(date, {'date': date, 'enroll': 0})
+            data['unenroll'] = x["doc_count"]
+
+        item = start
+        end_1 = datedelta(end, 1)
+        while item != end_1:
+            if item in res_dict:
+                if not "enroll" in res_dict[item]:
+                    res_dict[item]["enroll"] = 0
+                if not "unenroll" in res_dict[item]:
+                    res_dict[item]["unenroll"] = 0
+            else:
+                res_dict[item] = {
+                    "date": item,
+                    "enroll": 0,
+                    "unenroll": 0
+                }
+            item = datedelta(item, 1)
+
+        # 取end的数据
+        enroll_query = self.es_query(index='realtime', doc_type="student_enrollment_info")
+        enroll_query = enroll_query.filter("range", **{'enroll_time': {'lt': start}})
+        enroll_query = enroll_query.filter("term", course_id=self.course_id)
+        enroll_query = enroll_query.filter('term', group_key=self.group_key)
+        enroll_query = enroll_query.filter("term", is_active=1)
+        enroll_query = enroll_query[:0]
+        enroll_result = self.es_execute(enroll_query)
+        enroll = enroll_result.hits.total
+        Log.create('course')
+        Log.info('enroll: %s' % enroll)
+
+        unenroll_query = self.es_query(index='realtime', doc_type="student_enrollment_info")
+        unenroll_query = unenroll_query.filter("range", **{'unenroll_time': {'lt': start}})
+        unenroll_query = unenroll_query.filter("term", course_id=self.course_id)
+        unenroll_query = unenroll_query.filter('term', group_key=self.group_key)
+        unenroll_query = unenroll_query.filter("term", is_active=0)
+        unenroll_query = unenroll_query[:0]
+        unenroll_result = self.es_execute(unenroll_query)
+        unenroll = unenroll_result.hits.total
+        Log.create('course')
+        Log.info('unenroll: %s' % unenroll)
+
         data = sorted(res_dict.values(), key=lambda x: x["date"])
         for item in data:
             enroll += item["enroll"]
@@ -224,11 +327,8 @@ class CourseActive(BaseHandler):
 
         query = self.es_query(doc_type="course_active_num") \
                 .filter("range", **{'time_d': {'lte': end, 'gte': start}}) \
-                .filter("term", course_id=self.course_id)
-        if self.group_key:
-            query = query.filter("term", group_key=self.group_key)
-        #else:
-        #    query = query.filter(~F("exists", field="group_key"))
+                .filter("term", course_id=self.course_id)\
+                .filter("term", group_key=self.group_key)
         total = self.es_execute(query[:0]).hits.total
         results = self.es_execute(query[:total])
         res_dict = {}
@@ -251,7 +351,7 @@ class CourseActive(BaseHandler):
                     "revival": 0
                 }
             item = datedelta(item, 1)
-        data = sorted(res_dict.values(), key=lambda x: x["date"])
+        data = sorted(res_dict.values(), key=lambda x:x['date'])
         self.success_response({'data': data})
 
 @route('/course/distribution')
@@ -260,12 +360,11 @@ class CourseDistribution(BaseHandler):
     获取用户省份统计
     """
     def get(self):
-        query = self.es_query(doc_type="course_student_location")
-        if self.group_key:
-            query = query.filter("term", group_key=self.group_key)
-        top = int(self.get_argument("top", 10))
-        query = query.filter("term", course_id=self.course_id)\
-                     .filter("term", country='中国')[:0]
+        top = int(self.get_argument('top', 10))
+        query = self.es_query(doc_type="course_student_location")\
+                    .filter("term", group_key=self.group_key)\
+                    .filter("term", course_id=self.course_id)\
+                    .filter("term", country='中国')[:0]
         query.aggs.bucket("area", "terms", field="province", size=top)
         results = self.es_execute(query)
         aggs = results.aggregations["area"]["buckets"]
@@ -285,13 +384,10 @@ class CourseVideoWatch(BaseHandler):
     def get(self):
         start = self.get_param("start")
         end = self.get_param("end")
-        group_key = self.group_key
-        query = self.es_query(doc_type="course_video_learning")
-        query = query.filter("term", course_id=self.course_id)
-        if group_key:
-            query = query.filter("term", group_key=group_key)
-        query = query.filter("range", **{'date': {'lte': end, 'gte': start}})[:100]
-
+        query = self.es_query(doc_type="course_video_learning")\
+                    .filter("term", course_id=self.course_id)\
+                    .filter("term", group_key=self.group_key)\
+                    .filter("range", **{'date': {'lte': end, 'gte': start}})[:15]
         results = self.es_execute(query)
         hits = results.hits
         res_dict = {}
@@ -309,7 +405,7 @@ class CourseVideoWatch(BaseHandler):
                     "hour_watch_num": [0]*24
                 }
             item = datedelta(item, 1)
-        data = sorted(res_dict.values(), key=lambda x: x["date"])
+        data = sorted(res_dict.values(), key=lambda x: x['date'])
         self.success_response({'data': data})
 
 
@@ -343,7 +439,7 @@ class CourseTsinghuaStudent(BaseHandler):
                 .filter('term', binding_org=u'清华大学') \
                 .filter('term', group_key=self.group_key)
 
-        size = self.es_execute(query).hits.total
+        size = self.es_execute(query[:0]).hits.total
         data = self.es_execute(query[:size])
 
         result = [item.to_dict() for item in data.hits]
@@ -366,7 +462,6 @@ class CourseDetail(BaseHandler):
         course_ids = self.course_id.split(",")
         query = self.es_query(doc_type='course_community')\
                             .filter('terms', course_id=course_ids)
-                            #.filter('term', group_key=self.group_key)
         size = self.es_execute(query[:0]).hits.total
         data = self.es_execute(query[:size])
         course_data = []
@@ -394,7 +489,7 @@ class CourseHealth(BaseHandler):
         query = self.es_query(doc_type='course_health')\
                     .filter('term', course_id=self.course_id)\
                     .filter('term', group_key=self.group_key).source(['active_rate', 'active_user_num', 'active_rank', 'enroll_num', 'enroll_rank', 'reply_rate', 'noreply_num', 'reply_rank', 'interactive_per', 'interactive_rank', 'comment_num', 'comment_rank'])
-        total = self.es_execute(query).hits.total
+        total = self.es_execute(query[:0]).hits.total
         result = self.es_execute(query[:total]).hits
         data = {}
         if len(result) !=0:

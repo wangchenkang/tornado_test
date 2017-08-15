@@ -1,9 +1,6 @@
 #! -*- coding: utf-8 -*-
 from .base import BaseHandler
 from utils.routes import route
-from utils.log import Log
-
-Log.create('difficulty')
 
 
 @route('/difficulty/chapter_review_detail')
