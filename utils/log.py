@@ -9,7 +9,7 @@ class Log(object):
     def __init__(self, logname):
         logfile = settings.logging['log_file']
         dirname, filename = os.path.split(logfile)
-        if not os.path.exists(dirname):
+        if dirname and not os.path.exists(dirname):
             os.makedirs(dirname)
 
         self.file_logger = logging.getLogger(logname)

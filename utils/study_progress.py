@@ -39,30 +39,36 @@ class Counter:
 
 
 class StudyProgress:
-    def __init__(self, thrift_server, thrift_port=9090, namespace='test'):
-        self.thrift_server, self.thrift_port = thrift_server, thrift_port
+    def __init__(self, thrift_server_list, thrift_port=9090, namespace='test'):
+        self.thrift_port = thrift_port
         self.namespace = namespace
         try:
+            self.thrift_server = random.choice(thrift_server_list)
             self.connection = happybase.Connection(host=self.thrift_server, port=self.thrift_port)
         except Exception as e:
             Log.create('hbase')
             Log.error('Hbase Warning %s' % self.thrift_server)
-            thrift_server = settings.THRIFT_SERVER[random.randint(0,3)]
-            self.connection = happybase.Connection(host=thrift_server, port=self.thrift_port)
+            self.thrift_server = random.choice(thrift_server_list)
+            self.connection = happybase.Connection(host=self.thrift_server, port=self.thrift_port)
 
 
     def md5_bytes(self, value, num_bytes):
         return hashlib.md5(value).hexdigest()[:num_bytes]
 
-    def get_table_names(self):
+    def get_table_names(self, day=''):
         '''
         see http://confluence.xuetangx.com/pages/viewpage.action?pageId=11813527
         '''
         tables = []
 
         table_names_t = self.connection.table('%s:table_names' % self.namespace)
-        for rowkey, values in table_names_t.scan():
-            tables.append(values['f:name'])
+
+        if day:
+            # transform %Y-%m-%d to %Y%m%d
+            day = day.replace('-', '')
+            tables = [values['f:name'] for rowkey, values in table_names_t.scan() if rowkey == day]
+        else:
+            tables = [values['f:name'] for rowkey, values in table_names_t.scan()]
 
         reverse_sort = lambda a,b: cmp(b, a)
         tables.sort(reverse_sort)
@@ -176,7 +182,7 @@ class StudyProgress:
         return course_watched_duration
 
 
-    def get_study_progress(self, user_id, course_id, items=None):
+    def get_study_progress(self, user_id, course_id, items=None, day=''):
         """
         lookup user video study progress in a course
         items: if items is None, get study progress in this course
@@ -202,7 +208,8 @@ class StudyProgress:
 
         watched_videos = set()
         watched_duration = {}
-        table_names = self.get_table_names()
+        table_names = self.get_table_names(day)
+        print table_names
 
         for table_name in table_names:
             table = self.get_table(table_name)
@@ -342,8 +349,8 @@ class StudyProgress:
 
 from contextlib import contextmanager
 @contextmanager
-def study_progress(thrift_server, thrift_port):
-    sp = StudyProgress(thrift_server=thrift_server,
+def study_progress(thrift_server_list, thrift_port):
+    sp = StudyProgress(thrift_server_list=thrift_server_list,
         thrift_port=thrift_port, namespace='heartbeat')
     try:
         yield sp

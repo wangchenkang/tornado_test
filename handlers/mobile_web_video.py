@@ -142,12 +142,13 @@ class MobileWebStudyProgress(BaseHandler):
         chapter_id = self.get_argument('chapter_id', None)
         sequential_id = self.get_argument('sequential_id', None)
         vertical_id = self.get_argument('vertical_id', None)
+        day = self.get_argument('day', '')
         if not course_id or not user_id:
             self.error_response(502, u'缺少参数')
         course_id = fix_course_id(course_id)
         db,cursor= MysqlConnect().get_db_cursor()
         
-        sp = study_progress.StudyProgress(thrift_server='10.0.2.132', namespace='heartbeat')
+        sp = study_progress.StudyProgress(thrift_server_list=settings.THRIFT_SERVER, namespace='heartbeat')
         query_items = None
         items = None
         if chapter_id:
@@ -170,7 +171,7 @@ class MobileWebStudyProgress(BaseHandler):
             results = cursor.execute(query_items)
             results = cursor.fetchall()
             items = [result['items'] for result in results]
-        watched_num, watched_duration = sp.get_study_progress(user_id, course_id, items)
+        watched_num, watched_duration = sp.get_study_progress(user_id, course_id, items=items, day=day)
         sp.close()
         db.close()
         data = {'watched_num': watched_num, 'watched_duration': watched_duration}
@@ -183,7 +184,7 @@ class MobileUserStudy(BaseHandler):
     def get(self):
         user_id = self.get_argument('user_id', None)
 
-        sp = study_progress.StudyProgress(thrift_server='10.0.2.132', namespace='heartbeat')
+        sp = study_progress.StudyProgress(thrift_server_list=settings.THRIFT_SERVER, namespace='heartbeat')
         result = sp.get_user_watched_video(user_id)
         
         self.success_response({'data': result})
@@ -195,7 +196,7 @@ class MobileUserStudyByCourse(BaseHandler):
     def get(self):
         user_id = self.get_argument('user_id', None)
 
-        sp = study_progress.StudyProgress(thrift_server='10.0.2.132', namespace='heartbeat')
+        sp = study_progress.StudyProgress(thrift_server_list=settings.THRIFT_SERVER, namespace='heartbeat')
         course_study = sp.get_user_watched_video_by_course(user_id)
         course_ids = course_study.keys()
 
@@ -262,7 +263,7 @@ class MobileWebStudyProgressItemDetail(BaseHandler):
         for video in video_durations:
             video_durations_d[video['vid']] = video['dur']
 
-        sp = study_progress.StudyProgress(thrift_server='10.0.2.132', namespace='heartbeat')
+        sp = study_progress.StudyProgress(thrift_server_list=settings.THRIFT_SERVER, namespace='heartbeat')
         result = sp.get_video_progress_detail(user_id, course_id, video_durations_d)
 
         self.success_response({'data': result})
@@ -305,7 +306,7 @@ class MobileWebStudyProgressItem(BaseHandler):
             video_durations_d[video['vid']] = video['dur']
 
         # get student seq video duration
-        sp = study_progress.StudyProgress(thrift_server='10.0.2.132', namespace='heartbeat')
+        sp = study_progress.StudyProgress(thrift_server_list=settings.THRIFT_SERVER, namespace='heartbeat')
         video_rate_dict = sp.get_study_progress_not_class_level(user_id, course_id, video_items_d)
 
         # combine all these info
@@ -365,7 +366,7 @@ class MobileWebStudyProgressDetail(BaseHandler):
             video_durations[row['sequential_id']] = row['seq_duration']
 
         # get student seq video duration
-        sp = study_progress.StudyProgress(thrift_server='10.0.2.132', namespace='heartbeat')
+        sp = study_progress.StudyProgress(thrift_server_list=settings.THRIFT_SERVER, namespace='heartbeat')
         seq_video_rate_dict = sp.get_study_progress_not_class_level(user_id, course_id, seq_items)
 
         # combine all these info
@@ -394,7 +395,7 @@ class MobileWebVideoLastPos(BaseHandler):
         if not course_id or not user_id or not item_id:
             self.error_response(502, u'缺少参数')
         course_id = fix_course_id(course_id)
-        sp = study_progress.StudyProgress(thrift_server='10.0.2.132', namespace='heartbeat')
+        sp = study_progress.StudyProgress(thrift_server_list=settings.THRIFT_SERVER, namespace='heartbeat')
         current_point = sp.get_video_last_pos(user_id, course_id, item_id)
         sp.close()
         self.success_response({'data': {'current_point': current_point}})
@@ -410,7 +411,7 @@ class MobileWebCourseLastPos(BaseHandler):
         if not course_id or not user_id:
             self.error_response(502, u'缺少参数')
         course_id = fix_course_id(course_id)
-        sp = study_progress.StudyProgress(thrift_server='10.0.2.132', namespace='heartbeat')
+        sp = study_progress.StudyProgress(thrift_server_list=settings.THRIFT_SERVER, namespace='heartbeat')
         result = {}
         result['course_id'] = course_id
         result['item'] = ''
@@ -433,7 +434,7 @@ class MobileWebUserLastPos(BaseHandler):
         user_id = self.get_argument('user_id', None)
         if not user_id:
             self.error_response(502, u'缺少参数')
-        sp = study_progress.StudyProgress(thrift_server='10.0.2.132', namespace='heartbeat')
+        sp = study_progress.StudyProgress(thrift_server_list=settings.THRIFT_SERVER, namespace='heartbeat')
         result = {}
         result['course_id'] = ''
         result['item'] = ''
