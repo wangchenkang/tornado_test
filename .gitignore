@@ -43,3 +43,6 @@ bower_components
 
 # config file
 settings.yaml
+
+# virtual env
+/hbase
