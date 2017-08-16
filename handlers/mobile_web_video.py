@@ -10,6 +10,7 @@ from MySQLdb.cursors import DictCursor
 import json
 import datetime 
 import time
+from time import sleep
 import settings
 
 Log.create('mobile_web_video')
@@ -657,4 +658,98 @@ class LearningHistory(BaseHandler):
         self.success_response({'data': result_list})
 
 
-
+#课程about页访问量
+@route('/mobile/page_about')
+class PageAbout(BaseHandler):
+    """
+    """
+    def post(self):
+        course_ids = json.loads(self.get_argument('course_id'))
+        start_date = json.loads(self.get_argument('start_date'))
+        times = 2
+        retry_times = 0
+        sleep_time = 0.5
+        if not course_ids and start_date:
+            self.error_respnse(100, u'参数错误')
+        pathes = []
+        for course_id in course_ids:
+            path = "/courses/%s/about" % fix_course_id(course_id)
+            pathes.append(path.encode('utf-8'))
+        from elasticsearch import Elasticsearch
+        es = Elasticsearch(['10.0.0.227', '10.0.0.228', '10.0.0.236'], timeout=5)
+        body = {\
+              "query":{\
+                "filtered":{\
+                "query":{\
+                  "match_all":{}\
+                  },\
+                  "filter":{\
+                    "and":{\
+                      "filters":\
+                      [\
+                        {\
+                          "term":{\
+                            "value_type":"visits"\
+                            }\
+                          },\
+                        {\
+                          "term":{\
+                            "key":"L8"\
+                            }\
+                          },\
+                        {\
+                          "terms":{\
+                            "path": pathes\
+                            }\
+                          },\
+                        {\
+                          "term":{\
+                            "cycle":"daily"\
+                            }\
+                          },\
+                        {\
+                          "range":{\
+                            "start_date":{\
+                              "gte":start_date\
+                              }\
+                            }\
+                          }\
+                        ]\
+                      }\
+                    }\
+                  }\
+                },\
+                "aggs":{\
+                  "courses":{\
+                    "terms":{\
+                      "field":"path"\
+                      },\
+                    "aggs":{\
+                      "visits":{\
+                        "sum":{\
+                          "field":"value"\
+                          }\
+                        }\
+                      }\
+                    }\
+                  }\
+                }
+        while True:
+            try:
+                response = es.search(index='opkpi', doc_type='page_access_pv_uv', search_type= 'count', body = body)
+                break
+            except Exception as e:
+                if retry_times <= times:
+                  if retry_times == times:
+                        break
+                retry_times += 1
+                sleep(sleep_time)
+                continue
+        data = []
+        for bucket in response['aggregations']['courses']['buckets']:
+            course_about = {}
+            course_about['course_id'] = bucket['key'].rsplit('/')[2]
+            course_about['num'] = int(bucket['visits']['value'] or 0)
+            course_about['date'] = start_date
+            data.append(course_about)
+        self.success_response({'data': data})
