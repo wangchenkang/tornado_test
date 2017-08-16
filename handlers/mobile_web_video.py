@@ -10,6 +10,7 @@ from MySQLdb.cursors import DictCursor
 import json
 import datetime 
 import time
+import settings
 
 Log.create('mobile_web_video')
 
@@ -183,9 +184,9 @@ class MobileUserStudy(BaseHandler):
 
     def get(self):
         user_id = self.get_argument('user_id', None)
-
+        day = self.get_argument('day', '')
         sp = study_progress.StudyProgress(thrift_server_list=settings.THRIFT_SERVER, namespace='heartbeat')
-        result = sp.get_user_watched_video(user_id)
+        result = sp.get_user_watched_video(user_id, day)
         
         self.success_response({'data': result})
 

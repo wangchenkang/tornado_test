@@ -124,7 +124,8 @@ class TableJoinHandler(TableHandler):
                 query = query[:len(user_ids)]
             data = self.es_execute(query)
             data_result = [item.to_dict() for item in data.hits]
-                
+            if es_type == 'score_realtime' and not data_result:
+                data_result = [{'user_id': user_id} for user_id in user_ids[page*num:(page+1)*num]]
             # 如果是第一个查询，在查询后更新user_ids列表，后续查询只查这些学生
             if idx == 0:
                 result.extend(data_result)
