@@ -45,14 +45,6 @@ class TableHandler(BaseHandler):
         total = self.es_execute(query).hits.total
         return total
 
-    def get_newcloud_grade_total(self):
-        query = self.es_query(index=settings.NEWCLOUD_ES_INDEX, doc_type='score_realtime')\
-                    .filter('term', course_id=self.course_id)\
-                    .filter('term', group_key=self.group_key)\
-                    .filter('terms', user_id=self.get_users())
-        total = self.es_execute(query).hits.total
-        return total
-
     def post(self):
 
         student_keyword = self.get_argument('student_keyword', None)
@@ -81,8 +73,6 @@ class TableHandler(BaseHandler):
         total = len(user_ids)
         if data_type == 'warning':
             total = self.get_warning_total() if not screen_index else total
-        if data_type == 'newcloud_grade':
-            total = self.get_newcloud_grade_total() if not screen_index else total
         final = {}
         final['total'] = total
         final['data'] = result
@@ -108,7 +98,6 @@ class TableJoinHandler(TableHandler):
         return self.es_types
 
     def iterate_search(self, es_index_types, course_id, user_ids, page, num, sort, fields, screen_index, data_type):
-        
         if 'user_id' not in fields:
             fields.append('user_id')
         result = []
@@ -135,6 +124,7 @@ class TableJoinHandler(TableHandler):
                 query = query[:len(user_ids)]
             data = self.es_execute(query)
             data_result = [item.to_dict() for item in data.hits]
+                
             # 如果是第一个查询，在查询后更新user_ids列表，后续查询只查这些学生
             if idx == 0:
                 result.extend(data_result)
@@ -146,7 +136,6 @@ class TableJoinHandler(TableHandler):
                 for r in result:
                     dr = data_result_dict.get(r['user_id'], {})
                     r.update(dr)
-            
         return result
 
     def iterate_download(self, es_index_types, course_id, user_ids, sort, fields, screen_index, data_type, part_num=10000):
