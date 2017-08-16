@@ -127,17 +127,17 @@ class StudyProgress:
             ret[v_id] = merged
         return ret
 
-    def get_user_watched_video(self, user_id):
+    def get_user_watched_video(self, user_id, day=''):
         """
         get user watched video in all courses
         return course num and total_time
         """
-        course_data = self.get_user_watched_video_by_course(user_id)
+        course_data = self.get_user_watched_video_by_course(user_id, day=day)
         course_num = len(course_data)
         total_time = sum(course_data.values())
         return {'watched_courses': course_num, 'watched_duration': total_time}
 
-    def get_user_watched_video_by_course(self, user_id):
+    def get_user_watched_video_by_course(self, user_id, day=''):
         """
         lookup user video study progress in all courses
 
@@ -152,7 +152,7 @@ class StudyProgress:
 
         watched_courses = set()
         watched_duration = {}
-        table_names = self.get_table_names()
+        table_names = self.get_table_names(day)
 
         for table_name in table_names:
             table = self.get_table(table_name)
