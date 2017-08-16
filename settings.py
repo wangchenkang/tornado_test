@@ -9,6 +9,7 @@ CONFIG_FILE = os.path.join(PROJECT_PATH, "settings.yaml")
 COOKIE_SECRET = "11a0f5a5df09021b09ae9811ee0c2c11e64c781b"
 
 MOOC_GROUP_KEY = 1
+
 SPOC_GROUP_KEY = 2
 TSINGHUA_GROUP_KEY = 3
 ELECTIVE_ALL_GROUP_KEY = 4
@@ -28,10 +29,14 @@ ROW_FILTER = {
                 'video': {'index': 'tap_table_video', 'doc_type': 'chapter_seq_video'},\
                 'enroll': {'index': 'tap_table_enroll', 'doc_type': 'enroll_summary'},\
                 'focus': {'index': 'problems_focused', 'doc_type': 'video_seek_summary'},\
-                'warning': {'index': 'problems_focused', 'doc_type': 'study_warning_person'}
+                'warning': {'index': 'problems_focused', 'doc_type': 'study_warning_person'},\
+                'newcloud_grade': {'index': 'newcloud_type', 'doc_type': 'score_realtime'},\
                 }
 DISPATCH_OPTIMIZE = True
 ES_INDEX = 'tap'
+NEWCLOUD_ES_INDEX = 'newcloud_tap'
+
+NEWCLOUD_DATACONF = ['score_video', 'score_comment', 'score_rule', 'score_rule_item']
 #ES_INDEX = 'tapgo'
 with open(CONFIG_FILE) as f:
     document = f.read()

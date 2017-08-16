@@ -8,7 +8,6 @@ from tornado.options import define, options
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl.connections import connections
 import settings
-from utils.routes import route
 from utils.log import Log
 from handlers import *
 import memcache
@@ -27,7 +26,6 @@ class Application(tornado.web.Application):
             'cookie_secret': settings.COOKIE_SECRET,
             'debug': options.debug,
         }
-
         routed_handlers = route.get_routes()
         routed_handlers.append(
             (r'.*', NotFoundHandler)

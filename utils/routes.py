@@ -12,12 +12,11 @@ class route(object):
     def __init__(self, uri, name=None):
         self.uri = uri
         self.name = name
-
+    
     def __call__(self, _handler):
         name = self.name or _handler.__name__
         route_path = route_path_convert('{}:{}'.format(_handler.__module__, _handler.__name__))
         self._routes[route_path] = tornado.web.url(self.uri, _handler, name=name)
-
         return _handler
 
     @classmethod

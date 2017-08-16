@@ -117,6 +117,7 @@ class CourseEnrollmentsCount(BaseHandler):
     获取课程当前总选课人数
     """
     def get(self):
+        print self.get_enroll(self.group_key, self.course_id)
         self.success_response({"total": self.get_enroll(self.group_key, self.course_id)})
 
 @route('/course/enrollments/users')
