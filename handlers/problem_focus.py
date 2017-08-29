@@ -424,5 +424,5 @@ class StudyWarningChart(BaseHandler):
         aggs = result.aggregations
         buckets = aggs.study_weeks.buckets
         data = [{'study_week': bucket.key, 'warning_num': bucket.doc_count} for bucket in buckets[0:20]]
-        data.sort(lambda x,y: -cmp(x['study_week'],y['study_week']))
+        data.sort(lambda x,y: cmp(x['study_week'],y['study_week']))
         self.success_response({'data': data})
