@@ -505,7 +505,9 @@ class CohortInfo(BaseHandler):
         query = self.es_query(doc_type='course_community')\
                     .filter('term', course_id=self.course_id)\
                     .filter('terms', group_key=group_keys)\
-                    .filter(Q('range', **{'group_key': {'gte': settings.SPOC_GROUP_KEY, 'lt': settings.TSINGHUA_GROUP_KEY}}) | Q('range',  **{'group_key': {'gte': settings.COHORT_GROUP_KEY, 'lt': settings.ELECTIVE_GROUP_KEY}}))\
+                    .filter(Q('range', **{'group_key': {'gte': settings.SPOC_GROUP_KEY, 'lt': settings.TSINGHUA_GROUP_KEY}})\
+                          | Q('range', **{'group_key': {'gte': settings.COHORT_GROUP_KEY, 'lt': settings.ELECTIVE_GROUP_KEY}})\
+                          | Q('range', **{'group_key': {'gte': settings.NEWCLOUD_COHORT_GROUP_KEY}}))\
                     .sort('group_key')\
                     .source(['group_name', 'enroll_num', 'group_key'])
         total = len(group_keys) if group_keys else 1
@@ -515,6 +517,6 @@ class CohortInfo(BaseHandler):
             data = [item.to_dict() for item in result]
         for item in data:
             item['school'] = item['group_name']
-            if item['group_key'] == settings.SPOC_GROUP_KEY:
+            if item['group_key'] == settings.SPOC_GROUP_KEY or settings.ELECTIVE_GROUP_KEY <= item['group_key'] < settings.NEWCLOUD_COHORT_GROUP_KEY:
                 item['school'] = u'全部学生'
         self.success_response({'data': data})

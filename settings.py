@@ -15,6 +15,7 @@ TSINGHUA_GROUP_KEY = 3
 ELECTIVE_ALL_GROUP_KEY = 4
 COHORT_GROUP_KEY = 50000
 ELECTIVE_GROUP_KEY = 80000
+NEWCLOUD_COHORT_GROUP_KEY = 5000000000
 
 THRIFT_SERVER = ['10.0.2.131', '10.0.2.132', '10.0.2.133', '10.0.2.134']
 SEEK_FIELD = ['event_type','video_id', 'event_time', 'platform', 'duration', 'not_percent','video_st', 'video_et','video_last', 'seek_len']
