@@ -55,9 +55,12 @@ class StudyProgress:
     def md5_bytes(self, value, num_bytes):
         return hashlib.md5(value).hexdigest()[:num_bytes]
 
-    def get_table_names(self, day=''):
+    def get_table_names(self, course_id='', day=''):
         '''
         see http://confluence.xuetangx.com/pages/viewpage.action?pageId=11813527
+        对于已结课的课程, 会做一个快照, 课程id放在heartbeat:all_ended_courses,课程数据放在heartbeat:all_ended_courses_data
+        先判断courseid是否在heartbeat:all_ended_courses是的话,就直接从heartbeat:all_ended_courses_data拿数据
+        否则,从heartbeat:table_names拿到表名称
         '''
         tables = []
 
@@ -68,7 +71,15 @@ class StudyProgress:
             day = day.replace('-', '')
             tables = [values['f:name'] for rowkey, values in table_names_t.scan() if rowkey == day]
         else:
-            tables = [values['f:name'] for rowkey, values in table_names_t.scan()]
+            if course_id:
+                # 看看课程是否有快照
+                all_ended_courses_t = self.connection.table('%s:all_ended_courses' % self.namespace)
+                is_course_end = all_ended_courses_t.row(course_id)
+                if is_course_end:
+                    tables = ['%s:all_ended_courses_data' % self.namespace]
+
+            if not tables:
+                tables = [values['f:name'] for rowkey, values in table_names_t.scan()]
 
         reverse_sort = lambda a,b: cmp(b, a)
         tables.sort(reverse_sort)
@@ -90,7 +101,7 @@ class StudyProgress:
         accept_func = lambda x: x in video_duartions
 
         watched_duration = {}
-        for table_name in self.get_table_names():
+        for table_name in self.get_table_names(course_id=course_id):
             table = self.get_table(table_name)
 
             for rowkey, d in table.scan(row_prefix=rowprefix):
@@ -208,8 +219,7 @@ class StudyProgress:
 
         watched_videos = set()
         watched_duration = {}
-        table_names = self.get_table_names(day)
-        print table_names
+        table_names = self.get_table_names(course_id=course_id, day=day)
 
         for table_name in table_names:
             table = self.get_table(table_name)
@@ -220,7 +230,6 @@ class StudyProgress:
                 v_id = d['info:video_id']
                 if not accept_func(v_id):
                     continue
-                print rowkey, d
                 watched_videos.add(v_id)
                 for k in d:
                     if k.startswith('heartbeat:i'):
@@ -253,7 +262,7 @@ class StudyProgress:
 
         watched_videos = {}
         watched_duration = {}
-        table_names = self.get_table_names()
+        table_names = self.get_table_names(course_id=course_id)
 
         for table_name in table_names:
             table = self.get_table(table_name)
@@ -285,7 +294,7 @@ class StudyProgress:
             Returns: cur_pos 
                      or None if this user has not watched this video
         """
-        tables = self.get_table_names()
+        tables = self.get_table_names(course_id=course_id)
         sn_user   = str(user_id).zfill(10)[::-1]
         sn_course = self.md5_bytes(course_id, 6)
         sn_item   = self.md5_bytes(item_id, 8)
@@ -328,20 +337,6 @@ class StudyProgress:
 
         if ret:
             return ret['f:course_id'], ret['f:item_id'], float(ret['f:cur_pos'])
-
-    def _get_total_time(self, row_prefix, value_mapper):
-        """ 一门课观看的总时长，做法是把学生在本课程所有视频每个小段的数据相加
-            考虑到覆盖时长和累积时长不同，使用不同的value_mapper来表示
-            如果是覆盖时长，每个小段的数据最大是5秒，即 value_mapper = lambda v: min(5, int(v))
-            如果是累积时长，每个小段的数据就是本身的值，即 value_mapper = lambda v: int(v)， 简单写value_mapper = int
-        """
-        tables = self.get_table_names()
-        total_time = 0
-        for table_name in tables:
-            t = self.get_table(table_name)
-            for rowkey, d in t.scan(row_prefix=row_prefix):
-                total_time += sum([value_mapper(v) for k, v in d.iteritems() if k.startswith('heartbeat:')])
-        return total_time
 
     def close(self):
         self.connection.close()
