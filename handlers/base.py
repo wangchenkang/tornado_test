@@ -10,6 +10,7 @@ from elasticsearch_dsl import Search, Q
 from utils.service import CourseService, AsyncService, AsyncCourseService 
 from utils.tools import fix_course_id
 from utils.tools import get_group_type
+from utils.tools import is_ended
 import settings
 
 class BaseHandler(RequestHandler):
@@ -148,20 +149,24 @@ class BaseHandler(RequestHandler):
         return response
 
     def es_query(self, **kwargs):
-        
         if 'index' not in kwargs:
             kwargs['index'] = settings.ES_INDEX
-
         return Search(using=self.es, **kwargs)
 
     def es_execute(self, query):
         try:
+            if settings.ES_INDEX in set(query._index):
+                course_structure = self.course_structure(self.course_id, 'course')
+                end_time = course_structure.get('end') or str(datetime.utcnow())
+                query._index = settings.ES_INDEX if not is_ended(end_time) else settings.ES_INDEX_LOCK
+                response = query.execute()
+                if not response.hits:
+                    query._index = settings.ES_INDEX
             response = query.execute()
         except (ConnectionError, ConnectionTimeout):
             self.error_response(100, u'Elasticsearch 连接错误')
         except RequestError as e:
             self.error_response(100, u'查询错误: {} - {}'.format(e.status_code, e.error))
-
         return response
 
     def get_enroll(self, group_key=None, course_id=None):

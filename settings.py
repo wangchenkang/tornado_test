@@ -36,7 +36,7 @@ ROW_FILTER = {
 DISPATCH_OPTIMIZE = True
 ES_INDEX = 'tap'
 NEWCLOUD_ES_INDEX = 'newcloud_tap'
-
+ES_INDEX_LOCK = 'tap_lock'
 NEWCLOUD_DATACONF = ['score_video', 'score_comment', 'score_rule', 'score_rule_item']
 #ES_INDEX = 'tapgo'
 with open(CONFIG_FILE) as f:
