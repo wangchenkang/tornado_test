@@ -383,8 +383,70 @@ class MobileWebStudyProgressDetail(BaseHandler):
             seq['watched_num'] = seq_video_rate_dict.get(seq_id, {}).get('watched_num', 0)
             seq['video_length'] = int(video_durations.get(seq_id, 0))
             result.append(seq)
-            
+
         self.success_response({'data': result})
+
+@route('/mobile/mobile_web_study_progress_chapter_detail')
+class MobileWebStudyProgressChapterDetail(BaseHandler):
+
+    def get(self): 
+        user_id = self.get_argument('user_id', None)
+        course_id = self.get_argument('course_id', None)
+        if not course_id or not user_id:
+            self.error_response(502, u'缺少参数')
+        course_id = fix_course_id(course_id)
+        db,cursor= MysqlConnect().get_db_cursor()
+
+        # get course structure
+        sql = """
+              SELECT chapter_id, item_id
+              FROM course_video
+              WHERE course_id='%s'
+              """ % (course_id)
+        cursor.execute(sql)
+        course_structure = cursor.fetchall()
+
+        video_rate = {}
+        chapter_items = {}
+        for row in course_structure:
+            chapter_id = row['chapter_id']
+            item_id = row['item_id']
+            video_rate[chapter_id] = 0
+            chapter_items[item_id] = chapter_id
+
+        # get chapter durations
+        sql = """
+             SELECT chapter_id, count(vi.id) AS chapter_video_num, sum(vi.duration) AS chapter_duration 
+             FROM course_video cv
+             JOIN video_info vi ON cv.video_id = vi.id
+             WHERE cv.course_id='%s'
+             GROUP BY cv.chapter_id
+              """ % course_id
+        cursor.execute(sql)
+        chapter_durations = cursor.fetchall()
+        video_durations = {}
+        for row in chapter_durations:
+            video_durations[row['chapter_id']] = row['chapter_duration']
+
+        # get student chapter video duration
+        sp = study_progress.StudyProgress(thrift_server_list=settings.THRIFT_SERVER, namespace='heartbeat')
+        chapter_video_rate_dict = sp.get_study_progress_not_class_level(user_id, course_id, chapter_items)
+
+        # combine all these info
+        result = []
+        for chapter_id in set(chapter_items.values()):
+            chapter = {}
+            chapter['id'] = chapter_id
+            watched_percent = chapter_video_rate_dict.get(chapter_id, {}).get('watched_duration', 0) / float(video_durations.get(chapter_id, 1e-10))
+            if watched_percent >= 0.95:
+                watched_percent = 1.
+            chapter['watched_percent'] = round(watched_percent, 2)
+            chapter['watched_num'] = chapter_video_rate_dict.get(chapter_id, {}).get('watched_num', 0)
+            chapter['video_length'] = int(video_durations.get(chapter_id, 0))
+            result.append(chapter)
+
+        self.success_response({'data': result})
+
 
 
 @route('/mobile/mobile_web_video_last_pos')
