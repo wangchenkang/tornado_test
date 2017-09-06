@@ -155,23 +155,28 @@ class BaseHandler(RequestHandler):
 
     def es_execute(self, query):
         try:
-            if settings.ES_INDEX in set(query._index) and 'data_conf' not in set(query._doc_type):
+            if (settings.ES_INDEX in set(query._index) or settings.ES_INDEX_LOCK in set(query._index)) and 'data_conf' not in set(query._doc_type):
                 try:
                     course_id = self.get_argument('course_id')
                     course_structure = self.course_structure(fix_course_id(course_id), 'course')
                     end_time = course_structure.get('end') or 'now'
                     query._index = settings.ES_INDEX if not is_ended(end_time) else settings.ES_INDEX_LOCK
+                    new_query = Search(using=self.es).from_dict(query.to_dict())
                     response = query.execute()
-                    if not response.hits:
-                        query._index = settings.ES_INDEX
+                    if not response.hits.total:
+                        new_query._index = settings.ES_INDEX
+                        new_query._doc_type = query._doc_type[0]
+                        response = new_query.execute()
+                    return response
                 except MissingArgumentError as e:
                     pass
-            response = query.execute()
+            else:
+                response = query.execute()
+                return response
         except (ConnectionError, ConnectionTimeout):
             self.error_response(100, u'Elasticsearch 连接错误')
         except RequestError as e:
             self.error_response(100, u'查询错误: {} - {}'.format(e.status_code, e.error))
-        return response
 
     def get_enroll(self, group_key=None, course_id=None):
         query = self.es_query(doc_type='student_enrollment_info') \
