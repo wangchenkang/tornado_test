@@ -169,7 +169,8 @@ class BaseHandler(RequestHandler):
                         response = new_query.execute()
                     return response
                 except MissingArgumentError as e:
-                    pass
+                    response = query.execute()
+                    return response
             else:
                 response = query.execute()
                 return response

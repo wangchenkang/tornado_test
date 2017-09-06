@@ -124,11 +124,6 @@ class Academic(BaseHandler):
         query = query.filter('terms',course_id=course_ids)\
                      .filter('terms',group_key=group_key_list).source(field)
         total = self.es_execute(query).hits.total
-        if not total:    
-            query = self.es_query(doc_type='course_health')\
-                       .filter('terms',course_id=course_ids)\
-                       .filter('terms',group_key=group_key_list).source(field)
-        total = self.es_execute(query).hits.total
         result.extend([hits.to_dict() for hits in self.es_execute(query[:total]).hits])
         return result
 
