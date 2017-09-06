@@ -157,7 +157,7 @@ class BaseHandler(RequestHandler):
         try:
             if settings.ES_INDEX in set(query._index) and 'data_conf' not in set(query._doc_type):
                 course_structure = self.course_structure(self.course_id, 'course')
-                end_time = course_structure.get('end') or str(datetime.utcnow())
+                end_time = course_structure.get('end') or 'now'
                 query._index = settings.ES_INDEX if not is_ended(end_time) else settings.ES_INDEX_LOCK
                 response = query.execute()
                 if not response.hits:

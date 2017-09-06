@@ -28,6 +28,8 @@ def date_from_new_date(time_string, time_format="%Y-%m-%dT%X+08:00"):
 def is_ended(end_time, now=None):
     if now is None:
         now = datetime.utcnow()
+    if end_time == 'now':
+        return False
     end_time = date_convert(end_time)
     return end_time and end_time < now
     
