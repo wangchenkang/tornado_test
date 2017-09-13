@@ -117,9 +117,12 @@ class Academic(BaseHandler):
             for group_key in group_keys:
                 if group_key not in group_key_list:
                     group_key_list.append(group_key)
-        query = self.es_query(doc_type='course_health')\
-                    .filter('terms',course_id=course_ids)\
-                    .filter('terms',group_key=group_key_list).source(field)
+        if self.course_status in ('unopen', 'process'):
+            query = self.es_query(index='tap', doc_type='course_health')
+        else:
+            query = self.es_query(index='tap_lock', doc_type='course_health')
+        query = query.filter('terms',course_id=course_ids)\
+                     .filter('terms',group_key=group_key_list).source(field)
         total = self.es_execute(query).hits.total
         result.extend([hits.to_dict() for hits in self.es_execute(query[:total]).hits])
         return result

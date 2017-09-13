@@ -25,6 +25,25 @@ def date_from_new_date(time_string, time_format="%Y-%m-%dT%X+08:00"):
     except (AttributeError, TypeError):
         return None
 
+def is_ended(end_time, now=None):
+    if now is None:
+        now = datetime.utcnow()
+    if end_time == 'now':
+        return False
+    end_time = date_convert(end_time)
+    return end_time and end_time < now
+    
+def date_convert(date):
+    if isinstance(date, basestring):
+        return date_from_string(date)
+    return date
+
+def date_from_string(time_string, time_format='%Y-%m-%dT%X'):
+    try:
+        return datetime.strptime(time_string, time_format)
+    except(AttributeError, TypeError):
+        return None
+
 def datedelta(dt, day):
     return date_to_str(datetime.strptime(dt, "%Y-%m-%d") + timedelta(days=day))
 

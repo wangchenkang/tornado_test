@@ -10,6 +10,7 @@ from elasticsearch_dsl import Search, Q
 from utils.service import CourseService, AsyncService, AsyncCourseService 
 from utils.tools import fix_course_id
 from utils.tools import get_group_type
+from utils.tools import is_ended
 import settings
 
 class BaseHandler(RequestHandler):
@@ -148,21 +149,35 @@ class BaseHandler(RequestHandler):
         return response
 
     def es_query(self, **kwargs):
-        
         if 'index' not in kwargs:
             kwargs['index'] = settings.ES_INDEX
-
         return Search(using=self.es, **kwargs)
 
     def es_execute(self, query):
         try:
-            response = query.execute()
+            if (settings.ES_INDEX in set(query._index) or settings.ES_INDEX_LOCK in set(query._index)) and 'data_conf' not in set(query._doc_type):
+                try:
+                    course_id = self.get_argument('course_id')
+                    course_structure = self.course_structure(fix_course_id(course_id), 'course')
+                    end_time = course_structure.get('end') or 'now'
+                    query._index = settings.ES_INDEX if not is_ended(end_time) else settings.ES_INDEX_LOCK
+                    new_query = Search(using=self.es).from_dict(query.to_dict())
+                    response = query.execute()
+                    if not response.hits.total:
+                        new_query._index = settings.ES_INDEX
+                        new_query._doc_type = query._doc_type[0]
+                        response = new_query.execute()
+                    return response
+                except MissingArgumentError as e:
+                    response = query.execute()
+                    return response
+            else:
+                response = query.execute()
+                return response
         except (ConnectionError, ConnectionTimeout):
             self.error_response(100, u'Elasticsearch 连接错误')
         except RequestError as e:
             self.error_response(100, u'查询错误: {} - {}'.format(e.status_code, e.error))
-
-        return response
 
     def get_enroll(self, group_key=None, course_id=None):
         query = self.es_query(doc_type='student_enrollment_info') \
