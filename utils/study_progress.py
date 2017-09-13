@@ -163,7 +163,7 @@ class StudyProgress:
 
         watched_courses = set()
         watched_duration = {}
-        table_names = self.get_table_names(day)
+        table_names = self.get_table_names(day=day)
 
         for table_name in table_names:
             table = self.get_table(table_name)
