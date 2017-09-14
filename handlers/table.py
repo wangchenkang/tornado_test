@@ -298,7 +298,7 @@ class QuestionDetail(TableJoinHandler):
 @route('/table/video_overview')
 class VideoDetail(TableJoinHandler):
 
-    es_types = ['tap_table_video/chapter_seq_video', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
+    es_types = ['tap_table_video_realtime/chapter_seq_video', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
     #es_types = ['tap_table_video/chapter_seq_video', 'tap_table_video/item_video', \
     #            '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
 
