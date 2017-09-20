@@ -208,6 +208,15 @@ class BaseHandler(RequestHandler):
             self.error_response(100, u'课程数据获取失败')
 
         return structure_data
+    
+    def course_detail(self, course_id):
+        """
+        获取课件信息
+        """
+        course_detail = CourseService.get('courses/detail', {'course_id': course_id})
+        if not course_detail:
+            self.error_response(100, u'课程数据获取失败')
+        return course_detail
 
     def get_student_num(self, course_group_key=None):
     
