@@ -126,6 +126,13 @@ class TableJoinHandler(TableHandler):
             data_result = [item.to_dict() for item in data.hits]
             if es_type == 'score_realtime' and not data_result:
                 data_result = [{'user_id': user_id} for user_id in user_ids[page*num:(page+1)*num]]
+            if es_type == 'score_realtime' and num == 10000:
+                result_user_ids = []
+                for item in data_result:
+                    result_user_ids.append(item['user_id'])
+                for user_id in user_ids:
+                    if user_id not in set(result_user_ids):
+                        data_result.append({'user_id': user_id})
             # 如果是第一个查询，在查询后更新user_ids列表，后续查询只查这些学生
             if idx == 0:
                 result.extend(data_result)
@@ -138,6 +145,7 @@ class TableJoinHandler(TableHandler):
                     dr = data_result_dict.get(r['user_id'], {})
                     r.update(dr)
         return result
+
 
     def iterate_download(self, es_index_types, course_id, user_ids, sort, fields, screen_index, data_type, part_num=10000):
         num = len(user_ids)
@@ -290,7 +298,7 @@ class QuestionDetail(TableJoinHandler):
 @route('/table/video_overview')
 class VideoDetail(TableJoinHandler):
 
-    es_types = ['tap_table_video/chapter_seq_video', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
+    es_types = ['tap_table_video_realtime/chapter_seq_video', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
     #es_types = ['tap_table_video/chapter_seq_video', 'tap_table_video/item_video', \
     #            '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
 

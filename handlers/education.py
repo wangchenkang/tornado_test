@@ -248,17 +248,18 @@ class EducationCourseNameSearch(Academic):
                                     j['school'] = '全部学生'
                                 elif j['group_key'] == settings.ELECTIVE_ALL_GROUP_KEY:
                                     j['school'] = '%s.%s' % ('全部学生', '学分课')
-                                elif settings.COHORT_GROUP_KEY <= j['group_key'] <= settings.ELECTIVE_GROUP_KEY or j['group_key'] == settings.TSINGHUA_GROUP_KEY:
+                                elif j['group_key'] == settings.TSINGHUA_GROUP_KEY:
                                     j['school'] = j['group_name']
                                 
-                                if j['group_key'] < settings.ELECTIVE_GROUP_KEY:
+                                if j['group_key'] < settings.COHORT_GROUP_KEY:
                                     course['dynamics'].append(j)
                             else:
                                 if j['group_key'] == settings.TSINGHUA_GROUP_KEY:
                                     j['school'] = '%s' % (j['group_name'])
-                                elif j['group_key'] >= settings.ELECTIVE_GROUP_KEY:
+                                    course['dynamics'].append(j)
+                                if settings.ELECTIVE_GROUP_KEY <= j['group_key'] <= settings.NEWCLOUD_COHORT_GROUP_KEY:
                                     j['school'] = '%s.%s' % (j['group_name'], '学分课')
-                                course['dynamics'].append(j)
+                                    course['dynamics'].append(j)
             for course in data:
                 course['dynamics'].sort(lambda x,y: cmp(x["group_key"], y["group_key"]))
 
@@ -301,20 +302,22 @@ class EducationCourseDownload(Academic):
                             elif i['group_key'] == settings.ELECTIVE_ALL_GROUP_KEY:
                                 i['group_name'] = '%s.%s' % ('全部学生', '学分课')
 
-                            if i['group_key'] < settings.ELECTIVE_GROUP_KEY:
+                            if i['group_key'] < settings.COHORT_GROUP_KEY:
                                 i.update(j)
                         else:
-                            if i['group_key'] >= settings.ELECTIVE_GROUP_KEY:
+                            if settings.ELECTIVE_GROUP_KEY <= i['group_key'] <= settings.NEWCLOUD_COHORT_GROUP_KEY:
                                 i['group_name'] = '%s.%s' % (i['group_name'], '学分课')
                             i.update(j)
         
             for i in result:
                 if self.service_line != 'credit':
                     if i['group_key'] not in [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY, settings.ELECTIVE_ALL_GROUP_KEY, settings.TSINGHUA_GROUP_KEY]:
-                         if i['group_key'] < settings.COHORT_GROUP_KEY or i['group_key'] >= settings.ELECTIVE_GROUP_KEY:
+                         if settings.COHORT_GROUP_KEY<i['group_key']<settings.ELECTIVE_GROUP_KEY or\
+                            i['group_key'] < settings.COHORT_GROUP_KEY or\
+                            i['group_key'] > settings.ELECTIVE_GROUP_KEY:
                             continue
                 else:
-                    if i['group_key'] < settings.ELECTIVE_GROUP_KEY:
+                    if i['group_key'] < settings.ELECTIVE_GROUP_KEY or i['group_key'] > settings.NEWCLOUD_COHORT_GROUP_KEY:
                         if i['group_key'] !=  settings.TSINGHUA_GROUP_KEY:
                             continue
                 result_ = []
