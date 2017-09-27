@@ -88,39 +88,43 @@ class StudyProgress:
     def get_table(self, table_name):
         return self.connection.table(table_name)
 
-    def get_video_progress_detail(self, user_id, course_id, video_duartions):
+    def get_video_progress_detail(self, user_id, course_id, item_id, duration):
         """
         get user's detailed data on watched video
         return {video_id: {seg_key: seg_value}}
         """
         sn_user   = str(user_id).zfill(10)[::-1]
         sn_course = self.md5_bytes(course_id, 6)
+        sn_item   = self.md5_bytes(item_id, 8)
 
-        rowprefix = sn_user + sn_course
+        rowprefix = sn_user + sn_course + sn_item
 
-        accept_func = lambda x: x in video_duartions
+        accept_func = lambda x: x == item_id
 
         watched_duration = {}
+        ret = {}
         for table_name in self.get_table_names(course_id=course_id):
             table = self.get_table(table_name)
 
             for rowkey, d in table.scan(row_prefix=rowprefix):
                 v_id = d['info:video_id']
                 if not accept_func(v_id): continue
+                ret['rowkey'] = rowkey
                 for k in d:
                     if k.startswith('heartbeat:i'):
-                        watched_duration.setdefault(v_id, {}).setdefault(k, Counter()).incr(int(d[k]))
+                        watched_duration.setdefault(k, Counter()).incr(int(d[k]))
+                    elif k.startswith('info:'):
+                        ret[k[5:]] = d[k]
+                break
 
-        ret = {}
-        for v_id in watched_duration:
+        if True:
             d = {}
-            video_data = watched_duration[v_id]
+            video_data = watched_duration
             for k in video_data:
                 d[k] = min(5, video_data[k].counter)
 
             i = 0
             merged = []
-            duration = video_duartions[v_id]
             while i * 5 < duration:
                 k = 'heartbeat:i%d' % i
                 v = d.get(k, 0)
@@ -135,7 +139,7 @@ class StudyProgress:
 
                 i += 1
 
-            ret[v_id] = merged
+            ret['data'] = merged
         return ret
 
     def get_user_watched_video(self, user_id, day=''):
