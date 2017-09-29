@@ -195,7 +195,6 @@ class BaseHandler(RequestHandler):
             course_num[course.key] = course.doc_count
         return course_num
 
-
     def course_structure(self, course_id, block_id, depth=2):
         """ 
         获取课件block_id指定章或节以及向下depth深度的课件
@@ -208,15 +207,33 @@ class BaseHandler(RequestHandler):
             self.error_response(100, u'课程数据获取失败')
 
         return structure_data
+
+    @gen.coroutine
+    def async_course_service(self, method, *args, **kwargs):
+        def _parse_response(response):
+            if response.error:
+                Log.error('service response error: %s' % response.error)
+                self.error_response(100, u'Service failed')
+            
+            try:
+                data = json_decode(response.body)
+            except ValueError, e:
+                Log.error('service response error: %s, content: %s' % (e, response.body))
+                self.error_response(100, u'Service failed')
+            if data is None:
+                Log.error('Course service api failed: {}'.format(str(args)))
+            return data
+        
+        response = yield getattr(AsyncCourseService(), method)(*args, **kwargs)
+        raise gen.Return(_parse_response(response))
     
+    @gen.coroutine
     def course_detail(self, course_id):
         """
         获取课件信息
         """
-        course_detail = CourseService.get('courses/detail', {'course_id': course_id})
-        if not course_detail:
-            self.error_response(100, u'课程数据获取失败')
-        return course_detail
+        course_detail = yield  self.async_course_service('get', 'courses/detail', {'course_id': course_id})
+        raise gen.Return(course_detail)
 
     def get_student_num(self, course_group_key=None):
     

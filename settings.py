@@ -20,7 +20,8 @@ NEWCLOUD_COHORT_GROUP_KEY = 5000000000
 THRIFT_SERVER = ['10.0.2.131', '10.0.2.132', '10.0.2.133', '10.0.2.134']
 SEEK_FIELD = ['event_type','video_id', 'event_time', 'platform', 'duration', 'not_percent','video_st', 'video_et','video_last', 'seek_len']
 MYSQL_PARAMS = {
-            'teacher_power': {'host': 'tap-authority.xuetangx.info', 'db': 'tap_authority', 'user': 'data', 'password': 'data@xuetangx'}
+            'teacher_power': {'host': 'tap-authority.xuetangx.info', 'db': 'tap_authority', 'user': 'data', 'password': 'data@xuetangx'},
+            'auth_userprofile': {'host': 'datamysql.xuetangx.info', 'db': 'edxapp', 'user': 'mysql_ro', 'password': 'xuetangx.com168mysql'}
 }
 
 ROW_FILTER = {
@@ -38,7 +39,6 @@ ES_INDEX = 'tap'
 NEWCLOUD_ES_INDEX = 'newcloud_tap'
 ES_INDEX_LOCK = 'tap_lock'
 NEWCLOUD_ACADEMIC_ES_INDEX = 'education_data'
-TEST_INDEX = 'education_data1'
 NEWCLOUD_DATACONF = ['score_video', 'score_comment', 'score_rule', 'score_rule_item']
 #ES_INDEX = 'tapgo'
 with open(CONFIG_FILE) as f:
