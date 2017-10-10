@@ -156,21 +156,25 @@ class BaseHandler(RequestHandler):
     def es_execute(self, query):
         try:
             if (settings.ES_INDEX in set(query._index) or settings.ES_INDEX_LOCK in set(query._index)) and 'data_conf' not in set(query._doc_type):
-                try:
-                    course_id = self.get_argument('course_id')
-                    course_structure = self.course_structure(fix_course_id(course_id), 'course')
-                    end_time = course_structure.get('end') or 'now'
-                    query._index = settings.ES_INDEX if not is_ended(end_time) else settings.ES_INDEX_LOCK
-                    new_query = Search(using=self.es).from_dict(query.to_dict())
-                    response = query.execute()
-                    if not response.hits.total:
-                        new_query._index = settings.ES_INDEX
-                        new_query._doc_type = query._doc_type[0]
-                        response = new_query.execute()
-                    return response
-                except MissingArgumentError as e:
+                if self.request.uri.startswith('/open_times'):
                     response = query.execute()
                     return response
+                else:
+                    try:
+                        course_id = self.get_argument('course_id')
+                        course_structure = self.course_structure(fix_course_id(course_id), 'course')
+                        end_time = course_structure.get('end') or 'now'
+                        query._index = settings.ES_INDEX if not is_ended(end_time) else settings.ES_INDEX_LOCK
+                        new_query = Search(using=self.es).from_dict(query.to_dict())
+                        response = query.execute()
+                        if not response.hits.total:
+                            new_query._index = settings.ES_INDEX
+                            new_query._doc_type = query._doc_type[0]
+                            response = new_query.execute()
+                        return response
+                    except MissingArgumentError as e:
+                        response = query.execute()
+                        return response
             else:
                 response = query.execute()
                 return response

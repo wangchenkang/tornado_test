@@ -92,6 +92,19 @@ class MysqlConnect(object):
             return results[0]
         return ''
 
+    def get_courses(self, user_id):
+        query = """
+                select distinct(course_id), group_key from teacher_power where user_id={0}
+                """.format(user_id)
+        results = self.execute_query(query)
+        data = {}
+        for result in results:
+            if result['course_id'] not in data:
+                data[result['course_id']] = []
+            data[result['course_id']].append(result['group_key'])
+        
+        return data
+
     def get_enrollment(self, course_ids):
         course_ids = [course_id.encode('utf-8') for course_id in course_ids]
         course_ids = tuple(course_ids)
