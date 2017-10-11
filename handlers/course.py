@@ -168,6 +168,7 @@ class CourseEnrollmentsDate(BaseHandler):
             aggs_buckets = x["count"]["buckets"]
             for aggs_bucket in aggs_buckets:
                 data['unenroll'] = 0
+                data['enroll'] = 0
                 if str(aggs_bucket["key"]) == '1':
                     data['enroll'] = aggs_bucket["doc_count"]
                 elif str(aggs_bucket['key']) == '0':
