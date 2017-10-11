@@ -588,22 +588,21 @@ class StudentDetailCourse(AcademicData):
         
         return query
    
-    @gen.coroutine
     def get_result(self, query, page, num):
         course_total = self.es_execute(query[:0]).hits.total 
         total_page = self.get_total_page(course_total, num)
         
         results = self.es_execute(query[(page-1)*num:page*num]).hits
         results = [result.to_dict() for result in results]
-        for item in results:
+        for index, item in enumerate(results):
             item['study_rate'] = self.round_data(item.pop('study_rate_user') or 0)
             item['correct_percent'] = self.round_data(item.pop('correct_percent_user') or 0)
             item['accomplish_percent'] = self.round_data(item.pop('accomplish_percent_user') or 0)
             item['effort'] = self.round_data(item.pop('effort_user') or 0)
             item['course_time'] = '%s-%s' % (self.formate_date(item, 'start'), self.formate_date(item, 'end'))
-            item['image_url'] = yield self.get_course_image(item)
+            item['id'] = index + 1
 
-        raise gen.Return ((results, total_page))
+        return results, total_page
     
     def formate_date(self, item, status):
         date = item.pop('start') if status == 'start' else item.pop('end')
@@ -611,12 +610,11 @@ class StudentDetailCourse(AcademicData):
         
         return date
 
-    @gen.coroutine
     def get(self):
         page = int(self.get_argument('page', 1))
-        num = int(self.get_argument('num', 6))
+        num = int(self.get_argument('num', 10))
         query = self.query
-        result, total_page = yield self.get_result(query, page, num)
+        result, total_page = self.get_result(query, page, num)
         
         self.success_response({'data': result, 'total_page': total_page, 'current_page': page})
 
