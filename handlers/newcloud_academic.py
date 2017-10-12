@@ -337,12 +337,11 @@ class TeacherList(AcademicData):
             es_type2 = 'org_teacher_level_term'
 
         #status
-        results = self.get_result(org_id, faculty, term_id, es_type1, sort, page, num)
+        results, size = self.get_result(org_id, faculty, term_id, es_type1, sort, page, num)
         user_ids = [result['user_id'] for result in results]
-        size = len(user_ids)
+        #size = len(user_ids)
         total_page = self.get_total_page(size, num)
-        results_status = self.get_result_status(org_id, faculty, term_id, user_ids, es_type2, size)
-        
+        results_status = self.get_result_status(org_id, faculty, term_id, user_ids, es_type2, num)
         if len(results) >= len(results_status):
             results = self.add2result(results, results_status)
         else:
@@ -360,11 +359,15 @@ class TeacherList(AcademicData):
             query = query.filter('term', first_level = faculty)
         size = self.es_execute(query[:0]).hits.total
         if es_type1 == 'org_teacher_level_term_status':
-            results = self.get_discussion_total(query, size)
+            query.aggs.bucket('user_ids', 'terms', field = 'user_id', size = size)
+            aggs = self.es_execute(query).aggregations
+            buckets = aggs.user_ids.buckets
+            size = len(buckets)
+            results = self.get_discussion_total(query, num)
         else:
             results = self.es_execute(query[(page-1)*num:page*num]).hits
             results = [result.to_dict() for result in results]
-        return results
+        return results, size
 
     def get_result_status(self, org_id, faculty, term_id, user_ids, es_type2, size):
         query = self.es_query(index = settings.NEWCLOUD_ACADEMIC_ES_INDEX, doc_type = es_type2)\
