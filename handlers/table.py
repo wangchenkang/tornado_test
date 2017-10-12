@@ -1,6 +1,8 @@
 #! -*- coding: utf-8 -*-
 import time
+from tornado.web import gen
 from utils.routes import route
+from utils.tools import is_ended
 from elasticsearch_dsl import Q
 from .base import BaseHandler
 import settings
@@ -45,6 +47,7 @@ class TableHandler(BaseHandler):
         total = self.es_execute(query).hits.total
         return total
 
+    @gen.coroutine
     def post(self):
 
         student_keyword = self.get_argument('student_keyword', None)
@@ -67,7 +70,7 @@ class TableHandler(BaseHandler):
             sort = 'study_week'
         if sort == 'grade' and data_type == 'newcloud_grade':
             sort = 'final_score'
-        result = self.search_es(self.course_id, user_ids, page, num, sort, sort_type, fields, screen_index, data_type)
+        result = yield self.search_es(self.course_id, user_ids, page, num, sort, sort_type, fields, screen_index, data_type)
         if screen_index:
             user_ids = self.get_filter_user_ids(self.course_id, user_ids, data_type, screen_index)
         total = len(user_ids)
@@ -88,14 +91,20 @@ class TableJoinHandler(TableHandler):
     WARNING_FIELDS = ['warning_date', 'study_week', 'least_2_week', 'low_video_rate', 'low_grade_rate']
     NEWCLOUD_GRADE_FIELDS = ['has_passed', 'final_score', 'edx_score', 'video_score', 'post_score', 'import_score']
 
-    def get_es_type(self, sort_field):
+    def get_es_type(self, sort_field, status):
         pass
 
+    @gen.coroutine
     def get_query_plan(self, sort):
-        first_es_type = self.get_es_type(sort)
+        course_detail = yield self.course_detail(self.course_id)
+        end_time = course_detail['end']
+        status = is_ended(end_time)
+
+        first_es_type = self.get_es_type(sort, status)
         self.es_types.remove(first_es_type)
         self.es_types.insert(0, first_es_type)
-        return self.es_types
+
+        raise gen.Return(self.es_types)
 
     def iterate_search(self, es_index_types, course_id, user_ids, page, num, sort, fields, screen_index, data_type):
         if 'user_id' not in fields:
@@ -157,8 +166,9 @@ class TableJoinHandler(TableHandler):
             result.extend(self.iterate_search(es_index_types, course_id, user_ids, i, part_num, sort, fields, screen_index, data_type))
         return result 
 
+    @gen.coroutine
     def search_es(self, course_id, user_ids, page, num, sort, sort_type, fields, screen_index, data_type):
-        es_index_types = self.get_query_plan(sort)
+        es_index_types = yield self.get_query_plan(sort)
 
         reverse = True if sort_type else False
         sort = '-' + sort if reverse else sort
@@ -169,7 +179,7 @@ class TableJoinHandler(TableHandler):
 
         result = self.postprocess(result)
 
-        return result
+        raise gen.Return(result)
 
     def postprocess(self, result):
         return result
@@ -263,12 +273,18 @@ class GradeDetail(TableJoinHandler):
 
     es_types = ['tap_table_grade/grade_summary', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
 
-    def get_es_type(self, sort_field):
+    def get_es_type(self, sort_field, status):
+        if status:
+            self.es_types = ['tap_table_grade_lock/grade_summary', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
         if sort_field in self.GRADE_FIELDS:
             return '%s/course_grade' % settings.ES_INDEX
         elif sort_field in self.USER_FIELDS:
             return '%s/student_enrollment_info' % settings.ES_INDEX
-        return 'tap_table_grade/grade_summary'
+
+        if status:
+            return 'tap_table_grade_lock/grade_summary'
+        else:
+            return 'tap_table_grade/grade_summary'
 
 
 @route('/table/question_overview')
@@ -278,14 +294,20 @@ class QuestionDetail(TableJoinHandler):
     #es_types = ['tap_table_question/chapter_question', 'tap_table_small_question/small_question', \
     #            '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
 
-    def get_es_type(self, sort_field):
+    def get_es_type(self, sort_field, status):
+        if status:
+            self.es_types = ['tap_table_question_lock/chapter_question', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
         if sort_field in self.GRADE_FIELDS:
             return '%s/course_grade' % settings.ES_INDEX
         elif sort_field in self.USER_FIELDS:
             return '%s/student_enrollment_info' % settings.ES_INDEX
         elif '_answer' in sort_field or '_correct' in sort_field:
             return 'tap_table_small_question/small_question'
-        return 'tap_table_question/chapter_question'
+
+        if status:
+            return 'tap_table_question_lock/chapter_question'
+        else:
+            return 'tap_table_question/chapter_question'
 
     def postprocess(self, result):
         for record in result:
@@ -301,14 +323,20 @@ class VideoDetail(TableJoinHandler):
     #es_types = ['tap_table_video/chapter_seq_video', 'tap_table_video/item_video', \
     #            '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
 
-    def get_es_type(self, sort_field):
+    def get_es_type(self, sort_field, status):
+        if status:
+            self.es_types = ['tap_table_video/chapter_seq_video', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
         if sort_field in self.GRADE_FIELDS:
             return '%s/course_grade' % settings.ES_INDEX
         elif sort_field in self.USER_FIELDS:
             return '%s/student_enrollment_info' % settings.ES_INDEX
         elif 'item_' in sort_field:
             return 'tap_table_video/item_video'
-        return 'tap_table_video/chapter_seq_video'
+        
+        if status:
+            return 'tap_table_videp/chapter_seq_video'
+        else:
+            return 'tap_table_video_realtime/chapter_seq_video'
 
 
 @route('/table/discussion_overview')
@@ -316,12 +344,18 @@ class DiscussionDetail(TableJoinHandler):
 
     es_types = ['tap_table_discussion/discussion_summary', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
 
-    def get_es_type(self, sort_field):
+    def get_es_type(self, sort_field, status):
+        if status:
+            self.es_types = ['tap_table_discussion_lock/discussion_summary', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
         if sort_field in self.GRADE_FIELDS:
             return '%s/course_grade' % settings.ES_INDEX
         elif sort_field in self.USER_FIELDS:
             return '%s/student_enrollment_info' % settings.ES_INDEX
-        return 'tap_table_discussion/discussion_summary'
+
+        if status:
+            return 'tap_table_discussion_lock/discussion_summary'
+        else: 
+            return 'tap_table_discussion/discussion_summary'
 
 
 @route('/table/enroll_overview')
@@ -329,10 +363,15 @@ class EnrollDetail(TableJoinHandler):
 
     es_types = ['realtime/student_enrollment_info']
 
-    def get_es_type(self, sort_field):
-        if sort_field in self.USER_FIELDS:
+    def get_es_type(self, sort_field, status):
+        if status:
+            self.es_types = ['tap_lock/student_enrollment_info']
+            return 'tap_lock/student_enrollment_info'
+        else:
             return 'realtime/student_enrollment_info'
-        return 'realtime/student_enrollment_info'
+        #if sort_field in self.USER_FIELDS:
+        #    return 'realtime/student_enrollment_info'
+        #return 'realtime/student_enrollment_info'
 
     def postprocess(self, result):
         for record in result:
@@ -347,7 +386,7 @@ class SeekVideoTable(TableJoinHandler):
 
     es_types = ['%s/video_seek_summary' % ('problems_focused'), '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
 
-    def get_es_type(self, sort):
+    def get_es_type(self, sort, status):
         if sort in self.GRADE_FIELDS:
             return '%s/course_grade' % settings.ES_INDEX
         elif sort in self.USER_FIELDS:
@@ -359,7 +398,7 @@ class Studywarning(TableJoinHandler):
                                 
     es_types = ['%s/study_warning_person' %('problems_focused'), '%s/student_enrollment_info' % settings.ES_INDEX]
     
-    def get_es_type(self, sort):
+    def get_es_type(self, sort, status):
         if sort in self.USER_FIELDS:
             return '%s/student_enrollment_info' % settings.ES_INDEX
         return '%s/study_warning_person' % ('problems_focused')
@@ -405,4 +444,10 @@ class UpdateTime(BaseHandler):
                         .filter('term', group_name = 'video')
             data = self.es_execute(query[:1])
             update_time = data[0].latest_data_time.replace('T', ' ').split('+')[0]
+
+        elif data_type in ('grade', 'discussion', 'question'):
+            query = self.es_query(index = 'tap', doc_type = 'data_conf')
+            data = self.es_execute(query[:1])
+            update_time = '%s 23:59:59' % data[0].latest_data_date
+
         self.success_response({'data': {'update_time': update_time}})
