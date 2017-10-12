@@ -46,6 +46,19 @@ class MysqlConnect(object):
         nickname = results[0]['nickname']
         return user_id, avatar, nickname
 
+    def get_rname_image(self, user_id):
+        query = """
+                select * from auth_userprofile where user_id = {0}
+                """.format(user_id)
+        results = self.execute_query(query)
+        if results:
+            avatar = results[0]['avatar']
+            rname = results[0]['name']
+        else:
+            avatar = ''
+            rname = ''
+        return avatar, rname
+
     def get_role(self, user_id, host):
         query = """
                 select distinct(mode) from teacher_power where user_id= {0} and host= '{1}'
