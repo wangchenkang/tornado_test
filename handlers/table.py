@@ -297,7 +297,6 @@ class QuestionDetail(TableJoinHandler):
 
 @route('/table/video_overview')
 class VideoDetail(TableJoinHandler):
-
     es_types = ['tap_table_video_realtime/chapter_seq_video', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
     #es_types = ['tap_table_video/chapter_seq_video', 'tap_table_video/item_video', \
     #            '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
@@ -392,9 +391,18 @@ class SmallQuestionStructure(BaseHandler):
 
 @route('/data/update_time')
 class UpdateTime(BaseHandler):
+    """
+    """
     def get(self):
-        query = self.es_query(index='processstate', doc_type='processstate') \
-                    .filter('term', topic='edxapp')
-
-        data = self.es_execute(query[:1])
-        self.success_response({'data': {'update_time': data[0]['current_time'].replace('T', ' ')}})
+        data_type = self.get_argument('data_type')
+        if data_type == 'enroll':
+            query = self.es_query(index='processstate', doc_type='processstate') \
+                        .filter('term', topic='edxapp')
+            data = self.es_execute(query[:1])
+            update_time = data[0].current_time.replace('T', ' ')
+        elif data_type == 'video':
+            query = self.es_query(index = 'tap_realtime', doc_type = 'data_conf')\
+                        .filter('term', group_name = 'video')
+            data = self.es_execute(query[:1])
+            update_time = data[0].latest_data_time.replace('T', ' ').split('+')[0]
+        self.success_response({'data': {'update_time': update_time}})
