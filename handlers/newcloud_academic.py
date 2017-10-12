@@ -19,7 +19,7 @@ TEACHER_FIELD = ['user_id', 'course_num_total', 'course_num', 'first_level', 'te
 STUDENT_FIELD = ['rname', 'binding_uid', 'faculty', 'major', 'cohort', 'entrance_year', 'participate_total_user', 'open_num_user', 'unopen_num_user', 'close_num_user'] 
 STUDENT_FORM_HEADER = [u'姓名', u'学号', u'院系', u'专业', u'班级', u'入学年份', u'参与课程', u'开课中', u'待开课', u'已结课']
 STUDENT_COURSE_FIELD = ['course_status', 'course_id', 'course_name', 'effort_user', 'study_rate_user', 'accomplish_percent_user', 'correct_percent_user', 'grade', 'start', 'end']
-STUDENT_USER_FIELD = ['open_num_user', 'unopen_num_user', 'close_num_user', 'study_video_user', 'discussion_num_user', 'accomplish_percent_user']
+STUDENT_USER_FIELD = ['open_num_user', 'unopen_num_user', 'close_num_user', 'study_video_user', 'discussion_num_user', 'accomplish_percent_user', 'participate_total_user']
 
 class AcademicData(BaseHandler):
 
@@ -551,7 +551,7 @@ class StudentDetailOverview(AcademicData):
         result_total = self.es_execute(query_total[:1])
         result_avg = self.es_execute(query_avg[:0])
         aggs_avg = result_avg.aggregations
-        total = result_total.hits.total
+        total = result_total.hits[0].participate_total_user if result_total.hits else 0
         results = [result.to_dict() for result in result_total.hits]
 
         result = results[0] if results else {}
