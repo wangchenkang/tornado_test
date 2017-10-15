@@ -407,7 +407,7 @@ class Studywarning(TableJoinHandler):
 class NewcloudGrade(TableJoinHandler):
     es_types = ['%s/score_realtime' % settings.NEWCLOUD_ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
 
-    def get_es_type(self, sort):
+    def get_es_type(self, sort, status):
         if sort in self.USER_FIELDS:
             return '%s/student_enrollment_info' % settings.ES_INDEX
         return '%s/score_realtime' % settings.NEWCLOUD_ES_INDEX

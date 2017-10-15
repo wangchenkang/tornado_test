@@ -19,7 +19,7 @@ TEACHER_FIELD = ['user_id', 'course_num_total', 'course_num', 'first_level', 'te
 STUDENT_FIELD = ['rname', 'binding_uid', 'faculty', 'major', 'cohort', 'entrance_year', 'participate_total_user', 'open_num_user', 'unopen_num_user', 'close_num_user'] 
 STUDENT_FORM_HEADER = [u'姓名', u'学号', u'院系', u'专业', u'班级', u'入学年份', u'参与课程', u'开课中', u'待开课', u'已结课']
 STUDENT_COURSE_FIELD = ['course_status', 'course_id', 'course_name', 'effort_user', 'study_rate_user', 'accomplish_percent_user', 'correct_percent_user', 'grade', 'start', 'end']
-STUDENT_USER_FIELD = ['open_num_user', 'unopen_num_user', 'close_num_user', 'study_video_user', 'discussion_num_user', 'accomplish_percent_user']
+STUDENT_USER_FIELD = ['open_num_user', 'unopen_num_user', 'close_num_user', 'study_video_user', 'discussion_num_user', 'accomplish_percent_user', 'participate_total_user', 'correct_percent_user']
 
 class AcademicData(BaseHandler):
 
@@ -543,7 +543,6 @@ class StudentDetailOverview(AcademicData):
         query_avg = query.filter('term', term_id = term_id)
         query_avg.aggs.metric('study_video_avg', 'avg', field = 'study_video_user')
         query_avg.aggs.metric('discussion_num_avg', 'avg', field = 'discussion_num_user')
-        query_avg.aggs.metric('correct_percent_avg', 'avg', field = 'correct_percent_user')
         
         return query_total, query_avg
 
@@ -551,7 +550,7 @@ class StudentDetailOverview(AcademicData):
         result_total = self.es_execute(query_total[:1])
         result_avg = self.es_execute(query_avg[:0])
         aggs_avg = result_avg.aggregations
-        total = result_total.hits.total
+        total = result_total.hits[0].participate_total_user if result_total.hits else 0
         results = [result.to_dict() for result in result_total.hits]
 
         result = results[0] if results else {}
@@ -560,7 +559,7 @@ class StudentDetailOverview(AcademicData):
         result['close_num'] = result.pop('close_num_user') if results else 0
         result['accomplish_percent'] = self.round_data(result.pop('accomplish_percent_user') if results else 0 or 0)
         result['discussion_total'] = self.round_data(result.pop('discussion_num_user') if results else 0 or 0)
-        result['correct_percent'] = self.round_data(aggs_avg.correct_percent_avg.value or 0)
+        result['correct_percent'] = self.round_data(result.pop('correct_percent_user') if results else 0)
         result['discussion_avg'] = self.round_data(aggs_avg.discussion_num_avg.value or 0)
         result['course_total'] = total
         result['study_video_total'] = self.round_data(result.pop('study_video_user') if results else 0)
