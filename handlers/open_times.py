@@ -27,7 +27,7 @@ class OpenTime(BaseHandler):
                              .filter('term', course_id = self.course_id)[:1]
         result = self.es_execute(query).hits
         parent_id = result[0].parent_id if result else self.course_id
-        
+                
         return parent_id
 
     def get_children_id_open_times(self, parent_id):
@@ -53,7 +53,6 @@ class OpenTime(BaseHandler):
        
         opration = 'terms' if isinstance(service_line, list) else 'term'
         query = query.filter('%s' % opration, service_line = service_line)
-        
         query.aggs.bucket('platform_num', 'terms', field = 'orgid_or_host', size = size)
         query.aggs.metric('enroll_total', 'sum', field = 'enrollment_num')
         query.aggs.metric('pass_total', 'sum', field = 'pass_num')
@@ -206,7 +205,6 @@ class OpenTimesSearch(OpenTime):
             query = query.filter(Q('bool', should=[Q('wildcard', course_name='*%s*' % course_name)]))
        
         query = query.filter('%s' % operation, service_line = service_line)
-        
         if num == -1:
             course_info = self.es_execute(query[:size]).hits
         else:
@@ -271,8 +269,9 @@ class OpenTimesSearch(OpenTime):
         host = self.host
         course_ids_total, _ = self.get_children_id_open_times(parent_id)
         size = len(course_ids_total)
+        courses = copy.deepcopy(course_ids_total)
         course_ids, course_info = self.get_course_infos(parent_id, course_ids_total, course_name, page, num, service_line, host)
-        _, total = self.get_course_aggs(course_ids_total, service_line, host)
+        _, total = self.get_course_aggs(courses, service_line, host)
         course_info_num = len(course_ids)
         group_keys = self.group_keys
 
