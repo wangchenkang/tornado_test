@@ -42,15 +42,6 @@ class OpenTime(BaseHandler):
         
         return course_ids, open_times
 
-    def round_data(self, data):
-        data = round(data or 0, 2)
-        
-        return data
-
-@route('/open_times/overview')
-class OpenTimesOverview(OpenTime):
-    """
-    """
     def get_course_aggs(self, course_ids, service_line, host):
         size = len(course_ids)
         query = self.es_query(index = 'academics', doc_type = 'tap_academics_statics')\
@@ -72,9 +63,19 @@ class OpenTimesOverview(OpenTime):
         
         return aggs, total
 
+    def round_data(self, data):
+        data = round(data or 0, 2)
+        
+        return data
+
+@route('/open_times/overview')
+class OpenTimesOverview(OpenTime):
+    """
+    """
     def get(self):
         parent_id = self.parent_id
         host = self.host
+        title_status = 1 if host == 'studio.xuetangx.com' else 0
         service_line = self.get_argument('service_line')
         service_line = json.loads(service_line) 
         course_ids, _ = self.get_children_id_open_times(parent_id)
@@ -89,7 +90,8 @@ class OpenTimesOverview(OpenTime):
         data['platform_num'] = platform_num
         data['enroll_total'] = enroll_total
         data['pass_total'] = pass_total
-        
+        data['title_status'] = title_status
+
         self.success_response({'data': data})
 
 
@@ -181,6 +183,8 @@ class OpenTimesSearch(OpenTime):
                             .filter('term', course_id = parent_id)\
                             .source(COURSE_INFO_FIELD)\
                             .filter('%s' % operation, service_line = service_line)
+        if host != 'studio.xuetangx.com':
+            query = query.filter('term', orgid_or_host = host)
         parent_info = self.es_execute(query).hits
         parent_info = parent_info[0].to_dict() if parent_info else None
         size = len(course_ids)
@@ -265,10 +269,10 @@ class OpenTimesSearch(OpenTime):
         service_line = json.loads(service_line)
         parent_id = self.parent_id
         host = self.host
-
         course_ids_total, _ = self.get_children_id_open_times(parent_id)
         size = len(course_ids_total)
         course_ids, course_info = self.get_course_infos(parent_id, course_ids_total, course_name, page, num, service_line, host)
+        _, total = self.get_course_aggs(course_ids_total, service_line, host)
         course_info_num = len(course_ids)
         group_keys = self.group_keys
 
@@ -279,7 +283,7 @@ class OpenTimesSearch(OpenTime):
         course_info = self.update_course_info(service_line, course_info, course_health, parent_id, num)
         
         load_more = 0
-        if (page-1)*num + course_info_num < size:
+        if (page-1)*num + course_info_num < total:
             load_more = 1
 
         self.success_response({'data': course_info, 'load_more': load_more, 'page': page, 'size': num})
