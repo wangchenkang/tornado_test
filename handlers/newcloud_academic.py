@@ -130,11 +130,13 @@ class AcademicData(BaseHandler):
         return query
 
     def round_data_4(self, data):
-        
+        data = float(data)
+
         return round(data, 4)
 
     def round_data_2(self, data):
-        
+        data = float(data)
+
         return round(data, 2)
 
   
@@ -294,9 +296,12 @@ class TeacherOverview(AcademicData):
                                     .source(['participate_course_num'])
         if faculty != 'all':
             query = query.filter('term', first_level = faculty)
+        result = self.es_execute(query[:1000]).hits
+        paticipate_num = []
+        for item in result:
+            paticipate_num.append(item.participate_course_num)
+        participate_total = sum(paticipate_num)
 
-        result = self.es_execute(query[:1]).hits
-        participate_total = result[0].participate_course_num if result else 0
         return participate_total
 
     @property
@@ -310,12 +315,9 @@ class TeacherOverview(AcademicData):
         teacher_total, term_teacher_num = self.get_total_term_num(org_id, faculty, term_id)
         teacher_creator_num, discussion_total = self.get_creator_discussion_total(org_id, faculty, term_id) 
         discussion_avg = self.round_data_2(discussion_total/(term_teacher_num or 1))
-        participate_total = 0
-        participate_avg = 0
-        if faculty != 'all':
-            participate_total = self.get_participate_total(org_id, faculty, term_id)
-            participate_avg = self.round_data_2(term_teacher_num/(participate_total or 1))
-
+        participate_total = self.get_participate_total(org_id, faculty, term_id)
+        participate_avg = self.round_data_2(float(term_teacher_num)/(participate_total or 1))
+        
         data = {}
         data['teacher_total'] = teacher_total
         data['creator_num'] = teacher_creator_num

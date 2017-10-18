@@ -11,9 +11,9 @@ import json
 
 class TableHandler(BaseHandler):
 
-    def student_search(self, course_id, group_key, student_keyword, data_type):
+    def student_search(self, course_id, group_key, student_keyword, data_type, status):
         # enroll表格临时逻辑
-        if data_type == 'enroll':
+        if data_type == 'enroll' and not status:
             index = 'realtime'
         else:
             index = settings.ES_INDEX
@@ -49,6 +49,9 @@ class TableHandler(BaseHandler):
 
     @gen.coroutine
     def post(self):
+        course_detail = yield self.course_detail(self.course_id)
+        end_time = course_detail['end']
+        status = is_ended(end_time)
 
         student_keyword = self.get_argument('student_keyword', None)
         time_begin = time.time()
@@ -62,7 +65,7 @@ class TableHandler(BaseHandler):
         screen_index = self.get_argument('screen_index', '')
         fields = json.loads(fields) if fields else []
         screen_index = json.loads(screen_index) if screen_index else []
-        user_ids = self.student_search(self.course_id, self.group_key, student_keyword, data_type)
+        user_ids = self.student_search(self.course_id, self.group_key, student_keyword, data_type, status)
         # enroll表临时逻辑
         if data_type == 'enroll' and sort == 'grade':
             sort = 'enroll_time'
