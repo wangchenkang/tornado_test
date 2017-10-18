@@ -440,10 +440,10 @@ class UpdateTime(BaseHandler):
             data = self.es_execute(query[:1])
             update_time = data[0].current_time.replace('T', ' ')
         elif data_type == 'video':
-            query = self.es_query(index = 'tap_realtime', doc_type = 'data_conf')\
-                        .filter('term', group_name = 'video')
+            query = self.es_query(index = 'processstate', doc_type = 'processstate')\
+                        .filter('term', data_type = 'realtime_table_video')
             data = self.es_execute(query[:1])
-            update_time = data[0].latest_data_time.replace('T', ' ').split('+')[0]
+            update_time = data[0].current_time.replace('T', ' ').split('+')[0]
 
         elif data_type in ('grade', 'discussion', 'question'):
             query = self.es_query(index = 'tap', doc_type = 'data_conf')
