@@ -375,6 +375,7 @@ class BaseHandler(RequestHandler):
         host = self.get_argument('host', None)
         if not host:
             self.error_response(100, u'缺少参数')
+        
         return host
 
     @property

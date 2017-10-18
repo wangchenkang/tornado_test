@@ -10,6 +10,8 @@ from utils.mysql_connect import MysqlConnect
 from utils import cache
 import time
 import copy
+import json
+
 
 COURSE_INFO_FIELD = ['course_id', 'course_name', 'orgid_or_host', 'start_time', 'end_time', 'chapter_num', 'chapter_issue_num', 'course_status', 'chapter_avg_length', 'course_type', 'certification_status', 'video_length']
 COURSE_HEALTH_FIELD = ['course_id', 'group_key', 'group_name', 'interactive_rank', 'comment_rank', 'enroll_rank', 'enroll_num',\
@@ -49,36 +51,41 @@ class OpenTime(BaseHandler):
 class OpenTimesOverview(OpenTime):
     """
     """
-    def get_course_aggs(self, course_ids, service_line):
+    def get_course_aggs(self, course_ids, service_line, host):
         size = len(course_ids)
         query = self.es_query(index = 'academics', doc_type = 'tap_academics_statics')\
                             .filter('terms', course_id = course_ids)
-        if service_line == 'all':
-            query = query.filter('terms', service_line = ['mooc', 'spoc'])
-        else:
-            query = query.filter('term', service_line = service_line)
 
+        if host != 'studio.xuetangx.com':
+            query = query.filter('term', orgid_or_host = host)
+            service_line = 'spoc'
+       
+        opration = 'terms' if isinstance(service_line, list) else 'term'
+        query = query.filter('%s' % opration, service_line = service_line)
+        
         query.aggs.bucket('platform_num', 'terms', field = 'orgid_or_host', size = size)
         query.aggs.metric('enroll_total', 'sum', field = 'enrollment_num')
         query.aggs.metric('pass_total', 'sum', field = 'pass_num')
         result = self.es_execute(query[:0])
         aggs = result.aggregations
         total = result.hits.total
+        
         return aggs, total
 
     def get(self):
         parent_id = self.parent_id
-        course_ids, open_times = self.get_children_id_open_times(parent_id)
-        service_line = self.get_argument('service_line', 'all')
-        aggs, total = self.get_course_aggs(course_ids, service_line)
-        
+        host = self.host
+        service_line = self.get_argument('service_line')
+        service_line = json.loads(service_line) 
+        course_ids, _ = self.get_children_id_open_times(parent_id)
+        aggs, total = self.get_course_aggs(course_ids, service_line, host)
         platform = aggs.platform_num.buckets
         platform_num = len(platform)
         enroll_total = int(aggs.enroll_total.value or 0)
         pass_total = int(aggs.pass_total.value or 0)
-
+        
         data = {}
-        data['open_times'] = open_times if service_line == 'all' else total 
+        data['open_times'] = total 
         data['platform_num'] = platform_num
         data['enroll_total'] = enroll_total
         data['pass_total'] = pass_total
@@ -97,7 +104,7 @@ class OpenTimesSearch(OpenTime):
         return time
 
     def update_course_info(self, service_line, course_info, course_health, parent_id, num):
-        if service_line in ('mooc', 'spoc'):
+        if service_line != ['mooc', 'spoc']:
             courses = []
         for course in course_info:
             course['month'] = 0
@@ -139,7 +146,7 @@ class OpenTimesSearch(OpenTime):
 
         if num == -1:
             course_info = self.update_course_health(course_health, course_info, video_length, start_time, end_time)
-        if service_line in ('mooc', 'spoc') and num != -1:
+        if service_line != ['mooc', 'spoc'] and num != -1:
             course_info = courses
         
         return course_info
@@ -165,14 +172,17 @@ class OpenTimesSearch(OpenTime):
             courses.extend(data_course)
         return courses
 
-    def get_course_infos(self, parent_id, course_ids, course_name, page, num, service_line):
+    def get_course_infos(self, parent_id, course_ids, course_name, page, num, service_line, host):
+        operation = 'terms' if isinstance(service_line, list) else 'term'
+        if host != 'studio.xuetangx.com':
+            operation = 'term'
+            service_line = 'spoc'
         query = self.es_query(index = 'academics', doc_type = 'tap_academics_statics')\
                             .filter('term', course_id = parent_id)\
                             .source(COURSE_INFO_FIELD)\
-                            .filter('terms', service_line = ['mooc', 'spoc'])
+                            .filter('%s' % operation, service_line = service_line)
         parent_info = self.es_execute(query).hits
         parent_info = parent_info[0].to_dict() if parent_info else None
-       
         size = len(course_ids)
         course_ids_download = copy.deepcopy(course_ids)
         if parent_id in set(course_ids):
@@ -180,17 +190,18 @@ class OpenTimesSearch(OpenTime):
         
         if num == -1:
             course_ids = course_ids_download
+        
         query = self.es_query(index = 'academics', doc_type = 'tap_academics_statics')\
                             .filter('terms', course_id = course_ids)\
                             .sort('-start_time')\
                             .source(COURSE_INFO_FIELD)
+        if host != 'studio.xuetangx.com':
+            query = query.filter('term', orgid_or_host = host)
+        
         if course_name != 'all':
             query = query.filter(Q('bool', should=[Q('wildcard', course_name='*%s*' % course_name)]))
-
-        if service_line != 'all':
-            query = query.filter('term', service_line = service_line)
-        else:
-            query = query.filter('terms', service_line = ['mooc', 'spoc'])
+       
+        query = query.filter('%s' % operation, service_line = service_line)
         
         if num == -1:
             course_info = self.es_execute(query[:size]).hits
@@ -212,9 +223,15 @@ class OpenTimesSearch(OpenTime):
 
     @property
     def group_keys(self):
-        service_line = self.get_argument('service_line', 'all')
-        if service_line == 'all':
-            group_keys = [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY]
+        service_line = self.get_argument('service_line')
+        service_line = json.loads(service_line)
+        host = self.host
+
+        if service_line == ['mooc', 'spoc']:
+            if host == 'studio.xuetangx.com':
+                group_keys = [settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY]
+            else:
+                group_keys = [settings.SPOC_GROUP_KEY]
         elif service_line == 'mooc':
             group_keys = [settings.MOOC_GROUP_KEY]
         else:
@@ -244,17 +261,19 @@ class OpenTimesSearch(OpenTime):
         course_name = self.get_argument('course_name', 'all')
         page = int(self.get_argument('page', 1))
         num = int(self.get_argument('num', 10))
-        service_line = self.get_argument('service_line', 'all')        
+        service_line = self.get_argument('service_line') 
+        service_line = json.loads(service_line)
         parent_id = self.parent_id
-        course_ids_total, open_times = self.get_children_id_open_times(parent_id)
+        host = self.host
+
+        course_ids_total, _ = self.get_children_id_open_times(parent_id)
         size = len(course_ids_total)
-        course_id_total = copy.deepcopy(course_ids_total)
-        course_ids, course_info = self.get_course_infos(parent_id, course_ids_total, course_name, page, num, service_line)
+        course_ids, course_info = self.get_course_infos(parent_id, course_ids_total, course_name, page, num, service_line, host)
         course_info_num = len(course_ids)
         group_keys = self.group_keys
 
         if num == -1:
-            course_health = self.get_course_health(course_id_total, group_keys, size)
+            course_health = self.get_course_health(course_ids, group_keys, size)
         else:
             course_health = self.get_course_health(course_ids, group_keys, size)
         course_info = self.update_course_info(service_line, course_info, course_health, parent_id, num)

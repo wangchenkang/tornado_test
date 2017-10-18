@@ -253,6 +253,7 @@ class StudentPostTopStat(BaseHandler):
 
         users = [item.key for item in data.aggregations.students.buckets]
         usernames = self.get_user_name(users=users, group_key=self.group_key)
+        print usernames
         for item in data.aggregations.students.buckets:    
             if usernames.get(int(item.key))[1] == "--":
                 user_name = usernames.get(int(item.key))[0]
