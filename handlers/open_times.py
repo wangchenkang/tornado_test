@@ -122,7 +122,7 @@ class OpenTimesSearch(OpenTime):
 
             course['dynamics'] = []
             course['parent'] = 0
-            course['chapter_avg'] = self.round_data(course.pop('chapter_avg_length'))
+            course['chapter_avg'] = self.round_data((course.pop('chapter_avg_length') or 0)/3600)
             course['chapter'] = course.pop('chapter_issue_num')
             course['chapter_total'] = course.pop('chapter_num')
             course['certification_status'] = int(course.pop('certification_status'))
