@@ -750,10 +750,10 @@ class StudentCourseEnrollment(BaseHandler):
             for hit in hits:
                 if sign == 1:
                     if hit.course_id in course_:
-                        course_[hit.course_id] = hit.parrent
+                        course_[hit.course_id] = hit.parent_id
                 else:
-                    if hit.parrent in course_:
-                        course_[hit.parrent].append(hit.course_id)
+                    if hit.parent_id in course_:
+                        course_[hit.parent_id].append(hit.course_id)
          else:
             for course_id in set(course_ids):
                 if sign == 1:
@@ -769,18 +769,19 @@ class StudentCourseEnrollment(BaseHandler):
          course_ids = self.get_course_ids()
 
          #查parent_id
-         query = self.es_query(index='main', doc_type='course_ancestor')\
+         query = self.es_query(index='course_ancestor', doc_type='course_ancestor')\
                      .filter('terms', course_id=course_ids)
          total = self.es_execute(query[:0]).hits.total
          result = self.es_execute(query[:total])
-         parent_course_ids = [hit.parrent for hit in result.hits] if result.hits else course_ids
+         parent_course_ids = [hit.parent_id for hit in result.hits] if result.hits else course_ids
          
          #子对父
          course_id_cp = self.get_course_2_ids(course_ids, 1, result.hits)
 
          #根据parent_id查出所有的子课程id
-         query = self.es_query(index='main', doc_type='course_ancestor')\
-                     .filter('terms', parrent=parent_course_ids)
+         query = self.es_query(index='course_ancestor', doc_type='course_ancestor')\
+                     .filter('terms', parent_id=parent_course_ids)\
+                     .filter('range', **{'status': {'gte': -1}})
          result = self.es_execute(query[:10000])
          children_course_ids = [hit.course_id for hit in result.hits] if result.hits else course_ids
 

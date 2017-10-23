@@ -17,4 +17,5 @@ from .education import *
 from .problem_focus import *
 from .mobile_web_video import *
 from .newcloud_grade import *
+from .open_times import *
 from .newcloud_academic import *

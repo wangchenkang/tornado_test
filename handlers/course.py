@@ -164,10 +164,9 @@ class CourseEnrollmentsDate(BaseHandler):
         res_dict = {}
         for x in buckets:
             date = str(x["key_as_string"][:10])
-            data = {}
+            data = {'unenroll': 0, 'enroll': 0}
             aggs_buckets = x["count"]["buckets"]
             for aggs_bucket in aggs_buckets:
-                data['unenroll'] = 0
                 if str(aggs_bucket["key"]) == '1':
                     data['enroll'] = aggs_bucket["doc_count"]
                 elif str(aggs_bucket['key']) == '0':
