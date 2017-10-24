@@ -14,7 +14,7 @@ reload(sys)
 sys.setdefaultencoding('utf-8')
 
 COURSE_FIELD = ['course_id', 'course_name','active_rate_course', 'study_video_rate_course', 'no_watch_person_course',\
-                'enroll_num_course', 'teacher_num_course', 'effort_course', 'score_avg_course', 'course_status']
+                'enroll_num_course', 'teacher_num_course', 'effort_course', 'score_avg_course', 'course_status', 'service_line']
 TEACHER_FIELD = ['user_id', 'course_num_total', 'course_num', 'first_level', 'term_name', 'course_status', 'discussion_total']
 STUDENT_FIELD = ['rname', 'binding_uid', 'faculty', 'major', 'cohort', 'entrance_year', 'participate_total_user', 'open_num_user', 'unopen_num_user', 'close_num_user'] 
 STUDENT_FORM_HEADER = [u'姓名', u'学号', u'院系', u'专业', u'班级', u'入学年份', u'参与课程', u'开课中', u'待开课', u'已结课']
@@ -67,6 +67,7 @@ class AcademicData(BaseHandler):
             course_info['course_id'] = result.course_id
             course_info['active_rate'] = self.round_data_4(result.active_rate_course)
             course_info['course_status'] = result.course_status
+            course_info['service_line'] = result.service_line
             data.append(course_info) 
         return data
 
