@@ -9,6 +9,7 @@ from urllib import unquote
 from utils.routes import route
 from base import BaseHandler
 from tornado.web import gen
+from utils.log import Log
 from collections import defaultdict
 from elasticsearch import Elasticsearch
 from dateutil.relativedelta import relativedelta
@@ -34,8 +35,10 @@ object_json = {"ending_info":["course_id","course_name","category_name","status"
                "analysis_check_plan":["course_id","course_name","months","check_plan","check_plan_weight"]}
 
 
-hosts = [{"host":'10.0.2.128',"port":9200},{"host":'10.0.2.130',"port":9200},{"host":'10.0.2.132',"port":9200}, {"host":'10.0.2.133',"port":9200}, {"host":'10.0.2.135',"port":9200}]
+#hosts = [{"host":'10.0.2.128',"port":9200},{"host":'10.0.2.130',"port":9200},{"host":'10.0.2.132',"port":9200}, {"host":'10.0.2.133',"port":9200}, {"host":'10.0.2.135',"port":9200}]
+#hosts = [{"host":'10.0.2.158',"port":9200}]
 
+Log.create('elective_course')
 def check_token(token):
     checkstr = ""
     md5str = hashlib.md5(checkstr).hexdigest()
@@ -56,9 +59,9 @@ class jsonObject():
         self.__dict__ = data
 
 
-def get_es_data(handlerobj,doc_type,month,school,index='monthly_report',sortkey="course_id"):
+def get_es_data(handlerobj,es,doc_type,month,school,index='monthly_report',sortkey="course_id"):
     data_return = []
-    client = Elasticsearch(hosts)
+    client = es
     response = client.search(\
     index="%s"%index,\
     doc_type="%s"%doc_type,\
@@ -78,9 +81,9 @@ def get_es_data(handlerobj,doc_type,month,school,index='monthly_report',sortkey=
 
 
 
-def get_es_course_data(handlerobj,doc_type,month,school,course_id,index='monthly_report'):
+def get_es_course_data(handlerobj,es,doc_type,month,school,course_id,index='monthly_report'):
     data_return = []
-    client = Elasticsearch(hosts)
+    client = es
     response = client.search(\
     index="%s"%index,\
     doc_type="%s"%doc_type,\
@@ -100,9 +103,9 @@ def get_es_course_data(handlerobj,doc_type,month,school,course_id,index='monthly
 
 
 
-def get_video_rate(handlerobj,index,doc_type,course_id):
+def get_video_rate(handlerobj,es,index,doc_type,course_id):
     data_return = []
-    client = Elasticsearch(hosts)
+    client = es
     response = client.search(\
     index="%s"%index,\
     doc_type="%s"%doc_type,\
@@ -149,7 +152,7 @@ class ElectiveCourseBase(BaseHandler):
         #school = unquote(school)
         school = school
         doc_type = request_mapping.get(info_type)
-        infos = get_es_data(self,doc_type,datestr,school,index=es_index,sortkey='course_id')
+        infos = get_es_data(self,self.es,doc_type,datestr,school,index=es_index,sortkey='course_id')
         
          
         if info_type == "base_info":
@@ -237,14 +240,14 @@ class ElectiveCourseDataReport(BaseHandler):
         return_list = []
         for course_id in courseid_list:
             ending_info_type = request_mapping.get("ending_info")
-            ending_info = get_es_course_data(self,doc_type=ending_info_type,month=datestr,school=school,course_id=course_id,index=es_index)
+            ending_info = get_es_course_data(self,self.es,doc_type=ending_info_type,month=datestr,school=school,course_id=course_id,index=es_index)
             try:
                 ending_status = ending_info[0].status
             except Exception,e:
                 ending_status = ''
             ending_info={"status":ending_status}           
  
-            base_info = get_es_course_data(self,doc_type=base_info_type,month=datestr,\
+            base_info = get_es_course_data(self,self.es,doc_type=base_info_type,month=datestr,\
                                            school=school,course_id=course_id,index=es_index)
             print course_id
             #print base_info[0].teachers.encode('utf-8')
@@ -264,7 +267,7 @@ class ElectiveCourseDataReport(BaseHandler):
                              "teachers":str_to_json(base_info.teachers)}
                 base_info.update(ending_info)
 
-            check_plan = get_es_course_data(self,doc_type=check_plan_type,month=datestr,\
+            check_plan = get_es_course_data(self,self.es,doc_type=check_plan_type,month=datestr,\
                                             school=school,course_id=course_id,index=es_index)
             if len(check_plan)==0:
                 check_plan={}
@@ -273,7 +276,7 @@ class ElectiveCourseDataReport(BaseHandler):
                 check_plan = {"months":check_plan.months,"course_id":check_plan.course_id,\
                               "course_name":check_plan.course_name,\
                               "check_plan":get_check_plan(check_plan.check_plan,check_plan.check_plan_weight)}
-            pass_rate = get_es_course_data(self,doc_type=pass_rate_type,month=datestr,\
+            pass_rate = get_es_course_data(self,self.es,doc_type=pass_rate_type,month=datestr,\
                                            school=school,course_id=course_id,index=es_index)
             if len(pass_rate)==0:
                 pass_rate = {}
@@ -296,7 +299,7 @@ class ElectiveCourseDataReport(BaseHandler):
 
         doc_type = "tap_elective_course_post_info_m"
         datestr = get_datestr()
-        post_infos = get_es_course_data(self,doc_type,datestr,school,course_id,index=es_index)
+        post_infos = get_es_course_data(self,self.es,doc_type,datestr,school,course_id,index=es_index)
         #doc_id months course_name user_id student_id name post_count reply_count school
         post_dict = {"%s_%s_%s"%(object.course_id,object.user_id,object.school):\
                           {"course_id":object.course_id,"user_id":object.user_id,\
@@ -310,7 +313,7 @@ class ElectiveCourseDataReport(BaseHandler):
         
         #import pdb
         #pdb.set_trace()
-        grade_infos = get_es_course_data(self,doc_type,datestr,school,course_id,index=es_index)
+        grade_infos = get_es_course_data(self,self.es,doc_type,datestr,school,course_id,index=es_index)
         
         grade_infos = [(object.course_id,object.user_id,object.school,\
                         object.course_name,object.months,object.hw_type,\
@@ -334,7 +337,7 @@ class ElectiveCourseDataReport(BaseHandler):
         #添加视频学习比例
         pass
         #/tap/tap_video_course_all/_search
-        video_infos = get_video_rate(self,index="tap",doc_type="video_course",course_id=course_id)
+        video_infos = get_video_rate(self,self.es,index="tap",doc_type="video_course",course_id=course_id)
         video_dict = {"%s_%s"%(info.course_id,info.user_id):{"video_rate":info.study_rate} for info in video_infos}
         #import pdb
         #pdb.set_trace()        
@@ -374,7 +377,7 @@ class ElectiveCourseDataReport(BaseHandler):
 
 def get_course_list(handler,school):
     datestr = get_datestr()
-    infos = get_es_data(handler,request_mapping.get("base_info"),datestr,school,index=es_index,sortkey="course_id")
+    infos = get_es_data(handler,handler.es,request_mapping.get("base_info"),datestr,school,index=es_index,sortkey="course_id")
     coursename_list = [{"course_id":object.course_id,\
                         "course_name":object.course_name,\
                         "category_name":object.series} for object in infos]
@@ -397,7 +400,7 @@ class ElectiveCourseCover(BaseHandler):
     def  get(self):
         school = self.get_argument("school")
         datestr = get_datestr()
-        infos = get_es_data(self,request_mapping.get("cover_info"),datestr,school,index=es_index)
+        infos = get_es_data(self,self.es,request_mapping.get("cover_info"),datestr,school,index=es_index)
         if len(infos)==0:
             cover_info = {}
         else:
