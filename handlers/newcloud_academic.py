@@ -375,7 +375,7 @@ class TeacherList(AcademicData):
                     .filter('term', org_id = org_id)\
                     .filter('term', term_id = term_id)\
                     .source(TEACHER_FIELD)\
-                    .sort(sort)
+                    .sort(sort, 'user_id')
         if faculty != 'all':
             query = query.filter('term', first_level = faculty)
         size = self.es_execute(query[:0]).hits.total
