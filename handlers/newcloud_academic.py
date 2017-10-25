@@ -18,7 +18,7 @@ COURSE_FIELD = ['course_id', 'course_name','active_rate_course', 'study_video_ra
 TEACHER_FIELD = ['user_id', 'course_num_total', 'course_num', 'first_level', 'term_name', 'course_status', 'discussion_total']
 STUDENT_FIELD = ['rname', 'binding_uid', 'faculty', 'major', 'cohort', 'entrance_year', 'participate_total_user', 'open_num_user', 'unopen_num_user', 'close_num_user'] 
 STUDENT_FORM_HEADER = [u'姓名', u'学号', u'院系', u'专业', u'班级', u'入学年份', u'参与课程', u'开课中', u'待开课', u'已结课']
-STUDENT_COURSE_FIELD = ['course_status', 'course_id', 'course_name', 'effort_user', 'study_rate_user', 'accomplish_percent_user', 'correct_percent_user', 'grade', 'start', 'end']
+STUDENT_COURSE_FIELD = ['course_status', 'course_id', 'course_name', 'study_video_len_user', 'study_rate_user', 'accomplish_percent_user', 'correct_percent_user', 'grade', 'start', 'end']
 STUDENT_USER_FIELD = ['open_num_user', 'unopen_num_user', 'close_num_user', 'study_video_user', 'discussion_num_user', 'accomplish_percent_user', 'participate_total_user', 'correct_percent_user']
 
 class AcademicData(BaseHandler):
@@ -366,10 +366,7 @@ class TeacherList(AcademicData):
         #size = len(user_ids)
         total_page = self.get_total_page(size, num)
         results_status = self.get_result_status(org_id, faculty, term_id, user_ids, es_type2, num)
-        if len(results) >= len(results_status):
-            results = self.add2result(results, results_status)
-        else:
-            results = self.add2result(results_status, results)
+        results = self.add2result(results, results_status)
 
         return results, total_page, page
 
@@ -391,6 +388,7 @@ class TeacherList(AcademicData):
         else:
             results = self.es_execute(query[(page-1)*num:page*num]).hits
             results = [result.to_dict() for result in results]
+        
         return results, size
 
     def get_result_status(self, org_id, faculty, term_id, user_ids, es_type2, size):
@@ -624,7 +622,7 @@ class StudentDetailCourse(AcademicData):
             item['study_rate'] = self.round_data_4(item.pop('study_rate_user') or 0)
             item['correct_percent'] = self.round_data_4(item.pop('correct_percent_user') or 0)
             item['accomplish_percent'] = self.round_data_4(item.pop('accomplish_percent_user') or 0)
-            item['effort'] = self.round_data_2(item.pop('effort_user') or 0)
+            item['study_video_len'] = self.round_data_2(item.pop('study_video_len_user') or 0)
             item['course_time'] = '%s-%s' % (self.formate_date(item, 'start'), self.formate_date(item, 'end'))
             item['id'] = index + 1
             item['grade'] = self.round_data_2(item.pop('grade') or 0)
