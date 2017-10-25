@@ -505,7 +505,7 @@ class StudentList(AcademicData):
     def query(self):
         query = self.student_query()
         query = query.source(STUDENT_FIELD)\
-                     .sort('-participate_total_user')
+                     .sort('-participate_total_user', 'binding_uid')
         
         return query
 
