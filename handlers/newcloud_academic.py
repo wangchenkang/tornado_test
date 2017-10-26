@@ -378,6 +378,9 @@ class TeacherList(AcademicData):
                     .sort(sort, 'user_id')
         if faculty != 'all':
             query = query.filter('term', first_level = faculty)
+
+        if es_type1 == 'org_teacher_level_term_status':
+            query = query.filter('term', course_status = 'open')
         size = self.es_execute(query[:0]).hits.total
         if es_type1 == 'org_teacher_level_term_status':
             query.aggs.bucket('user_ids', 'terms', field = 'user_id', size = size)
