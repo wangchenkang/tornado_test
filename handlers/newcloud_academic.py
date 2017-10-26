@@ -7,6 +7,7 @@ from .base import BaseHandler
 from elasticsearch_dsl import Q
 from utils.mysql_connect import MysqlConnect
 from utils.service import CourseService
+from utils.tools import date_from_string
 import settings
 
 import sys
@@ -14,7 +15,7 @@ reload(sys)
 sys.setdefaultencoding('utf-8')
 
 COURSE_FIELD = ['course_id', 'course_name','active_rate_course', 'study_video_rate_course', 'no_watch_person_course',\
-                'enroll_num_course', 'teacher_num_course', 'effort_course', 'score_avg_course', 'course_status', 'service_line']
+                'enroll_num_course', 'teacher_num_course', 'effort_course', 'score_avg_course', 'course_status', 'service_line', 'org_id', 'course_start']
 TEACHER_FIELD = ['user_id', 'course_num_total', 'course_num', 'first_level', 'term_name', 'course_status', 'discussion_total']
 STUDENT_FIELD = ['rname', 'binding_uid', 'faculty', 'major', 'cohort', 'entrance_year', 'participate_total_user', 'open_num_user', 'unopen_num_user', 'close_num_user'] 
 STUDENT_FORM_HEADER = [u'姓名', u'学号', u'院系', u'专业', u'班级', u'入学年份', u'参与课程', u'开课中', u'待开课', u'已结课']
@@ -68,14 +69,21 @@ class AcademicData(BaseHandler):
             course_info['active_rate'] = self.round_data_4(result.active_rate_course)
             course_info['course_status'] = result.course_status
             course_info['service_line'] = result.service_line
+            course_info['org_id'] = result.org_id
+            course_info['course_start'] = result.course_start
             data.append(course_info) 
         return data
 
     @gen.coroutine
     def get_course_image(self, result):
         course_detail = yield self.course_detail(result['course_id'])
-        
-        raise gen.Return(course_detail['image_url'])
+        from datetime import timedelta
+        course_end = course_detail['end']
+        course_end = date_from_string(course_end) + timedelta(hours=8)
+        course_end = str(course_end).split(' ')[0] if course_end else ''
+        image_url = course_detail['image_url']
+
+        raise gen.Return((image_url, course_end))
 
     @property
     def course_query(self):
@@ -230,7 +238,13 @@ class CourseList(AcademicData):
         results, total, total_page = self.get_result(query, page, num)
         datas = self.format_course_info(results)
         for data in datas:
-            data['image_url'] = yield self.get_course_image(data)
+            data['image_url'], end = yield self.get_course_image(data)
+            start = data['course_start']
+            start = '.'.join(start.split(' ')[0].split('-')) if start else ''
+            end = '.'.join(end.split('-')) if end else ''
+            data['course_time'] ='%s-%s' %(start, end)
+            data.pop('course_start')
+        
         self.success_response({'data': datas, 'total_page': total_page, 'course_num': total, 'current_page': page})
 
 
@@ -354,67 +368,73 @@ class TeacherList(AcademicData):
         faculty = 'all' if not faculty else faculty
 
         if sort in ('course_num_total', '-course_num_total'):
-            es_type1 = 'org_teacher_level_term'
-            es_type2 = 'org_teacher_level_term_status'
+            results, size = self.get_result(org_id, faculty, term_id, sort, page, num, status=1)
+            user_ids = [result['user_id'] for result in results]
+            results_status, _ = self.get_status_result(org_id, faculty, term_id, sort, page, num, 0, user_ids)
+            
+            results = self.add2result(results, results_status)
         else:
-            es_type1 = 'org_teacher_level_term_status'
-            es_type2 = 'org_teacher_level_term'
+            results, _ = self.get_status_result(org_id, faculty, term_id, sort, page, num, status=1)
+            user_ids = [result['user_id'] for result in results]
+            results_status, _ = self.get_result(org_id, faculty, term_id, sort, page, num, 0, user_ids)
+            
+            data = []
+            for user_id in user_ids:
+                for result_status in results_status:
+                    if result_status['user_id'] == user_id and result_status not in data:
+                        data.append(result_status)
+            
+            results = self.add2result(data, results)
 
-        #status
-        results, size = self.get_result(org_id, faculty, term_id, es_type1, sort, page, num)
-        user_ids = [result['user_id'] for result in results]
-        #size = len(user_ids)
+        size = len(set(user_ids))
         total_page = self.get_total_page(size, num)
-        results_status = self.get_result_status(org_id, faculty, term_id, user_ids, es_type2, num)
-        results = self.add2result(results, results_status)
 
         return results, total_page, page
 
-    def get_result(self, org_id, faculty, term_id, es_type1, sort, page, num):
-        query = self.es_query(index = settings.NEWCLOUD_ACADEMIC_ES_INDEX, doc_type = es_type1)\
+    def get_result(self, org_id, faculty, term_id, sort, page, num, status=1, user_ids=None):
+        query = self.es_query(index = settings.NEWCLOUD_ACADEMIC_ES_INDEX, doc_type = 'org_teacher_level_term')\
                     .filter('term', org_id = org_id)\
                     .filter('term', term_id = term_id)\
-                    .source(TEACHER_FIELD)\
-                    .sort(sort, 'user_id')
+                    .source(TEACHER_FIELD)
+        if status:
+            query = query.sort(sort, 'user_id')
+        else:
+            query = query.filter('terms', user_id = user_ids )
         if faculty != 'all':
             query = query.filter('term', first_level = faculty)
-
-        if es_type1 == 'org_teacher_level_term_status':
-            query = query.filter('term', course_status = 'open')
-        size = self.es_execute(query[:0]).hits.total
-        if es_type1 == 'org_teacher_level_term_status':
-            query.aggs.bucket('user_ids', 'terms', field = 'user_id', size = size)
-            aggs = self.es_execute(query).aggregations
-            buckets = aggs.user_ids.buckets
-            size = len(buckets)
-            results = self.get_discussion_total(query, num)
-        else:
-            results = self.es_execute(query[(page-1)*num:page*num]).hits
-            results = [result.to_dict() for result in results]
+        
+        results = self.es_execute(query[(page-1)*num:page*num]).hits
+        results = [result.to_dict() for result in results]
+        size = len(results)
         
         return results, size
 
-    def get_result_status(self, org_id, faculty, term_id, user_ids, es_type2, size):
-        query = self.es_query(index = settings.NEWCLOUD_ACADEMIC_ES_INDEX, doc_type = es_type2)\
+    def get_status_result(self, org_id, faculty, term_id, sort, page, num, status=1, user_ids=None):
+        query = self.es_query(index = settings.NEWCLOUD_ACADEMIC_ES_INDEX, doc_type = 'org_teacher_level_term_status')\
                     .filter('term', org_id = org_id)\
                     .filter('term', term_id = term_id)\
-                    .filter('terms', user_id = user_ids)\
-                    .source(TEACHER_FIELD) 
+                    .source(TEACHER_FIELD)
+
+        if status:
+            query = query.sort(sort, 'user_id')
+        else:
+            query = query.filter('terms', user_id = user_ids)
         if faculty != 'all':
             query = query.filter('term', first_level = faculty)
-
-        if es_type2 == 'org_teacher_level_term_status':            
-            results = self.get_discussion_total(query, size)
-        else:
-            results = self.es_execute(query[:size]).hits
-            results = [result.to_dict() for result in results]
         
-        return results
+        query.aggs.bucket('user_ids', 'terms', field = 'user_id', size = num)
+        aggs = self.es_execute(query).aggregations
+        buckets = aggs.user_ids.buckets
+        size = len(buckets)
+
+        results = self.get_discussion_total(query, size)
+        
+        return results, size
 
     def get_discussion_total(self, query, size):
         query.aggs.bucket('user_ids', 'terms', field = 'user_id', size = size or 1)\
                   .metric('discussion_total', 'sum', field = 'discussion_total')
-        results_ = self.es_execute(query[:size])
+        results_ = self.es_execute(query[:size*3])
         results_2 = [result.to_dict() for result in results_.hits]
         for result in results_2:
             result['discussion_total'] = 0
@@ -429,14 +449,17 @@ class TeacherList(AcademicData):
             item['open_num'] = 0
             item['unopen_num'] = 0
             item['close_num'] = 0
-            item['discussion_total'] = 0
             item['faculty'] = item.pop('first_level')
             for data in result_status:
                 if item['user_id'] == data['user_id']:
-                    item.update(data)
-                    item.pop('first_level')
+                    if data['course_status'] == 'open':
+                        item['open_num'] = data.pop('course_num')
+                    if data['course_status'] == 'unopen':
+                        item['unopen_num'] = data.pop('course_num')
+                    if data['course_status'] == 'close':
+                        item['close_num'] = data.pop('course_num')
+
             item['course_total'] = item.pop('course_num_total')
-            item.pop('course_status') if 'course_status' in item else item
             rname, image_url = self.get_rname_image(item['user_id'])
             item['rname'] = rname
             item['image_url'] = image_url
