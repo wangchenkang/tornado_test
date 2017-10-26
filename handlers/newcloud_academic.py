@@ -346,7 +346,7 @@ class TeacherList(AcademicData):
         faculty = self.get_argument('faculty', None)
         term_id = self.get_param('term_id')
         page = int(self.get_argument('page', 1))
-        num = int(self.get_argument('num', 9))
+        num = int(self.get_argument('num', 10))
         sort = self.get_argument('sort', 'course_num_total')
         sort_type = self.get_argument('sort_type', 1)
         sort = sort if int(sort_type) else '-%s' % sort
