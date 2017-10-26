@@ -458,7 +458,7 @@ class TeacherList(AcademicData):
                         item['unopen_num'] = data.pop('course_num')
                     if data['course_status'] == 'close':
                         item['close_num'] = data.pop('course_num')
-
+                    item['discussion_total'] = int(data.pop('discussion_total'))
             item['course_total'] = item.pop('course_num_total')
             rname, image_url = self.get_rname_image(item['user_id'])
             item['rname'] = rname
