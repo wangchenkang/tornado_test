@@ -636,7 +636,7 @@ class StudentDetailCourse(AcademicData):
         query = query.filter('term', binding_uid = binding_uid)\
                      .filter('term', term_id = term_id)\
                      .source(STUDENT_COURSE_FIELD)\
-                     .sort('-start')
+                     .sort('-course_status', '-end')
         
         return query
    
