@@ -136,8 +136,15 @@ class TableJoinHandler(TableHandler):
                 query = query[:len(user_ids)]
             data = self.es_execute(query)
             data_result = [item.to_dict() for item in data.hits]
-            if es_type == 'score_realtime' and not data_result:
-                data_result = [{'user_id': user_id} for user_id in user_ids[page*num:(page+1)*num]]
+            if es_type == 'score_realtime' and (len(data_result) < num):
+                data_result_user_ids = []
+                for item in data_result:
+                    data_result_user_ids.append(item['user_id'])
+                
+                for user_id in user_ids[page*num:(page+1)*num]:
+                    if user_id not in data_result_user_ids:
+                        data_result.append({'user_id': user_id})
+
             if es_type == 'score_realtime' and num == 10000:
                 result_user_ids = []
                 for item in data_result:
