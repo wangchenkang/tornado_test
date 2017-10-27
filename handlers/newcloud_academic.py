@@ -368,7 +368,7 @@ class TeacherList(AcademicData):
         faculty = 'all' if not faculty else faculty
 
         if sort in ('course_num_total', '-course_num_total'):
-            results, size = self.get_result(org_id, faculty, term_id, sort, page, num, status=1)
+            results, _, total = self.get_result(org_id, faculty, term_id, sort, page, num, status=1)
             user_ids = [result['user_id'] for result in results]
             results_status, _ = self.get_status_result(org_id, faculty, term_id, sort, page, num, 0, user_ids)
             
@@ -376,7 +376,7 @@ class TeacherList(AcademicData):
         else:
             results, _ = self.get_status_result(org_id, faculty, term_id, sort, page, num, status=1)
             user_ids = [result['user_id'] for result in results]
-            results_status, _ = self.get_result(org_id, faculty, term_id, sort, page, num, 0, user_ids)
+            results_status, _, total = self.get_result(org_id, faculty, term_id, sort, page, num, 0, user_ids)
             
             data = []
             for user_id in user_ids:
@@ -386,8 +386,7 @@ class TeacherList(AcademicData):
             
             results = self.add2result(data, results)
 
-        size = len(set(user_ids))
-        total_page = self.get_total_page(size, num)
+        total_page = self.get_total_page(total, num)
 
         return results, total_page, page
 
@@ -396,6 +395,8 @@ class TeacherList(AcademicData):
                     .filter('term', org_id = org_id)\
                     .filter('term', term_id = term_id)\
                     .source(TEACHER_FIELD)
+
+        total = self.es_execute(query[:0]).hits.total
         if status:
             query = query.sort(sort, 'user_id')
         else:
@@ -407,7 +408,7 @@ class TeacherList(AcademicData):
         results = [result.to_dict() for result in results]
         size = len(results)
         
-        return results, size
+        return results, size, total
 
     def get_status_result(self, org_id, faculty, term_id, sort, page, num, status=1, user_ids=None):
         query = self.es_query(index = settings.NEWCLOUD_ACADEMIC_ES_INDEX, doc_type = 'org_teacher_level_term_status')\
@@ -634,7 +635,8 @@ class StudentDetailCourse(AcademicData):
         query = self.student_query(status=1)
         query = query.filter('term', binding_uid = binding_uid)\
                      .filter('term', term_id = term_id)\
-                     .source(STUDENT_COURSE_FIELD) 
+                     .source(STUDENT_COURSE_FIELD)\
+                     .sort('-start')
         
         return query
    
