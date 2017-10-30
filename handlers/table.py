@@ -467,7 +467,12 @@ class UpdateTime(BaseHandler):
             data = self.es_execute(query[:1])
             update_time = data[0].current_time.replace('T', ' ').split('+')[0]
 
-        elif data_type in ('grade', 'discussion', 'question'):
+        elif data_type == 'discussion':
+            query = self.es_query(index = 'processstate', doc_type = 'processstate')\
+                        .filter('term', data_type = 'realtime_discussion_data')
+            data = self.es_execute(query[:1])
+            update_time = data[0].current_time.replace('T', ' ').split('+')[0]
+        elif data_type in ('grade', 'question'):
             query = self.es_query(index = 'tap', doc_type = 'data_conf')
             data = self.es_execute(query[:1])
             update_time = '%s 23:59:59' % data[0].latest_data_date
