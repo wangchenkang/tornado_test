@@ -13,8 +13,8 @@ class TableHandler(BaseHandler):
 
     def student_search(self, course_id, group_key, student_keyword, data_type, status):
         # enroll表格临时逻辑
-        if data_type == 'enroll' and not status:
-            index = 'realtime'
+        if data_type in ('enroll', 'video', 'discussion') and not status:
+            index = settings.TAP_REALTIME_INDEX
         else:
             index = settings.ES_INDEX
 
@@ -329,22 +329,30 @@ class QuestionDetail(TableJoinHandler):
 
 @route('/table/video_overview')
 class VideoDetail(TableJoinHandler):
-    es_types = ['tap_table_video_realtime/chapter_seq_video', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
+    es_types = ['tap_table_video_realtime/chapter_seq_video', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.TAP_REALTIME_INDEX]
     #es_types = ['tap_table_video/chapter_seq_video', 'tap_table_video/item_video', \
     #            '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
 
     def get_es_type(self, sort_field, status):
         if status:
-            self.es_types = ['tap_table_video/chapter_seq_video', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
+            self.es_types = ['tap_table_video/chapter_seq_video', '%s/course_grade' % settings.ES_INDEX_LOCK, '%s/student_enrollment_info' % settings.ES_INDEX_LOCK]
+     
         if sort_field in self.GRADE_FIELDS:
-            return '%s/course_grade' % settings.ES_INDEX
+            if status:
+                return '%s/course_grade' % settings.ES_INDEX_LOCK
+            else:
+                return '%s/course_grade' % settings.ES_INDEX
         elif sort_field in self.USER_FIELDS:
-            return '%s/student_enrollment_info' % settings.ES_INDEX
-        elif 'item_' in sort_field:
+            if status:
+                return '%s/student_enrollment_info' % settings.ES_INDEX_LOCK
+            else:
+                return '%s/student_enrollment_info' % settings.TAP_REALTIME_INDEX
+
+        if 'item_' in sort_field:
             return 'tap_table_video/item_video'
         
         if status:
-            return 'tap_table_videp/chapter_seq_video'
+            return 'tap_table_video/chapter_seq_video'
         else:
             return 'tap_table_video_realtime/chapter_seq_video'
 
@@ -352,20 +360,27 @@ class VideoDetail(TableJoinHandler):
 @route('/table/discussion_overview')
 class DiscussionDetail(TableJoinHandler):
 
-    es_types = ['tap_table_discussion/discussion_summary', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
+    es_types = ['realtime_discussion_table/realtime_discussion_data', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.TAP_REALTIME_INDEX]
 
     def get_es_type(self, sort_field, status):
         if status:
-            self.es_types = ['tap_table_discussion_lock/discussion_summary', '%s/course_grade' % settings.ES_INDEX, '%s/student_enrollment_info' % settings.ES_INDEX]
+            self.es_types = ['tap_table_discussion_lock/discussion_summary', '%s/course_grade' % settings.ES_INDEX_LOCK, '%s/student_enrollment_info' % settings.ES_INDEX_LOCK]
+        
         if sort_field in self.GRADE_FIELDS:
-            return '%s/course_grade' % settings.ES_INDEX
+            if status:
+                return '%s/course_grade' % settings.ES_INDEX_LOCK
+            else:
+                return '%s/course_grade' % settings.ES_INDEX
         elif sort_field in self.USER_FIELDS:
-            return '%s/student_enrollment_info' % settings.ES_INDEX
+            if status:
+                return '%s/student_enrollment_info' % settings.ES_INDEX_LOCK
+            else:
+                return '%s/student_enrollment_info' % settings.TAP_REALTIME_INDEX
 
         if status:
             return 'tap_table_discussion_lock/discussion_summary'
         else: 
-            return 'tap_table_discussion/discussion_summary'
+            return 'realtime_discussion_table/realtime_discussion_data'
 
 
 @route('/table/enroll_overview')
@@ -379,9 +394,6 @@ class EnrollDetail(TableJoinHandler):
             return 'tap_lock/student_enrollment_info'
         else:
             return 'realtime/student_enrollment_info'
-        #if sort_field in self.USER_FIELDS:
-        #    return 'realtime/student_enrollment_info'
-        #return 'realtime/student_enrollment_info'
 
     def postprocess(self, result):
         for record in result:

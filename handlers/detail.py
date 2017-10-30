@@ -2,8 +2,9 @@
 
 import hashlib
 import memcache
+from tornado.web import gen
 from utils.routes import route
-from utils.tools import var
+from utils.tools import var, is_ended
 from .base import BaseHandler
 
 
@@ -127,17 +128,39 @@ class DetailCourseDiscussion(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.1关键指标
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.3关键指标
     """
+    @gen.coroutine
     def get(self):
         key = 'discussion_%s_%s' %(self.course_id, self.group_key)
         hash_key, result = self.get_memcache_data(key)
         if not result:
-            query = self.es_query(doc_type='discussion_aggs') \
-                    .filter('term', course_id=self.course_id) \
-                    .filter("term", group_key=self.group_key)
-            query.aggs.metric('post_total', 'sum', field='post_num') \
-                    .aggs.metric('comment_total', 'sum', field='reply_num') \
-                    .aggs.metric('post_mean', 'avg', field='post_num') \
-                    .aggs.metric('comment_mean', 'avg', field='reply_num')
+            course_detail = yield self.course_detail(self.course_id)
+            end_time = course_detail['end']
+            status = is_ended(end_time)
+            if not status:
+                #realtime enrollment
+                query = self.es_query(index = 'realtime', doc_type = 'student_enrollment_info')\
+                            .filter('term', course_id = self.course_id)\
+                            .filter('term', group_key = self.group_key)
+                response = self.es_execute(query[:50000]).hits
+                users = [item.user_id for item in response]
+                
+                query = self.es_query(index = 'realtime_discussion_table', doc_type = 'realtime_discussion_data')\
+                            .filter('term', course_id = self.course_id)\
+                            .filter('terms', user_id = users)
+                query.aggs.metric('post_total', 'sum', field = 'post')\
+                     .aggs.metric('comment_total', 'sum', field = 'reply')\
+                     .aggs.metric('post_mean', 'avg', field = 'post')\
+                     .aggs.metric('comment_mean', 'avg', field = 'reply')
+                response = self.es_execute(query)
+
+            else:
+                query = self.es_query(doc_type='discussion_aggs') \
+                            .filter('term', course_id=self.course_id) \
+                            .filter("term", group_key=self.group_key)
+                query.aggs.metric('post_total', 'sum', field='post_num') \
+                     .aggs.metric('comment_total', 'sum', field='reply_num') \
+                     .aggs.metric('post_mean', 'avg', field='post_num') \
+                     .aggs.metric('comment_mean', 'avg', field='reply_num')
 
             response = self.es_execute(query)
             result = {}
@@ -148,6 +171,7 @@ class DetailCourseDiscussion(BaseHandler):
             result['comment_mean'] = round(response.aggregations.comment_mean.value or 0, 4)
             result['total_mean'] = round(float(result['total']) / response.hits.total, 4) if response.hits.total else 0
             self.set_memcache_data(hash_key, result)
+
         self.success_response({'data': result})
 
 
@@ -211,23 +235,52 @@ class DetailStudentDiscussionStat(BaseHandler):
     按总帖子数进行分组，每组的学生人数
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.3图
     """
+    @gen.coroutine
     def get(self):
-        query = self.es_query(doc_type='discussion_aggs') \
-                .filter('term', course_id=self.course_id) \
-                .filter("term", group_key=self.group_key)
-
-        response = self.es_execute(query[:0])
-        response = self.es_execute(query[:response.hits.total])
-        result = {}
-        for hit in response.hits:
-            post_num = hit['post_num'] or 0
-            reply_num = hit['reply_num'] or 0
-            total_num = post_num + reply_num
-            if total_num == 0:
-                continue
-            if total_num not in result:
-                result[total_num] = 0
-            result[total_num] += 1
+        course_detail = yield self.course_detail(self.course_id)
+        end_time = course_detail['end']
+        status = is_ended(end_time)
+        if not status:
+            #realtime enrollment
+            query = self.es_query(index = 'realtime', doc_type = 'student_enrollment_info')\
+                        .filter('term', course_id = self.course_id)\
+                        .filter('term', group_key = self.group_key)
+            response = self.es_execute(query[:50000]).hits
+            users = [item.user_id for item in response]
+            
+            query = self.es_query(index = 'realtime_discussion_table', doc_type = 'realtime_discussion_data')\
+                        .filter('term', course_id = self.course_id)\
+                        .filter('terms', user_id = users)
+            total = len(users)
+            response = self.es_execute(query[:total])
+            
+            result = {}
+            for hit in response.hits:
+                post_num = hit['post'] or 0
+                reply_num = hit['reply'] or 0
+                total_num = post_num + reply_num
+                if total_num == 0:
+                    continue
+                if total_num not in result:
+                    result[total_num] = 0
+                result[total_num] += 1
+        else:
+            query = self.es_query(doc_type='discussion_aggs') \
+                        .filter('term', course_id=self.course_id) \
+                        .filter("term", group_key=self.group_key)
+            response = self.es_execute(query[:0])
+            response = self.es_execute(query[:response.hits.total])
+            
+            result = {}
+            for hit in response.hits:
+                post_num = hit['post_num'] or 0
+                reply_num = hit['reply_num'] or 0
+                total_num = post_num + reply_num
+                if total_num == 0:
+                    continue
+                if total_num not in result:
+                    result[total_num] = 0
+                result[total_num] += 1
         
         self.success_response({'data': result})
 
