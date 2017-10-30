@@ -79,7 +79,7 @@ class AcademicData(BaseHandler):
         course_detail = yield self.course_detail(result['course_id'])
         from datetime import timedelta
         course_end = course_detail['end']
-        course_end = date_from_string(course_end) + timedelta(hours=8)
+        course_end = date_from_string(course_end) + timedelta(hours=8) if course_end else ''
         course_end = str(course_end).split(' ')[0] if course_end else ''
         image_url = course_detail['image_url']
 
