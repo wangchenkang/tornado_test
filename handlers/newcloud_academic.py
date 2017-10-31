@@ -376,6 +376,11 @@ class TeacherList(AcademicData):
         else:
             results, _ = self.get_status_result(org_id, faculty, term_id, sort, page, num, status=1)
             user_ids = [result['user_id'] for result in results]
+            sort_user_ids = []
+            for user_id in user_ids:
+                if user_id not in sort_user_ids:
+                    sort_user_ids.append(user_id)
+            user_ids = sort_user_ids[(page-1)*num:page*num]
             results_status, _, total = self.get_result(org_id, faculty, term_id, sort, page, num, 0, user_ids)
             
             data = []
@@ -395,18 +400,21 @@ class TeacherList(AcademicData):
                     .filter('term', org_id = org_id)\
                     .filter('term', term_id = term_id)\
                     .source(TEACHER_FIELD)
-
         total = self.es_execute(query[:0]).hits.total
-        if status:
-            query = query.sort(sort, 'user_id')
-        else:
-            query = query.filter('terms', user_id = user_ids )
         if faculty != 'all':
             query = query.filter('term', first_level = faculty)
-        
-        results = self.es_execute(query[(page-1)*num:page*num]).hits
-        results = [result.to_dict() for result in results]
-        size = len(results)
+
+        if status:
+            query = query.sort(sort, 'user_id')
+            results = self.es_execute(query[(page-1)*num:page*num]).hits
+            results = [result.to_dict() for result in results]
+            size = len(results)
+        else:
+            query = query.filter('terms', user_id = user_ids)
+            num = len(user_ids)
+            results = self.es_execute(query[:num]).hits
+            results = [result.to_dict() for result in results]
+            size = len(results)
         
         return results, size, total
 
@@ -416,18 +424,20 @@ class TeacherList(AcademicData):
                     .filter('term', term_id = term_id)\
                     .source(TEACHER_FIELD)
 
-        if status:
-            query = query.sort(sort, 'user_id')
-        else:
-            query = query.filter('terms', user_id = user_ids)
         if faculty != 'all':
             query = query.filter('term', first_level = faculty)
-        
+        if status:
+            query = query.sort(sort, 'user_id')
+            total = self.es_execute(query[:0]).hits.total
+            num = 10000 if total >10000 else num
+        else:
+            query = query.filter('terms', user_id = user_ids)
+
         query.aggs.bucket('user_ids', 'terms', field = 'user_id', size = num)
         aggs = self.es_execute(query).aggregations
         buckets = aggs.user_ids.buckets
         size = len(buckets)
-
+        
         results = self.get_discussion_total(query, size)
         
         return results, size
