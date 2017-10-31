@@ -326,17 +326,18 @@ class BaseHandler(RequestHandler):
         return response
 
     def get_user_name(self, users=None, group_key=None, owner="xuetangX"):
-      
         if not users:
             users = self.get_users()
         query = self.es_query(doc_type='student_enrollment_info')\
                 .filter("term", course_id=self.course_id)\
                 .filter("terms", user_id=users)\
                 .source(fields=["rname", "nickname", "user_id"])
+        
         if self.group_key:
             query = query.filter('term', group_key=self.group_key)
         #else:
         #    query = query.filter(~F('exists', field='group_key'))
+        
         results = self.es_execute(query[:len(users)]).hits
         result = {}
         for item in results:
@@ -352,7 +353,9 @@ class BaseHandler(RequestHandler):
                 rname = item.rname
                 name.append(nickname)
                 name.append(rname)
+
             result[int(user_id)] = name
+
         return result
 
     def get_grade(self, users=None):

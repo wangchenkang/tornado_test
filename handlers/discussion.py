@@ -1,4 +1,5 @@
 #! -*- coding: utf-8 -*-
+
 from datetime import datetime, timedelta
 from elasticsearch_dsl import Q
 from .base import BaseHandler
@@ -250,19 +251,23 @@ class StudentPostTopStat(BaseHandler):
         data = self.es_execute(query)
 
         students = {}
-
         users = [item.key for item in data.aggregations.students.buckets]
-        usernames = self.get_user_name(users=users, group_key=self.group_key)
-        for item in data.aggregations.students.buckets:    
-            if usernames.get(int(item.key))[1] == "--":
-                user_name = usernames.get(int(item.key))[0]
+        user_names = self.get_user_name(users=users, group_key=self.group_key)
+        for item in data.aggregations.students.buckets:
+            user_name = user_names.get(int(item.key))
+            if user_name:
+                if user_name[1] == '--':
+                    name = user_name[0]
+                else:
+                    name = user_name[1]
             else:
-                user_name = usernames.get(int(item.key))[1]
+                name = ''
+            
             students[item.key] = {
                 'user_id': int(item.key),
                 'posts_total': int(item.posts_total.value),
                 'comments_total': int(item.comments_total.value),
-                "user_name": user_name
+                "user_name": name
             }
 
         query = self.es_query(doc_type='discussion_daily') \
@@ -283,6 +288,7 @@ class StudentPostTopStat(BaseHandler):
             students[item.user_id].setdefault('user_id', int(item.user_id))
 
         students_list = sorted(students.values(), key=lambda x: x['posts_total'], reverse=True)
+        
         self.success_response({'students': students_list})
 
 
