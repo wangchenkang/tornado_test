@@ -6,7 +6,7 @@ from .base import BaseHandler
 from utils.routes import route
 from utils.tools import date_from_query, date_to_str, utc_to_cst
 from collections import defaultdict
-
+from utils.log import Log
 
 @route('/discussion/course_stat')
 class CourseDiscussion(BaseHandler):
@@ -262,7 +262,8 @@ class StudentPostTopStat(BaseHandler):
                     name = user_name[1]
             else:
                 name = ''
-            
+                Log.create('discussion')
+                Log.info('Discussion Warning %s-%s-%s-%s' % (self.course_id, self.group_key, item.key, name))
             students[item.key] = {
                 'user_id': int(item.key),
                 'posts_total': int(item.posts_total.value),
