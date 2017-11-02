@@ -157,7 +157,7 @@ class TableJoinHandler(TableHandler):
                     if user_id not in data_result_user_ids:
                         if user_id not in score_realtime_user_ids:
                             data_result.append({'user_id': user_id})
-
+            
             if es_type == 'score_realtime' and num == 10000:
                 data_result_user_ids = []
                 for item in data_result:
@@ -218,7 +218,7 @@ class TableJoinHandler(TableHandler):
                     .filter('terms', user_id=user_ids)
         for item in screen_index:
             query = query.filter('range', **{item['field']: {'gte': item['min'] or 0, 'lte': item['max'] or 100}})
-        user_ids = [item.user_id for item in self.es_execute(query[:total]).hits]
+        user_ids = [str(item.user_id) for item in self.es_execute(query[:total]).hits]
         return user_ids
 
     def course_grade_filter(self, course_id, user_ids, screen_index, total):
