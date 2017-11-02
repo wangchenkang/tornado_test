@@ -142,7 +142,7 @@ class TableJoinHandler(TableHandler):
                 for item in data_result:
                     item['user_id'] = str(item.pop('user_id'))
 
-            if es_type == 'score_realtime' and (len(data_result) <= num):
+            if es_type == 'score_realtime' and (len(data_result) < num):
                 data_result_user_ids = []
                 for item in data_result:
                     data_result_user_ids.append(item['user_id'])
