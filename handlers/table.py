@@ -1,4 +1,5 @@
 #! -*- coding: utf-8 -*-
+
 import time
 from tornado.web import gen
 from utils.routes import route
@@ -136,22 +137,27 @@ class TableJoinHandler(TableHandler):
                 query = query[:len(user_ids)]
             data = self.es_execute(query)
             data_result = [item.to_dict() for item in data.hits]
-            if es_type == 'score_realtime' and (len(data_result) < num):
+            
+            if es_type == 'score_realtime':
+                for item in data_result:
+                    item['user_id'] = str(item.pop('user_id'))
+
+            if es_type == 'score_realtime' and (len(data_result) <= num):
                 data_result_user_ids = []
                 for item in data_result:
                     data_result_user_ids.append(item['user_id'])
-                
                 for user_id in user_ids[page*num:(page+1)*num]:
                     if user_id not in data_result_user_ids:
                         data_result.append({'user_id': user_id})
 
             if es_type == 'score_realtime' and num == 10000:
-                result_user_ids = []
+                data_result_user_ids = []
                 for item in data_result:
-                    result_user_ids.append(item['user_id'])
+                    data_result_user_ids.append(item['user_id'])
                 for user_id in user_ids:
-                    if user_id not in set(result_user_ids):
+                    if user_id not in data_result_user_ids:
                         data_result.append({'user_id': user_id})
+
             # 如果是第一个查询，在查询后更新user_ids列表，后续查询只查这些学生
             if idx == 0:
                 result.extend(data_result)
@@ -163,6 +169,7 @@ class TableJoinHandler(TableHandler):
                 for r in result:
                     dr = data_result_dict.get(r['user_id'], {})
                     r.update(dr)
+        
         return result
 
 
