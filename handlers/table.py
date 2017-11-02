@@ -126,6 +126,7 @@ class TableJoinHandler(TableHandler):
                         .filter('terms', user_id=user_ids) \
                         .source(fields)
            
+            size = len(user_ids)
             #不同的group_key下，user_id是一样的
             if es_type in ('study_warning_person', 'student_enrollment_info'):
                 query = query.filter('term', group_key=self.group_key)
@@ -134,21 +135,28 @@ class TableJoinHandler(TableHandler):
                 query = query.sort(sort)
                 query = query[page*num:(page+1)*num]
             else:
-                query = query[:len(user_ids)]
+                query = query[:size]
             data = self.es_execute(query)
             data_result = [item.to_dict() for item in data.hits]
             
             if es_type == 'score_realtime':
+                query = self.es_query(index='newcloud_tap', doc_type='score_realtime') \
+                            .filter('term', course_id=course_id) \
+                            .filter('terms', user_id=user_ids) \
+                            .source('user_id')
+                result_score_realtime = self.es_execute(query[:size]).hits
+                score_realtime_user_ids = [str(item.user_id) for item in result_score_realtime ] 
                 for item in data_result:
                     item['user_id'] = str(item.pop('user_id'))
-
-            if es_type == 'score_realtime' and (len(data_result) < num):
+          
+            if es_type == 'score_realtime' and (len(data_result) < num) and (num != 10000):
                 data_result_user_ids = []
                 for item in data_result:
                     data_result_user_ids.append(item['user_id'])
                 for user_id in user_ids[page*num:(page+1)*num]:
                     if user_id not in data_result_user_ids:
-                        data_result.append({'user_id': user_id})
+                        if user_id not in score_realtime_user_ids:
+                            data_result.append({'user_id': user_id})
 
             if es_type == 'score_realtime' and num == 10000:
                 data_result_user_ids = []
