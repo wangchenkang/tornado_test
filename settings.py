@@ -40,7 +40,7 @@ NEWCLOUD_ES_INDEX = 'newcloud_tap'
 ES_INDEX_LOCK = 'tap_lock'
 NEWCLOUD_ACADEMIC_ES_INDEX = 'education_data'
 TAP_REALTIME_INDEX = 'realtime'
-NEWCLOUD_DATACONF = ['score_video', 'score_comment', 'score_rule', 'score_rule_item']
+NEWCLOUD_DATACONF = ['subimissions_score', 'score_video', 'score_comment', 'import_score', 'score_answer_problem', 'score_rule_change', 'score_course_struct']
 #ES_INDEX = 'tapgo'
 with open(CONFIG_FILE) as f:
     document = f.read()

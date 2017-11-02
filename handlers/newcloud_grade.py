@@ -130,7 +130,7 @@ class DateTime(BaseHandler):
     """
     def get(self):
         query = self.es_query(index=settings.NEWCLOUD_ES_INDEX, doc_type='data_conf')\
-            .filter('terms', _id=settings.NEWCLOUD_DATACONF)[:4]
+            .filter('terms', _id=settings.NEWCLOUD_DATACONF)[:7]
         results = self.es_execute(query).hits
         data = []
         for result in results:
