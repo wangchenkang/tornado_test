@@ -24,10 +24,6 @@ STUDENT_USER_FIELD = ['open_num_user', 'unopen_num_user', 'close_num_user', 'stu
 
 class AcademicData(BaseHandler):
 
-    def get_param_data(self, key):
-        data = self.get_param(key)
-        return param
-
     def get_total_page(self, total, num):
         if total == 0:
             total_page = 0
