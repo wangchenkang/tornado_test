@@ -247,8 +247,9 @@ class MobileWebStudyProgressItemDetail(BaseHandler):
     def get(self):
         user_id = self.get_argument('user_id', None)
         course_id = self.get_argument('course_id', None)
+        item_id = self.get_argument('item_id', None)
         course_id = fix_course_id(course_id)
-        if not course_id or not user_id:
+        if not course_id or not user_id or not item_id:
             self.error_response({'data': []})
 
         # get video durations
@@ -256,8 +257,8 @@ class MobileWebStudyProgressItemDetail(BaseHandler):
              SELECT cv.item_id as vid, vi.duration as dur
              FROM course_video cv
              JOIN video_info vi ON cv.video_id = vi.id
-             WHERE cv.course_id='%s'
-              """ % course_id
+             WHERE cv.course_id='%s' and cv.item_id='%s'
+              """ % (course_id, item_id)
         db,cursor= MysqlConnect().get_db_cursor()
         cursor.execute(sql)
         video_durations = cursor.fetchall()
@@ -266,7 +267,7 @@ class MobileWebStudyProgressItemDetail(BaseHandler):
             video_durations_d[video['vid']] = video['dur']
 
         sp = study_progress.StudyProgress(thrift_server_list=settings.THRIFT_SERVER, namespace='heartbeat')
-        result = sp.get_video_progress_detail(user_id, course_id, video_durations_d)
+        result = sp.get_video_progress_detail(user_id, course_id, item_id, video_durations_d[item_id])
 
         self.success_response({'data': result})
 
