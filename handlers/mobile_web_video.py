@@ -247,9 +247,8 @@ class MobileWebStudyProgressItemDetail(BaseHandler):
     def get(self):
         user_id = self.get_argument('user_id', None)
         course_id = self.get_argument('course_id', None)
-        item_id = self.get_argument('item_id', None)
         course_id = fix_course_id(course_id)
-        if not course_id or not user_id or not item_id:
+        if not course_id or not user_id:
             self.error_response({'data': []})
 
         # get video durations
@@ -265,9 +264,9 @@ class MobileWebStudyProgressItemDetail(BaseHandler):
         video_durations_d = {}
         for video in video_durations:
             video_durations_d[video['vid']] = video['dur']
-
+        
         sp = study_progress.StudyProgress(thrift_server_list=settings.THRIFT_SERVER, namespace='heartbeat')
-        result = sp.get_video_progress_detail(user_id, course_id, item_id, video_durations_d[item_id])
+        result = sp.get_video_progress_detail(user_id, course_id, video_durations_d)
 
         self.success_response({'data': result})
 
