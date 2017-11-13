@@ -256,8 +256,8 @@ class MobileWebStudyProgressItemDetail(BaseHandler):
              SELECT cv.item_id as vid, vi.duration as dur
              FROM course_video cv
              JOIN video_info vi ON cv.video_id = vi.id
-             WHERE cv.course_id='%s' and cv.item_id='%s'
-              """ % (course_id, item_id)
+             WHERE cv.course_id='%s'
+              """ % course_id
         db,cursor= MysqlConnect().get_db_cursor()
         cursor.execute(sql)
         video_durations = cursor.fetchall()
