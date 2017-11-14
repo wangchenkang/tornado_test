@@ -1,7 +1,9 @@
-#! -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
+
 import json
 import hashlib
 from tornado import gen
+from utils.log import Log
 from tornado.web import RequestHandler, Finish, MissingArgumentError
 from tornado.options import options
 from tornado.escape import url_unescape, json_encode, json_decode
@@ -12,6 +14,8 @@ from utils.tools import fix_course_id
 from utils.tools import get_group_type
 from utils.tools import is_ended
 import settings
+
+Log = Log.create(__name__)
 
 class BaseHandler(RequestHandler):
 
@@ -215,17 +219,20 @@ class BaseHandler(RequestHandler):
     @gen.coroutine
     def async_course_service(self, method, *args, **kwargs):
         def _parse_response(response):
+            data = None
             if response.error:
                 Log.error('service response error: %s' % response.error)
                 self.error_response(100, u'Service failed')
             
             try:
                 data = json_decode(response.body)
-            except ValueError, e:
+            except ValueError as e:
                 Log.error('service response error: %s, content: %s' % (e, response.body))
                 self.error_response(100, u'Service failed')
+
             if data is None:
                 Log.error('Course service api failed: {}'.format(str(args)))
+
             return data
         
         response = yield getattr(AsyncCourseService(), method)(*args, **kwargs)
@@ -371,6 +378,7 @@ class BaseHandler(RequestHandler):
             if item.grade_ratio < 0:
                 item.grade_ratio = 0
             result[item.user_id] = item.grade_ratio
+
         return result
     
     @property
@@ -386,6 +394,7 @@ class BaseHandler(RequestHandler):
         course_status = self.get_argument('course_status', None)
         if not course_status:
             self.error_response(100, u'缺少参数')
+
         return course_status
 
     @property
@@ -393,6 +402,7 @@ class BaseHandler(RequestHandler):
         service_line = self.get_argument('service_line', None)
         if not service_line:
             self.error_response(100, u'缺少参数')
+
         return service_line
 
     @property
@@ -402,6 +412,7 @@ class BaseHandler(RequestHandler):
         query.aggs.metric('num', 'cardinality', field='video_id')
         result = self.es_execute(query)
         aggs = result.aggregations
+
         return aggs.num.value
     
     @property
@@ -409,6 +420,7 @@ class BaseHandler(RequestHandler):
         chapter_id = self.get_argument('chapter_id', None)
         if not chapter_id:
             self.error_response(100, u'缺少参数')
+
         return chapter_id
 
     @property
@@ -420,6 +432,7 @@ class BaseHandler(RequestHandler):
         result = self.es_execute(query)
         aggs = result.aggregations
         buckets = aggs.chapter_ids.buckets
+
         return [{'chapter_id': bucket.key, 'open_num': bucket.num.value} for bucket in buckets]
     
     @property
@@ -432,4 +445,5 @@ class BaseHandler(RequestHandler):
         result = self.es_execute(query)
         aggs = result.aggregations
         buckets = aggs.seq_ids.buckets
+
         return [{'seq_id':bucket.key, 'open_num': bucket.num.value}for bucket in buckets] 
