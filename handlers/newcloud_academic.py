@@ -6,7 +6,6 @@ from utils.routes import route
 from .base import BaseHandler
 from elasticsearch_dsl import Q
 from utils.mysql_connect import MysqlConnect
-from utils.service import CourseService
 from utils.tools import date_from_string
 import settings
 
@@ -48,6 +47,7 @@ class AcademicData(BaseHandler):
                 open_num = bucket.doc_count
             else:
                 close_num = bucket.doc_count
+
         return unopen_num, open_num, close_num
 
     def format_course_info(self, results):
@@ -67,7 +67,8 @@ class AcademicData(BaseHandler):
             course_info['service_line'] = result.service_line
             course_info['org_id'] = result.org_id
             course_info['course_start'] = result.course_start
-            data.append(course_info) 
+            data.append(course_info)
+
         return data
 
     @gen.coroutine
@@ -169,9 +170,9 @@ class CourseOverview(AcademicData):
         result = self.es_execute(query)
         aggs = result.aggregations    
         course_num = result.hits.total
-
         buckets = aggs.per_course_status.buckets
         unopen_num, open_num, close_num = self.get_course_num(buckets)
+
         video_total = self.round_data_2(aggs.video_total.value or 0)
         video_avg = self.round_data_2(aggs.video_avg.value or 0)
         discussion_total = self.round_data_2(aggs.discussion_total.value or 0)
@@ -251,7 +252,7 @@ class TeacherOverview(AcademicData):
     """
     def get_total_term_num(self, org_id, faculty, term_id):
         query = self.es_query(index = settings.NEWCLOUD_ACADEMIC_ES_INDEX, doc_type = 'org_teacher_level_term')\
-                                .filter('term', org_id = org_id)
+                    .filter('term', org_id = org_id)
         if faculty != 'all':
             query = query.filter('term', first_level = faculty)
 
@@ -262,8 +263,8 @@ class TeacherOverview(AcademicData):
         teacher_total = len(buckets)
         
         query = self.es_query(index = settings.NEWCLOUD_ACADEMIC_ES_INDEX, doc_type = 'org_teacher_level_term')\
-                                    .filter('term', org_id = org_id)\
-                                    .filter('term', term_id = term_id)
+                    .filter('term', org_id = org_id)\
+                    .filter('term', term_id = term_id)
         if faculty != 'all':
             query = query.filter('term', first_level = faculty)
 
@@ -277,8 +278,8 @@ class TeacherOverview(AcademicData):
 
     def get_creator_discussion_total(self, org_id, faculty, term_id):
         query = self.es_query(index = settings.NEWCLOUD_ACADEMIC_ES_INDEX, doc_type = 'org_teacher_level_term_status')\
-                                .filter('term', org_id = org_id)\
-                                .filter('term', is_creator = 1)
+                    .filter('term', org_id = org_id)\
+                    .filter('term', is_creator = 1)
         if faculty != 'all':
             query = query.filter('term', first_level = faculty)
 
@@ -289,8 +290,8 @@ class TeacherOverview(AcademicData):
         teacher_creator_num = len(buckets)
         
         query = self.es_query(index = settings.NEWCLOUD_ACADEMIC_ES_INDEX, doc_type = 'org_teacher_level_term_status')\
-                            .filter('term', org_id = org_id)\
-                            .filter('term', term_id = term_id)
+                    .filter('term', org_id = org_id)\
+                    .filter('term', term_id = term_id)
         if faculty != 'all':
             query = query.filter('term', first_level = faculty)
 
@@ -302,11 +303,12 @@ class TeacherOverview(AcademicData):
 
     def get_participate_total(self, org_id, faculty, term_id):
         query = self.es_query(index = settings.NEWCLOUD_ACADEMIC_ES_INDEX, doc_type = 'org_level_term')\
-                                    .filter('term', org_id = org_id)\
-                                    .filter('term', term_id = term_id)\
-                                    .source(['participate_course_num'])
+                    .filter('term', org_id = org_id)\
+                    .filter('term', term_id = term_id)\
+                    .source(['participate_course_num'])
         if faculty != 'all':
             query = query.filter('term', first_level = faculty)
+
         result = self.es_execute(query[:1000]).hits
         paticipate_num = []
         for item in result:
@@ -319,9 +321,8 @@ class TeacherOverview(AcademicData):
     def data(self):
         org_id = self.get_param('org_id')
         faculty = self.get_argument('faculty', None)
-        term_id = self.get_param('term_id')
-       
         faculty = 'all' if not faculty else faculty
+        term_id = self.get_param('term_id')
 
         teacher_total, term_teacher_num = self.get_total_term_num(org_id, faculty, term_id)
         teacher_creator_num, discussion_total = self.get_creator_discussion_total(org_id, faculty, term_id) 
@@ -342,6 +343,7 @@ class TeacherOverview(AcademicData):
     
     def get(self):
         data = self.data
+
         self.success_response({'data': data})
 
 
@@ -354,6 +356,7 @@ class TeacherList(AcademicData):
     def data(self):
         org_id = self.get_param('org_id')
         faculty = self.get_argument('faculty', None)
+        faculty = 'all' if not faculty else faculty
         term_id = self.get_param('term_id')
         page = int(self.get_argument('page', 1))
         num = int(self.get_argument('num', 10))
@@ -361,7 +364,6 @@ class TeacherList(AcademicData):
         sort_type = self.get_argument('sort_type', 1)
         sort = sort if int(sort_type) else '-%s' % sort
 
-        faculty = 'all' if not faculty else faculty
 
         if sort in ('course_num_total', '-course_num_total'):
             results, _, total = self.get_result(org_id, faculty, term_id, sort, page, num, status=1)
@@ -475,10 +477,12 @@ class TeacherList(AcademicData):
 
     def get_rname_image(self, user_id):
         image_url, rname = MysqlConnect(settings.MYSQL_PARAMS['auth_userprofile']).get_rname_image(user_id)
+
         return rname, image_url
 
     def get(self):
         query, total_page, page = self.data
+
         self.success_response({'data': query, 'total_page': total_page, 'current_page': page})
 
 @route('/student/overview')
