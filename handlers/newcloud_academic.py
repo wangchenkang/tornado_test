@@ -1,25 +1,28 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from tornado.web import gen
-from utils.routes import route
-from .base import BaseHandler
-from elasticsearch_dsl import Q
-from utils.mysql_connect import MysqlConnect
-from utils.tools import date_from_string
 import settings
+from tornado.web import gen
+from base import BaseHandler
+from utils.routes import route
+from elasticsearch_dsl import Q
+from utils.tools import date_from_string
+from utils.mysql_connect import MysqlConnect
 
 import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
-COURSE_FIELD = ['course_id', 'course_name','active_rate_course', 'study_video_rate_course', 'no_watch_person_course',\
-                'enroll_num_course', 'teacher_num_course', 'effort_course', 'score_avg_course', 'course_status', 'service_line', 'org_id', 'course_start']
+COURSE_FIELD = ['course_id', 'course_name', 'study_video_rate_course', 'no_watch_person_course', 'enroll_num_course', \
+                'teacher_num_course', 'effort_course', 'score_avg_course', 'course_status', 'service_line', 'org_id', 'course_start']
 TEACHER_FIELD = ['user_id', 'course_num_total', 'course_num', 'first_level', 'term_name', 'course_status', 'discussion_total']
-STUDENT_FIELD = ['rname', 'binding_uid', 'faculty', 'major', 'cohort', 'entrance_year', 'participate_total_user', 'open_num_user', 'unopen_num_user', 'close_num_user'] 
+STUDENT_FIELD = ['rname', 'binding_uid', 'faculty', 'major', 'cohort', 'entrance_year', 'participate_total_user', 'open_num_user', \
+                 'unopen_num_user', 'close_num_user']
 STUDENT_FORM_HEADER = [u'姓名', u'学号', u'院系', u'专业', u'班级', u'入学年份', u'参与课程', u'开课中', u'待开课', u'已结课']
-STUDENT_COURSE_FIELD = ['course_status', 'course_id', 'course_name', 'study_video_len_user', 'study_rate_user', 'accomplish_percent_user', 'correct_percent_user', 'grade', 'start', 'end']
-STUDENT_USER_FIELD = ['open_num_user', 'unopen_num_user', 'close_num_user', 'study_video_user', 'discussion_num_user', 'accomplish_percent_user', 'participate_total_user', 'correct_percent_user']
+STUDENT_COURSE_FIELD = ['course_status', 'course_id', 'course_name', 'study_video_len_user', 'study_rate_user', \
+                        'accomplish_percent_user', 'correct_percent_user', 'grade', 'start', 'end']
+STUDENT_USER_FIELD = ['open_num_user', 'unopen_num_user', 'close_num_user', 'study_video_user', 'discussion_num_user', \
+                      'accomplish_percent_user', 'participate_total_user', 'correct_percent_user']
 
 class AcademicData(BaseHandler):
 
@@ -41,9 +44,9 @@ class AcademicData(BaseHandler):
         open_num = 0
         close_num = 0
         for bucket in buckets:
-            if bucket.key in ('unopen_num', 'unopen'):
+            if bucket.key == 'unopen':
                 unopen_num = bucket.doc_count
-            elif bucket.key in ('open_num', 'open'):
+            elif bucket.key == 'open':
                 open_num = bucket.doc_count
             else:
                 close_num = bucket.doc_count
@@ -62,7 +65,6 @@ class AcademicData(BaseHandler):
             course_info['teacher_num'] = result.teacher_num_course
             course_info['no_watch_person'] = result.no_watch_person_course
             course_info['course_id'] = result.course_id
-            course_info['active_rate'] = self.round_data_4(result.active_rate_course)
             course_info['course_status'] = result.course_status
             course_info['service_line'] = result.service_line
             course_info['org_id'] = result.org_id
@@ -87,14 +89,14 @@ class AcademicData(BaseHandler):
         org_id = self.get_param('org_id')
         term_id = self.get_param('term_id')
         service_line = self.get_argument('service_line', None)
-        course_status = self.get_argument('course_status', None)
-
         service_line = 'all' if not service_line else service_line
+        course_status = self.get_argument('course_status', None)
         course_status = 'all' if not course_status else course_status
 
         query = self.es_query(index = settings.NEWCLOUD_ACADEMIC_ES_INDEX, doc_type = 'org_course_info')\
-                             .filter('term', org_id = org_id)\
-                             .filter('term', term_id = term_id)
+                    .filter('term', org_id = org_id)\
+                    .filter('term', term_id = term_id)
+
         if service_line != 'all':
             query = query.filter('term', service_line = service_line) 
         if course_status != 'all':
@@ -158,9 +160,7 @@ class CourseOverview(AcademicData):
         
         query.aggs.bucket('per_course_status', 'terms', field='course_status', size=total or 1)
         query.aggs.metric('video_total', 'sum', field='video_total_course')
-        query.aggs.metric('video_avg', 'avg', field='video_total_course')
         query.aggs.metric('discussion_total', 'sum', field='discussion_total_course')
-        query.aggs.metric('discussion_avg', 'avg', field='discussion_total_course')
         query.aggs.metric('accomplish_percent', 'avg', field='accomplish_percent_course')
         query.aggs.metric('correct_percent', 'avg', field='correct_percent_course')
         
@@ -174,9 +174,7 @@ class CourseOverview(AcademicData):
         unopen_num, open_num, close_num = self.get_course_num(buckets)
 
         video_total = self.round_data_2(aggs.video_total.value or 0)
-        video_avg = self.round_data_2(aggs.video_avg.value or 0)
         discussion_total = self.round_data_2(aggs.discussion_total.value or 0)
-        discussion_avg = self.round_data_2(aggs.discussion_avg.value or 0)
         accomplish_percent = self.round_data_4(aggs.accomplish_percent.value or 0)
         correct_percent = self.round_data_4(aggs.correct_percent.value or 0)
         
@@ -186,9 +184,7 @@ class CourseOverview(AcademicData):
         data['open_num'] = open_num
         data['close_num'] = close_num
         data['video_total'] = video_total
-        data['video_avg'] = video_avg or 0
         data['discussion_total'] = discussion_total
-        data['discussion_avg'] = discussion_avg or 0
         data['accomplish_percent'] = accomplish_percent or 0
         data['correct_percent'] = correct_percent or 0
        
@@ -255,7 +251,6 @@ class TeacherOverview(AcademicData):
                     .filter('term', org_id = org_id)
         if faculty != 'all':
             query = query.filter('term', first_level = faculty)
-
         size = self.es_execute(query[:0]).hits.total
         query.aggs.bucket('teacher_total', 'terms', field = 'user_id', size = size or 1)
         result = self.es_execute(query[:0])
