@@ -468,6 +468,7 @@ class SmallQuestionStructure(BaseHandler):
 @route('/data/update_time')
 class UpdateTime(BaseHandler):
     """
+    在线表格更新时间
     """
     def get(self):
         data_type = self.get_argument('data_type')
