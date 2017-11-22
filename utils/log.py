@@ -2,7 +2,7 @@
 import os
 import logging
 import settings
-from logging.handlers import RotatingFileHandler
+#from logging.handlers import RotatingFileHandler
 
 class Log(object):
     instance = None
@@ -14,11 +14,15 @@ class Log(object):
             os.makedirs(dirname)
 
         self.file_logger = logging.getLogger(logname)
+        log_handler = logging.FileHandler(logfile)
+        log_handler.setFormatter(logging.Formatter('%(asctime)s [%(name)s] %(levelname)s %(message)s'))
+        self.file_logger.addHandler(log_handler)
         self.file_logger.setLevel(logging.DEBUG)
-        rf = RotatingFileHandler(logfile, maxBytes=1024*1024, backupCount=30)
-        rf.setFormatter(logging.Formatter('%(asctime)s [%(name)s] %(levelname)s %(message)s'))
-        self.file_logger.addHandler(rf)
-        self.file_logger.setLevel(logging.DEBUG)
+        #日志大小分割
+       # rf = RotatingFileHandler(logfile, maxBytes=1024*1024, backupCount=30)
+       # rf.setFormatter(logging.Formatter('%(asctime)s [%(name)s] %(levelname)s %(message)s'))
+       # self.file_logger.addHandler(rf)
+       # self.file_logger.setLevel(logging.DEBUG)
         
     def __new__(cls, *args, **kwargs):
         if '_instance' not in cls.__dict__:
