@@ -519,3 +519,23 @@ class CohortInfo(BaseHandler):
             if item['group_key'] == settings.SPOC_GROUP_KEY or settings.ELECTIVE_GROUP_KEY <= item['group_key'] < settings.NEWCLOUD_COHORT_GROUP_KEY:
                 item['school'] = u'全部学生'
         self.success_response({'data': data})
+
+
+@route('/course/structure')
+class Structure(BaseHandler):
+    """
+    从es获取seq_format信息
+    """
+    def get(self):
+        query = self.es_query(index= 'course_service', doc_type='course_struct')\
+                    .filter('term', course_id=self.course_id)\
+                    .source(['seq_format'])
+
+        total = self.es_execute(query[:0]).hits.total
+        if total == 0 :
+            data = []
+        else:
+            result = self.es_execute(query[:total]).hits
+            data = [item.to_dict() for item in result]
+
+        self.success_response({'data': data})
