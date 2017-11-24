@@ -448,7 +448,7 @@ class DataMonthlyReport(BaseHandler):
         else:
             query = query.filter('exists', field="school")
         if plan_name:
-            query = query.filter('term', plan=plan_name)
+            query = query.filter('term', plan_name=plan_name)
         else:
             query = query.filter('exists', field="plan_name")
 
@@ -457,8 +457,6 @@ class DataMonthlyReport(BaseHandler):
         query = query.filter('term',months=last_month)
         size = query[:0].execute().hits.total
         data = query[:size].execute().hits
-
-        
         all_coursenames = defaultdict(list)
         all_courseids = defaultdict(list)
         view_info = {}

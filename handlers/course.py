@@ -527,7 +527,7 @@ class Structure(BaseHandler):
     从es获取seq_format信息
     """
     def get(self):
-        query = self.es_query(index= 'course_service', doc_type='course_struct')\
+        query = self.es_query(index= 'course_service', doc_type='course_struct') \
                     .filter('term', course_id=self.course_id) \
                     .sort('order_id') \
                     .source(['seq_format'])
@@ -540,3 +540,4 @@ class Structure(BaseHandler):
             data = [item.to_dict() for item in result]
 
         self.success_response({'data': data})
+
