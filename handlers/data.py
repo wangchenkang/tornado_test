@@ -454,9 +454,15 @@ class DataMonthlyReport(BaseHandler):
 
         date = datetime.today()-relativedelta(months=1)
         last_month = "%s%02d"%(date.year,date.month)
-        query = query.filter('term',months=last_month)
+        
+        if school == '中国民航大学' and plan_name == '2017年春季学期':
+            months = ['201703','201704', '201705', '201706', '201707', '201708']
+            query = query.filter('terms', months=months)
+        else:
+            query = query.filter('term',months=last_month)
         size = query[:0].execute().hits.total
         data = query[:size].execute().hits
+
         all_coursenames = defaultdict(list)
         all_courseids = defaultdict(list)
         view_info = {}
