@@ -264,7 +264,7 @@ class MobileWebStudyProgressItemDetail(BaseHandler):
         video_durations_d = {}
         for video in video_durations:
             video_durations_d[video['vid']] = video['dur']
-
+        
         sp = study_progress.StudyProgress(thrift_server_list=settings.THRIFT_SERVER, namespace='heartbeat')
         result = sp.get_video_progress_detail(user_id, course_id, video_durations_d)
 
