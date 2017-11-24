@@ -528,7 +528,8 @@ class Structure(BaseHandler):
     """
     def get(self):
         query = self.es_query(index= 'course_service', doc_type='course_struct')\
-                    .filter('term', course_id=self.course_id)\
+                    .filter('term', course_id=self.course_id) \
+                    .sort('order_id') \
                     .source(['seq_format'])
 
         total = self.es_execute(query[:0]).hits.total
