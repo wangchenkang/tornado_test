@@ -446,4 +446,15 @@ class BaseHandler(RequestHandler):
         aggs = result.aggregations
         buckets = aggs.seq_ids.buckets
 
-        return [{'seq_id':bucket.key, 'open_num': bucket.num.value}for bucket in buckets] 
+        return [{'seq_id':bucket.key, 'open_num': bucket.num.value}for bucket in buckets]
+
+    # 新加的
+    @gen.coroutine
+    def get_updatetime(self):
+        # data_conf集群和my_student_es_cluster一致
+        from elasticsearch import Elasticsearch
+        client = Elasticsearch(settings.my_student_es_cluster)
+        query = Search(using=client, index='tap', doc_type='data_conf')[:1]
+        result = query.execute().hits
+        update_time = '%s 23:59:59' % result[0].latest_data_date
+        raise gen.Return(update_time)
