@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 from tornado.escape import url_unescape
 import math
 import settings
+import email
+import smtplib
 
 timezone = 'Asia/Chongqing'
 
@@ -70,3 +72,97 @@ def get_group_type(group_key):
         if course_group_key >= group_key[1]:
             return group_key[0]
 
+class Mailer:
+    def __init__(self, smtp_host, smtp_user, smtp_passwd, smtp_port = 25):
+        self.smtp_host = smtp_host
+        self.smtp_user = smtp_user
+        self.smtp_passwd = smtp_passwd
+        self.smtp_port = smtp_port
+        self.mail = email.MIMEMultipart.MIMEMultipart('related')
+        self.alter = email.MIMEMultipart.MIMEMultipart('alternative')
+        self.mail.attach(self.alter)
+        self.attachments = []
+        self.mail['from'] = settings.MAIL_LOGIN['user']
+        self._from = settings.MAIL_LOGIN['user']
+    def mailto(self, mail_to) :
+        """
+         mail_to : comma separated emails▫
+        """
+        self._to = mail_to
+        if type(mail_to) == list:
+            self.mail['to'] = ','.join(mail_to)
+        elif type(mail_to) == str :
+            self.mail['to'] = mail_to
+        else:
+            raise Exception('invalid mail to')
+    def mailsubject(self, mail_subject):
+        self.mail['subject'] = mail_subject 
+    def text_body(self, body, encoding = 'utf-8'):
+        self.alter.attach(email.MIMEText.MIMEText(body, 'html', encoding))
+    def send(self):
+        self.mail['Date'] = email.Utils.formatdate( )
+        smtp = False
+        try:
+            smtp = smtplib.SMTP()
+            smtp.set_debuglevel(0)
+            smtp.connect(self.smtp_host, self.smtp_port)
+            smtp.login(self.smtp_user, self.smtp_passwd)
+            smtp.sendmail(self._from, self._to, self.mail.as_string())
+            return  True 
+        except Exception, e:
+            return False
+
+class feedback:
+
+    def __init__(self, index, doc_type, course_id):
+        self.index = index
+        self.doc_type = doc_type
+        self.course_id = course_id
+
+    def set_email(self):
+        try:
+            mailer = Mailer('smtp.xuetangx.com',settings.MAIL_LOGIN['user'],settings.MAIL_LOGIN['password'])
+            mailto = settings.MAIL_TO
+            mail_subject = 'TAP%s' % (u'结课快照问题反馈')
+            body = '<html><h3>index:</h3>%s<h3>doc_type:</h3>%s<h3>课程代码:</h3>%s<h3></html>' % (self.index, self.doc_type, self.course_id)
+            mailer.mailto(mailto)
+            mailer.text_body(body)
+            mailer.mailsubject(mail_subject)
+            mailer.send()
+        except Exception as e:
+            Log.create('feedback')
+            Log.error(e)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      

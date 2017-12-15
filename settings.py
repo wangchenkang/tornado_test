@@ -38,9 +38,13 @@ DISPATCH_OPTIMIZE = True
 ES_INDEX = 'tap'
 NEWCLOUD_ES_INDEX = 'newcloud_tap'
 ES_INDEX_LOCK = 'tap_lock'
+ES_INDEXS = ['tap', 'tap_lock', 'tap_table_grade', 'tap_table_grade_lock', 'tap_table_video', 'tap_table_video_realtime', 'tap_table_question', 'tap_table_question_lock','realtime', 'realtime_discussion_table', 'tap_table_discussion_lock']
 NEWCLOUD_ACADEMIC_ES_INDEX = 'education_data'
 TAP_REALTIME_INDEX = 'realtime'
 NEWCLOUD_DATACONF = ['subimissions_score', 'score_video', 'score_comment', 'import_score', 'score_answer_problem', 'score_rule_change', 'score_course_struct']
+#MAIL_TO = ['wangchenkang@xuetangx.com', 'wangxiaoke@xuetangx.com', 'rencan@xuetangx.com', 'zhuhaijun@xuetangx.com']
+MAIL_TO = ['wangchengkang@xuetangx.com']
+MAIL_LOGIN = {'user': 'tap_feedback@xuetangx.com', 'password': 'xuetangX123'}
 #ES_INDEX = 'tapgo'
 with open(CONFIG_FILE) as f:
     document = f.read()
