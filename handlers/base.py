@@ -198,7 +198,11 @@ class BaseHandler(RequestHandler):
                             Log.create('es')
                             Log.info('%s-%s' % (query._index,course_id))
                             if not self.request.uri.startswith('/course/cohort_info'):
-                               key = '%s_%s_%s' %(query._index, query._doc_type, course_id)
+                               if not isinstance(query._index, list):
+                                    es_index = query._index
+                               else:
+                                    es_index = query._index[0]
+                               key = '%s_%s_%s' %(es_index, query._doc_type, course_id)
                                hash_key, value = self.get_memcache_data(key)
                                if not value:                                
                                   feedback(query._index, query._doc_type, course_id).set_email()
