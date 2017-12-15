@@ -235,18 +235,17 @@ class CourseEnrollmentsDateRealtime(BaseHandler):
         start = self.get_param("start")
         end = self.get_param("end")
         enroll_query = self.es_query(index='realtime', doc_type="student_enrollment_info")
-        enroll_query = enroll_query.filter("range", **{'enroll_time': {'lte': end, 'gte': start}}) \
+        enroll_query = enroll_query.filter("range", **{'enroll_time': {'lt': '%sT00:00:00+08:00' % datedelta(end,1), 'gte': '%sT00:00:00+08:00' % start}}) \
                     .filter('term', group_key=self.group_key) \
                     .filter("term", course_id=self.course_id) \
                     .filter("term", is_active=1)[:0]
-        enroll_query.aggs.bucket('value', A("date_histogram", field="enroll_time", interval="day"))
-
+        enroll_query.aggs.bucket('value', A("date_histogram", field="enroll_time", interval="day", time_zone='+08:00'))
         unenroll_query = self.es_query(index='realtime', doc_type="student_enrollment_info")
-        unenroll_query = unenroll_query.filter("range", **{'unenroll_time': {'lte': end, 'gte': start}}) \
+        unenroll_query = unenroll_query.filter("range", **{'unenroll_time': {'lt': '%sT00:00:00+08:00' % datedelta(end,1), 'gte': '%sT00:00:00+08:00' % start}}) \
                     .filter('term', group_key=self.group_key) \
                     .filter("term", course_id=self.course_id) \
                     .filter("term", is_active=0)[:0]
-        unenroll_query.aggs.bucket('value', A("date_histogram", field="unenroll_time", interval="day"))
+        unenroll_query.aggs.bucket('value', A("date_histogram", field="unenroll_time", interval="day", time_zone='+08:00'))
 
         enroll_results = self.es_execute(enroll_query)
         enroll_aggs = enroll_results.aggregations.value
@@ -256,15 +255,16 @@ class CourseEnrollmentsDateRealtime(BaseHandler):
         unenroll_buckets = unenroll_aggs['buckets']
         res_dict = {}
         for x in enroll_buckets:
-            date = str(x["key_as_string"][:10])
+            date = str(x["key_as_string"]).split('T')[0] if x['key_as_string'] else ''
             data = {}
             data['enroll'] = x["doc_count"]
             data["date"] = date
             res_dict[date] = data
         for x in unenroll_buckets:
-            date = str(x["key_as_string"][:10])
+            date = str(x["key_as_string"]).split('T')[0] if x['key_as_string'] else ''
             data = res_dict.get(date, {'date': date, 'enroll': 0})
             data['unenroll'] = x["doc_count"]
+            res_dict[date] = data
 
         item = start
         end_1 = datedelta(end, 1)
@@ -281,37 +281,45 @@ class CourseEnrollmentsDateRealtime(BaseHandler):
                     "unenroll": 0
                 }
             item = datedelta(item, 1)
-
+        
         # 取end的数据
-        enroll_query = self.es_query(index='realtime', doc_type="student_enrollment_info")
-        enroll_query = enroll_query.filter("range", **{'enroll_time': {'lt': start}})
-        enroll_query = enroll_query.filter("term", course_id=self.course_id)
-        enroll_query = enroll_query.filter('term', group_key=self.group_key)
-        enroll_query = enroll_query.filter("term", is_active=1)
-        enroll_query = enroll_query[:0]
+        enroll_query = self.es_query(index='realtime', doc_type="student_enrollment_info") \
+                           .filter("term", course_id=self.course_id) \
+                           .filter('term', group_key=self.group_key) \
+                           .filter("term", is_active=1) 
+        not_enroll_time_query = enroll_query.filter(Q('bool', must_not=[Q('exists', field='enroll_time')]))[:0]
+        enroll_query = enroll_query.filter("range", **{'enroll_time': {'lt': '%sT00:00:00+08:00' % start}})[:0]
         enroll_result = self.es_execute(enroll_query)
         enroll = enroll_result.hits.total
+        not_enroll_time_result = self.es_execute(not_enroll_time_query)
+        not_enroll_time_enroll = not_enroll_time_result.hits.total 
+        enroll += not_enroll_time_enroll 
+        
         Log.create('course')
         Log.info('enroll: %s' % enroll)
 
-        unenroll_query = self.es_query(index='realtime', doc_type="student_enrollment_info")
-        unenroll_query = unenroll_query.filter("range", **{'unenroll_time': {'lt': start}})
-        unenroll_query = unenroll_query.filter("term", course_id=self.course_id)
-        unenroll_query = unenroll_query.filter('term', group_key=self.group_key)
-        unenroll_query = unenroll_query.filter("term", is_active=0)
-        unenroll_query = unenroll_query[:0]
+        unenroll_query = self.es_query(index='realtime', doc_type="student_enrollment_info") \
+                             .filter("term", course_id=self.course_id) \
+                             .filter('term', group_key=self.group_key) \
+                             .filter("term", is_active=0) 
+        not_enroll_time_unenroll_query = unenroll_query.filter(Q('bool', must_not=[Q('exists', field='unenroll_time')]))[:0]
+        unenroll_query = unenroll_query.filter("range", **{'unenroll_time': {'lt': '%sT00:00:00+08:00' % start}}) [:0]
         unenroll_result = self.es_execute(unenroll_query)
         unenroll = unenroll_result.hits.total
+        not_enroll_time_unenroll_result = self.es_execute(not_enroll_time_unenroll_query)
+        not_enroll_time_unenroll = not_enroll_time_unenroll_result.hits.total
+        unenroll += not_enroll_time_unenroll
         Log.create('course')
         Log.info('unenroll: %s' % unenroll)
 
         data = sorted(res_dict.values(), key=lambda x: x["date"])
         for item in data:
-            enroll += item["enroll"]
+            enroll += item["enroll"]-item['unenroll']
             unenroll += item["unenroll"]
             item["total_enroll"] = enroll + unenroll
             item["total_unenroll"] = unenroll
             item["enrollment"] = enroll
+        
         self.success_response({"data": data})
 
 @route('/course/active_num')
@@ -478,7 +486,7 @@ class CourseQueryDate(BaseHandler):
         course_data = {}
         if data.hits:
             course_data.update(data.hits[0].to_dict())
-
+        
         self.success_response({'data': course_data})
 
 @route('/course/course_health')

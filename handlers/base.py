@@ -12,10 +12,11 @@ from elasticsearch_dsl import Search, Q
 from utils.service import CourseService, AsyncService, AsyncCourseService 
 from utils.tools import fix_course_id
 from utils.tools import get_group_type
-from utils.tools import is_ended
+from utils.tools import is_ended, date_from_string, feedback
 import settings
+from datetime import datetime
 
-Log = Log.create(__name__)
+#Log = Log.create(__name__)
 
 class BaseHandler(RequestHandler):
 
@@ -45,6 +46,10 @@ class BaseHandler(RequestHandler):
         self.memcache.set(hash_key, result, 60*60)
         return True
 
+    def set_memcache_data_warning(self, hash_key, result):
+        self.memcache.set(hash_key, result, 60*60*24)
+        return True
+    
     def write_json(self, data):
         self.set_header("Content-Type", "application/json; charset=utf-8")
         if options.debug:
@@ -159,28 +164,55 @@ class BaseHandler(RequestHandler):
 
     def es_execute(self, query):
         try:
-            if (settings.ES_INDEX in set(query._index) or settings.ES_INDEX_LOCK in set(query._index)) and 'data_conf' not in set(query._doc_type):
-                if self.request.uri.startswith('/open_times'):
+            if self.request.uri.startswith('/open_times'):
+                response = query.execute()
+                return response
+            else:
+                if not list(set(query._index)&set(settings.ES_INDEXS)):
                     response = query.execute()
                     return response
-                else:
-                    try:
-                        course_id = self.get_argument('course_id')
-                        course_structure = self.course_structure(fix_course_id(course_id), 'course')
-                        end_time = course_structure.get('end') or 'now'
-                        query._index = settings.ES_INDEX if not is_ended(end_time) else settings.ES_INDEX_LOCK
-                        new_query = Search(using=self.es).from_dict(query.to_dict())
-                        response = query.execute()
-                        if not response.hits.total:
-                            new_query._index = settings.ES_INDEX
+                course_id = self.get_argument('course_id', None)
+                end_time = None
+                if course_id:
+                    course_structure = self.course_structure(fix_course_id(course_id), 'course')
+                    end_time = course_structure.get('end')
+                if is_ended(end_time):
+                    for index in query._index:
+                        if index == 'realtime':
+                            query._index='tap_lock'
+                        elif index == 'tap_table_video_realtime':
+                            query._index = 'tap_table_video'
+                        elif index == 'realtime_discussion_table':
+                            query._index = 'tap_table_discussion_lock'
+                        elif not index.endswith('lock'):
+                            query._index.append('lock')
+                            query._index = '_'.join(query._index)
+                new_query = Search(using=self.es).from_dict(query.to_dict())
+                response = query.execute()
+                if not response.hits.total:
+                    if end_time:
+                        end = date_from_string(end_time)
+                        now = datetime.utcnow()
+                        expires = (now-end).days
+                        if expires > 3:
+                            Log.create('es')
+                            Log.info('%s-%s' % (query._index,course_id))
+                            if not self.request.uri.startswith('/course/cohort_info'):
+                               key = '%s_%s_%s' %(query._index, query._doc_type, course_id)
+                               hash_key, value = self.get_memcache_data(key)
+                               if not value:                                
+                                  feedback(query._index, query._doc_type, course_id).set_email()
+                               else:
+                                  self.set_memcache_data_warning(hash_key, 1)
+                                  feedback(query._index, query._doc_type, course_id).set_email()
+                            if query._index in ['tap_table_video', ['tap_table_video']]:
+                                new_query._index = 'tap_table_video_realtime'
+                            elif query._index in ['tap_table_discussion_lock', ['tap_table_discussion_lock']]:
+                                new_query._index = 'realtime_discussion_table'
+                            else:
+                                new_query._index = query._index.split('_lock')[0] if not isinstance(query._index, list) else query._index[0].split('_lock')[0]
                             new_query._doc_type = query._doc_type[0]
                             response = new_query.execute()
-                        return response
-                    except MissingArgumentError as e:
-                        response = query.execute()
-                        return response
-            else:
-                response = query.execute()
                 return response
         except (ConnectionError, ConnectionTimeout):
             self.error_response(100, u'Elasticsearch 连接错误')
