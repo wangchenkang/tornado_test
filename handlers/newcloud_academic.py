@@ -1,26 +1,28 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-from tornado.web import gen
-from utils.routes import route
-from .base import BaseHandler
-from elasticsearch_dsl import Q
-from utils.mysql_connect import MysqlConnect
-from utils.service import CourseService
-from utils.tools import date_from_string
 import settings
+from tornado.web import gen
+from base import BaseHandler
+from utils.routes import route
+from elasticsearch_dsl import Q
+from utils.tools import date_from_string
+from utils.mysql_connect import MysqlConnect
 
 import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
-COURSE_FIELD = ['course_id', 'course_name','active_rate_course', 'study_video_rate_course', 'no_watch_person_course',\
-                'enroll_num_course', 'teacher_num_course', 'effort_course', 'score_avg_course', 'course_status', 'service_line', 'org_id', 'course_start']
+COURSE_FIELD = ['course_id', 'course_name', 'study_video_rate_course', 'no_watch_person_course', 'enroll_num_course', \
+                'teacher_num_course', 'effort_course', 'score_avg_course', 'course_status', 'service_line', 'org_id', 'course_start']
 TEACHER_FIELD = ['user_id', 'course_num_total', 'course_num', 'first_level', 'term_name', 'course_status', 'discussion_total']
-STUDENT_FIELD = ['rname', 'binding_uid', 'faculty', 'major', 'cohort', 'entrance_year', 'participate_total_user', 'open_num_user', 'unopen_num_user', 'close_num_user'] 
+STUDENT_FIELD = ['rname', 'binding_uid', 'faculty', 'major', 'cohort', 'entrance_year', 'participate_total_user', 'open_num_user', \
+                 'unopen_num_user', 'close_num_user']
 STUDENT_FORM_HEADER = [u'姓名', u'学号', u'院系', u'专业', u'班级', u'入学年份', u'参与课程', u'开课中', u'待开课', u'已结课']
-STUDENT_COURSE_FIELD = ['course_status', 'course_id', 'course_name', 'study_video_len_user', 'study_rate_user', 'accomplish_percent_user', 'correct_percent_user', 'grade', 'start', 'end']
-STUDENT_USER_FIELD = ['open_num_user', 'unopen_num_user', 'close_num_user', 'study_video_user', 'discussion_num_user', 'accomplish_percent_user', 'participate_total_user', 'correct_percent_user']
+STUDENT_COURSE_FIELD = ['course_status', 'course_id', 'course_name', 'study_video_len_user', 'study_rate_user', \
+                        'accomplish_percent_user', 'correct_percent_user', 'grade', 'start', 'end']
+STUDENT_USER_FIELD = ['open_num_user', 'unopen_num_user', 'close_num_user', 'study_video_user', 'discussion_num_user', \
+                      'accomplish_percent_user', 'participate_total_user', 'correct_percent_user']
 
 class AcademicData(BaseHandler):
 
@@ -42,12 +44,13 @@ class AcademicData(BaseHandler):
         open_num = 0
         close_num = 0
         for bucket in buckets:
-            if bucket.key in ('unopen_num', 'unopen'):
+            if bucket.key == 'unopen':
                 unopen_num = bucket.doc_count
-            elif bucket.key in ('open_num', 'open'):
+            elif bucket.key == 'open':
                 open_num = bucket.doc_count
             else:
                 close_num = bucket.doc_count
+
         return unopen_num, open_num, close_num
 
     def format_course_info(self, results):
@@ -55,19 +58,19 @@ class AcademicData(BaseHandler):
         for result in results:
             course_info = {}
             course_info['course_name'] = result.course_name
-            course_info['study_video_rate'] = self.round_data_4(result.study_video_rate_course)
-            course_info['score_avg'] = self.round_data_2(result.score_avg_course)
-            course_info['effort'] = self.round_data_2(result.effort_course)
+            course_info['study_video_rate'] = self.round_data(result.study_video_rate_course, 4)
+            course_info['score_avg'] = self.round_data(result.score_avg_course, 2)
+            course_info['effort'] = self.round_data(result.effort_course, 2)
             course_info['student_num'] = result.enroll_num_course
             course_info['teacher_num'] = result.teacher_num_course
             course_info['no_watch_person'] = result.no_watch_person_course
             course_info['course_id'] = result.course_id
-            course_info['active_rate'] = self.round_data_4(result.active_rate_course)
             course_info['course_status'] = result.course_status
             course_info['service_line'] = result.service_line
             course_info['org_id'] = result.org_id
             course_info['course_start'] = result.course_start
-            data.append(course_info) 
+            data.append(course_info)
+
         return data
 
     @gen.coroutine
@@ -86,14 +89,14 @@ class AcademicData(BaseHandler):
         org_id = self.get_param('org_id')
         term_id = self.get_param('term_id')
         service_line = self.get_argument('service_line', None)
-        course_status = self.get_argument('course_status', None)
-
         service_line = 'all' if not service_line else service_line
+        course_status = self.get_argument('course_status', None)
         course_status = 'all' if not course_status else course_status
 
         query = self.es_query(index = settings.NEWCLOUD_ACADEMIC_ES_INDEX, doc_type = 'org_course_info')\
-                             .filter('term', org_id = org_id)\
-                             .filter('term', term_id = term_id)
+                    .filter('term', org_id = org_id)\
+                    .filter('term', term_id = term_id)
+
         if service_line != 'all':
             query = query.filter('term', service_line = service_line) 
         if course_status != 'all':
@@ -134,15 +137,10 @@ class AcademicData(BaseHandler):
         
         return query
 
-    def round_data_4(self, data):
+    def round_data(self, data, size):
         data = float(data)
 
-        return round(data, 4)
-
-    def round_data_2(self, data):
-        data = float(data)
-
-        return round(data, 2)
+        return round(data, size)
 
   
 @route('/course/overview')
@@ -157,9 +155,7 @@ class CourseOverview(AcademicData):
         
         query.aggs.bucket('per_course_status', 'terms', field='course_status', size=total or 1)
         query.aggs.metric('video_total', 'sum', field='video_total_course')
-        query.aggs.metric('video_avg', 'avg', field='video_total_course')
         query.aggs.metric('discussion_total', 'sum', field='discussion_total_course')
-        query.aggs.metric('discussion_avg', 'avg', field='discussion_total_course')
         query.aggs.metric('accomplish_percent', 'avg', field='accomplish_percent_course')
         query.aggs.metric('correct_percent', 'avg', field='correct_percent_course')
         
@@ -169,15 +165,13 @@ class CourseOverview(AcademicData):
         result = self.es_execute(query)
         aggs = result.aggregations    
         course_num = result.hits.total
-
         buckets = aggs.per_course_status.buckets
         unopen_num, open_num, close_num = self.get_course_num(buckets)
-        video_total = self.round_data_2(aggs.video_total.value or 0)
-        video_avg = self.round_data_2(aggs.video_avg.value or 0)
-        discussion_total = self.round_data_2(aggs.discussion_total.value or 0)
-        discussion_avg = self.round_data_2(aggs.discussion_avg.value or 0)
-        accomplish_percent = self.round_data_4(aggs.accomplish_percent.value or 0)
-        correct_percent = self.round_data_4(aggs.correct_percent.value or 0)
+
+        video_total = self.round_data(aggs.video_total.value or 0, 2)
+        discussion_total = self.round_data(aggs.discussion_total.value or 0, 2)
+        accomplish_percent = self.round_data(aggs.accomplish_percent.value or 0, 4)
+        correct_percent = self.round_data(aggs.correct_percent.value or 0, 4)
         
         data = {}
         data['course_num'] = course_num
@@ -185,9 +179,7 @@ class CourseOverview(AcademicData):
         data['open_num'] = open_num
         data['close_num'] = close_num
         data['video_total'] = video_total
-        data['video_avg'] = video_avg or 0
         data['discussion_total'] = discussion_total
-        data['discussion_avg'] = discussion_avg or 0
         data['accomplish_percent'] = accomplish_percent or 0
         data['correct_percent'] = correct_percent or 0
        
@@ -251,46 +243,54 @@ class TeacherOverview(AcademicData):
     """
     def get_total_term_num(self, org_id, faculty, term_id):
         query = self.es_query(index = settings.NEWCLOUD_ACADEMIC_ES_INDEX, doc_type = 'org_teacher_level_term')\
-                                .filter('term', org_id = org_id)
+                    .filter('term', org_id = org_id)
         if faculty != 'all':
             query = query.filter('term', first_level = faculty)
-
         size = self.es_execute(query[:0]).hits.total
-        query.aggs.bucket('teacher_total', 'terms', field = 'user_id', size = size or 1)
-        result = self.es_execute(query[:0])
-        buckets = result.aggregations.teacher_total.buckets
-        teacher_total = len(buckets)
+        if size:
+            query.aggs.bucket('teacher_total', 'terms', field = 'user_id', size = size)
+            result = self.es_execute(query[:0])
+            buckets = result.aggregations.teacher_total.buckets
+            teacher_total = len(buckets)
+        else:
+            teacher_total = 0
         
         query = self.es_query(index = settings.NEWCLOUD_ACADEMIC_ES_INDEX, doc_type = 'org_teacher_level_term')\
-                                    .filter('term', org_id = org_id)\
-                                    .filter('term', term_id = term_id)
+                    .filter('term', org_id = org_id)\
+                    .filter('term', term_id = term_id)
         if faculty != 'all':
             query = query.filter('term', first_level = faculty)
 
         size = self.es_execute(query[:0]).hits.total
-        query.aggs.bucket('term_teacher_num', 'terms', field = 'user_id', size = size or 1)
-        result = self.es_execute(query[:0])
-        term_teacher_num = result.aggregations.term_teacher_num.buckets
-        term_teacher_num = len(term_teacher_num)
+        if size:
+            query.aggs.bucket('term_teacher_num', 'terms', field = 'user_id', size = size)
+            result = self.es_execute(query[:0])
+            term_teacher_num = result.aggregations.term_teacher_num.buckets
+            term_teacher_num = len(term_teacher_num)
+        else:
+            term_teacher_num = 0
 
         return teacher_total, term_teacher_num
 
     def get_creator_discussion_total(self, org_id, faculty, term_id):
         query = self.es_query(index = settings.NEWCLOUD_ACADEMIC_ES_INDEX, doc_type = 'org_teacher_level_term_status')\
-                                .filter('term', org_id = org_id)\
-                                .filter('term', is_creator = 1)
+                    .filter('term', org_id = org_id)\
+                    .filter('term', is_creator = 1)
         if faculty != 'all':
             query = query.filter('term', first_level = faculty)
 
         size = self.es_execute(query[:0]).hits.total
-        query.aggs.bucket('teacher_creator_num', 'terms', field = 'user_id', size = size or 1)
-        result = self.es_execute(query[:0])
-        buckets = result.aggregations.teacher_creator_num.buckets
-        teacher_creator_num = len(buckets)
+        if size:
+            query.aggs.bucket('teacher_creator_num', 'terms', field = 'user_id', size = size)
+            result = self.es_execute(query[:0])
+            buckets = result.aggregations.teacher_creator_num.buckets
+            teacher_creator_num = len(buckets)
+        else:
+            teacher_creator_num = 0
         
         query = self.es_query(index = settings.NEWCLOUD_ACADEMIC_ES_INDEX, doc_type = 'org_teacher_level_term_status')\
-                            .filter('term', org_id = org_id)\
-                            .filter('term', term_id = term_id)
+                    .filter('term', org_id = org_id)\
+                    .filter('term', term_id = term_id)
         if faculty != 'all':
             query = query.filter('term', first_level = faculty)
 
@@ -302,11 +302,12 @@ class TeacherOverview(AcademicData):
 
     def get_participate_total(self, org_id, faculty, term_id):
         query = self.es_query(index = settings.NEWCLOUD_ACADEMIC_ES_INDEX, doc_type = 'org_level_term')\
-                                    .filter('term', org_id = org_id)\
-                                    .filter('term', term_id = term_id)\
-                                    .source(['participate_course_num'])
+                    .filter('term', org_id = org_id)\
+                    .filter('term', term_id = term_id)\
+                    .source(['participate_course_num'])
         if faculty != 'all':
             query = query.filter('term', first_level = faculty)
+
         result = self.es_execute(query[:1000]).hits
         paticipate_num = []
         for item in result:
@@ -319,15 +320,14 @@ class TeacherOverview(AcademicData):
     def data(self):
         org_id = self.get_param('org_id')
         faculty = self.get_argument('faculty', None)
-        term_id = self.get_param('term_id')
-       
         faculty = 'all' if not faculty else faculty
+        term_id = self.get_param('term_id')
 
         teacher_total, term_teacher_num = self.get_total_term_num(org_id, faculty, term_id)
         teacher_creator_num, discussion_total = self.get_creator_discussion_total(org_id, faculty, term_id) 
-        discussion_avg = self.round_data_2(discussion_total/(term_teacher_num or 1))
+        discussion_avg = self.round_data(float(discussion_total)/(term_teacher_num or 1), 2)
         participate_total = self.get_participate_total(org_id, faculty, term_id)
-        participate_avg = self.round_data_2(float(term_teacher_num)/(participate_total or 1))
+        participate_avg = self.round_data(float(term_teacher_num)/(participate_total or 1), 2)
         
         data = {}
         data['teacher_total'] = teacher_total
@@ -342,6 +342,7 @@ class TeacherOverview(AcademicData):
     
     def get(self):
         data = self.data
+
         self.success_response({'data': data})
 
 
@@ -354,6 +355,7 @@ class TeacherList(AcademicData):
     def data(self):
         org_id = self.get_param('org_id')
         faculty = self.get_argument('faculty', None)
+        faculty = 'all' if not faculty else faculty
         term_id = self.get_param('term_id')
         page = int(self.get_argument('page', 1))
         num = int(self.get_argument('num', 10))
@@ -361,7 +363,6 @@ class TeacherList(AcademicData):
         sort_type = self.get_argument('sort_type', 1)
         sort = sort if int(sort_type) else '-%s' % sort
 
-        faculty = 'all' if not faculty else faculty
 
         if sort in ('course_num_total', '-course_num_total'):
             results, _, total = self.get_result(org_id, faculty, term_id, sort, page, num, status=1)
@@ -475,10 +476,12 @@ class TeacherList(AcademicData):
 
     def get_rname_image(self, user_id):
         image_url, rname = MysqlConnect(settings.MYSQL_PARAMS['auth_userprofile']).get_rname_image(user_id)
+
         return rname, image_url
 
     def get(self):
         query, total_page, page = self.data
+
         self.success_response({'data': query, 'total_page': total_page, 'current_page': page})
 
 @route('/student/overview')
@@ -503,11 +506,11 @@ class StudentOverview(AcademicData):
         student_num = result.hits.total
         aggs = result.aggregations
         enroll_total = int(aggs.enroll_total.value or 0)
-        enroll_avg = self.round_data_2(aggs.enroll_avg.value or 0)
+        enroll_avg = self.round_data(aggs.enroll_avg.value or 0, 2)
         discussion_total = int(aggs.discussion_total.value or 0)
-        discussion_avg = self.round_data_2(aggs.discussion_avg.value or 0) 
-        accomplish_percent = self.round_data_4(aggs.accomplish_avg.value or 0)
-        correct_percent = self.round_data_4(aggs.correct_avg.value or 0)
+        discussion_avg = self.round_data(aggs.discussion_avg.value or 0, 2)
+        accomplish_percent = self.round_data(aggs.accomplish_avg.value or 0, 4)
+        correct_percent = self.round_data(aggs.correct_avg.value or 0, 4)
         
         data = {}
         data['student_num'] = student_num
@@ -522,6 +525,8 @@ class StudentOverview(AcademicData):
 
     def get(self):
         query = self.query
+
+
         result = self.get_result(query)
 
         self.success_response({'data': result})
@@ -612,13 +617,13 @@ class StudentDetailOverview(AcademicData):
         result['open_num'] = result.pop('open_num_user') if results else 0
         result['unopen_num'] = result.pop('unopen_num_user') if results else 0
         result['close_num'] = result.pop('close_num_user') if results else 0
-        result['accomplish_percent'] = self.round_data_4(result.pop('accomplish_percent_user') if results else 0 or 0)
-        result['discussion_total'] = self.round_data_2(result.pop('discussion_num_user') if results else 0 or 0)
-        result['correct_percent'] = self.round_data_4(result.pop('correct_percent_user') if results else 0)
-        result['discussion_avg'] = self.round_data_2(aggs_avg.discussion_num_avg.value or 0)
+        result['accomplish_percent'] = self.round_data(result.pop('accomplish_percent_user') if results else 0 or 0, 4)
+        result['discussion_total'] = self.round_data(result.pop('discussion_num_user') if results else 0 or 0, 2)
+        result['correct_percent'] = self.round_data(result.pop('correct_percent_user') if results else 0, 4)
+        result['discussion_avg'] = self.round_data(aggs_avg.discussion_num_avg.value or 0, 2)
         result['course_total'] = total
-        result['study_video_total'] = self.round_data_2(result.pop('study_video_user') if results else 0)
-        result['study_video_avg'] = self.round_data_2(aggs_avg.study_video_avg.value or 0)
+        result['study_video_total'] = self.round_data(result.pop('study_video_user') if results else 0, 2)
+        result['study_video_avg'] = self.round_data(aggs_avg.study_video_avg.value or 0, 2)
         
         return result
 
@@ -653,13 +658,13 @@ class StudentDetailCourse(AcademicData):
         results = self.es_execute(query[(page-1)*num:page*num]).hits
         results = [result.to_dict() for result in results]
         for index, item in enumerate(results):
-            item['study_rate'] = self.round_data_4(item.pop('study_rate_user') or 0)
-            item['correct_percent'] = self.round_data_4(item.pop('correct_percent_user') or 0)
-            item['accomplish_percent'] = self.round_data_4(item.pop('accomplish_percent_user') or 0)
-            item['study_video_len'] = self.round_data_2(item.pop('study_video_len_user') or 0)
+            item['study_rate'] = self.round_data(item.pop('study_rate_user') or 0, 4)
+            item['correct_percent'] = self.round_data(item.pop('correct_percent_user') or 0, 4)
+            item['accomplish_percent'] = self.round_data(item.pop('accomplish_percent_user') or 0, 4)
+            item['study_video_len'] = self.round_data(item.pop('study_video_len_user') or 0, 2)
             item['course_time'] = '%s-%s' % (self.formate_date(item, 'start'), self.formate_date(item, 'end'))
             item['id'] = index + 1
-            item['grade'] = self.round_data_2(item.pop('grade') or 0)
+            item['grade'] = self.round_data(item.pop('grade') or 0, 2)
 
         return results, total_page
     

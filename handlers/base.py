@@ -1,7 +1,9 @@
-#! -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
+
 import json
 import hashlib
 from tornado import gen
+from utils.log import Log
 from tornado.web import RequestHandler, Finish, MissingArgumentError
 from tornado.options import options
 from tornado.escape import url_unescape, json_encode, json_decode
@@ -10,8 +12,11 @@ from elasticsearch_dsl import Search, Q
 from utils.service import CourseService, AsyncService, AsyncCourseService 
 from utils.tools import fix_course_id
 from utils.tools import get_group_type
-from utils.tools import is_ended
+from utils.tools import is_ended, date_from_string, feedback
 import settings
+from datetime import datetime
+
+#Log = Log.create(__name__)
 
 class BaseHandler(RequestHandler):
 
@@ -41,6 +46,10 @@ class BaseHandler(RequestHandler):
         self.memcache.set(hash_key, result, 60*60)
         return True
 
+    def set_memcache_data_warning(self, hash_key, result):
+        self.memcache.set(hash_key, result, 60*60*24)
+        return True
+    
     def write_json(self, data):
         self.set_header("Content-Type", "application/json; charset=utf-8")
         if options.debug:
@@ -155,28 +164,55 @@ class BaseHandler(RequestHandler):
 
     def es_execute(self, query):
         try:
-            if (settings.ES_INDEX in set(query._index) or settings.ES_INDEX_LOCK in set(query._index)) and 'data_conf' not in set(query._doc_type):
-                if self.request.uri.startswith('/open_times'):
+            if self.request.uri.startswith('/open_times'):
+                response = query.execute()
+                return response
+            else:
+                if not list(set(query._index)&set(settings.ES_INDEXS)):
                     response = query.execute()
                     return response
-                else:
-                    try:
-                        course_id = self.get_argument('course_id')
-                        course_structure = self.course_structure(fix_course_id(course_id), 'course')
-                        end_time = course_structure.get('end') or 'now'
-                        query._index = settings.ES_INDEX if not is_ended(end_time) else settings.ES_INDEX_LOCK
-                        new_query = Search(using=self.es).from_dict(query.to_dict())
-                        response = query.execute()
-                        if not response.hits.total:
-                            new_query._index = settings.ES_INDEX
+                course_id = self.get_argument('course_id', None)
+                end_time = None
+                if course_id:
+                    course_structure = self.course_structure(fix_course_id(course_id), 'course')
+                    end_time = course_structure.get('end')
+                if is_ended(end_time):
+                    for index in query._index:
+                        if index == 'realtime':
+                            query._index='tap_lock'
+                        elif index == 'tap_table_video_realtime':
+                            query._index = 'tap_table_video'
+                        elif index == 'realtime_discussion_table':
+                            query._index = 'tap_table_discussion_lock'
+                        elif not index.endswith('lock'):
+                            query._index.append('lock')
+                            query._index = '_'.join(query._index)
+                new_query = Search(using=self.es).from_dict(query.to_dict())
+                response = query.execute()
+                if not response.hits.total:
+                    if end_time:
+                        end = date_from_string(end_time)
+                        now = datetime.utcnow()
+                        expires = (now-end).days
+                        if expires > 3:
+                            Log.create('es')
+                            Log.info('%s-%s' % (query._index,course_id))
+                            if not self.request.uri.startswith('/course/cohort_info'):
+                               key = '%s_%s_%s' %(query._index, query._doc_type, course_id)
+                               hash_key, value = self.get_memcache_data(key)
+                               if not value:                                
+                                  feedback(query._index, query._doc_type, course_id).set_email()
+                               else:
+                                  self.set_memcache_data_warning(hash_key, 1)
+                                  feedback(query._index, query._doc_type, course_id).set_email()
+                            if query._index in ['tap_table_video', ['tap_table_video']]:
+                                new_query._index = 'tap_table_video_realtime'
+                            elif query._index in ['tap_table_discussion_lock', ['tap_table_discussion_lock']]:
+                                new_query._index = 'realtime_discussion_table'
+                            else:
+                                new_query._index = query._index.split('_lock')[0] if not isinstance(query._index, list) else query._index[0].split('_lock')[0]
                             new_query._doc_type = query._doc_type[0]
                             response = new_query.execute()
-                        return response
-                    except MissingArgumentError as e:
-                        response = query.execute()
-                        return response
-            else:
-                response = query.execute()
                 return response
         except (ConnectionError, ConnectionTimeout):
             self.error_response(100, u'Elasticsearch 连接错误')
@@ -215,17 +251,20 @@ class BaseHandler(RequestHandler):
     @gen.coroutine
     def async_course_service(self, method, *args, **kwargs):
         def _parse_response(response):
+            data = None
             if response.error:
                 Log.error('service response error: %s' % response.error)
                 self.error_response(100, u'Service failed')
             
             try:
                 data = json_decode(response.body)
-            except ValueError, e:
+            except ValueError as e:
                 Log.error('service response error: %s, content: %s' % (e, response.body))
                 self.error_response(100, u'Service failed')
+
             if data is None:
                 Log.error('Course service api failed: {}'.format(str(args)))
+
             return data
         
         response = yield getattr(AsyncCourseService(), method)(*args, **kwargs)
@@ -371,6 +410,7 @@ class BaseHandler(RequestHandler):
             if item.grade_ratio < 0:
                 item.grade_ratio = 0
             result[item.user_id] = item.grade_ratio
+
         return result
     
     @property
@@ -386,6 +426,7 @@ class BaseHandler(RequestHandler):
         course_status = self.get_argument('course_status', None)
         if not course_status:
             self.error_response(100, u'缺少参数')
+
         return course_status
 
     @property
@@ -393,6 +434,7 @@ class BaseHandler(RequestHandler):
         service_line = self.get_argument('service_line', None)
         if not service_line:
             self.error_response(100, u'缺少参数')
+
         return service_line
 
     @property
@@ -402,6 +444,7 @@ class BaseHandler(RequestHandler):
         query.aggs.metric('num', 'cardinality', field='video_id')
         result = self.es_execute(query)
         aggs = result.aggregations
+
         return aggs.num.value
     
     @property
@@ -409,6 +452,7 @@ class BaseHandler(RequestHandler):
         chapter_id = self.get_argument('chapter_id', None)
         if not chapter_id:
             self.error_response(100, u'缺少参数')
+
         return chapter_id
 
     @property
@@ -420,6 +464,7 @@ class BaseHandler(RequestHandler):
         result = self.es_execute(query)
         aggs = result.aggregations
         buckets = aggs.chapter_ids.buckets
+
         return [{'chapter_id': bucket.key, 'open_num': bucket.num.value} for bucket in buckets]
     
     @property
@@ -432,4 +477,16 @@ class BaseHandler(RequestHandler):
         result = self.es_execute(query)
         aggs = result.aggregations
         buckets = aggs.seq_ids.buckets
-        return [{'seq_id':bucket.key, 'open_num': bucket.num.value}for bucket in buckets] 
+
+        return [{'seq_id':bucket.key, 'open_num': bucket.num.value}for bucket in buckets]
+
+    # 新加的
+    @gen.coroutine
+    def get_updatetime(self):
+        # data_conf集群和my_student_es_cluster一致
+        from elasticsearch import Elasticsearch
+        client = Elasticsearch(settings.my_student_es_cluster)
+        query = Search(using=client, index='tap', doc_type='data_conf')[:1]
+        result = query.execute().hits
+        update_time = '%s 23:59:59' % result[0].latest_data_date
+        raise gen.Return(update_time)
