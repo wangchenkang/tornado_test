@@ -249,7 +249,7 @@ class MobileWebStudyProgressItemDetail(BaseHandler):
         course_id = self.get_argument('course_id', None)
         course_id = fix_course_id(course_id)
         if not course_id or not user_id:
-            self.error_response({'data': []})
+            self.error_response({100, u'error'})
 
         # get video durations
         sql = """
