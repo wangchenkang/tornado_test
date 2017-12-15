@@ -485,7 +485,7 @@ class BaseHandler(RequestHandler):
     def get_updatetime(self):
         # data_conf集群和my_student_es_cluster一致
         from elasticsearch import Elasticsearch
-        client = Elasticsearch(settings.my_student_es_cluster)
+        client = Elasticsearch(settings.es_cluster)
         query = Search(using=client, index='tap', doc_type='data_conf')[:1]
         result = query.execute().hits
         update_time = '%s 23:59:59' % result[0].latest_data_date
