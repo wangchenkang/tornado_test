@@ -197,14 +197,18 @@ class BaseHandler(RequestHandler):
                         if expires > 3:
                             Log.create('es')
                             Log.info('%s-%s' % (query._index,course_id))
-                            if not self.request.uri.startswith('/course/cohort_info'):
-                               key = '%s_%s_%s' %(query._index, query._doc_type, course_id)
-                               hash_key, value = self.get_memcache_data(key)
-                               if not value:                                
-                                  feedback(query._index, query._doc_type, course_id).set_email()
-                               else:
-                                  self.set_memcache_data_warning(hash_key, 1)
-                                  feedback(query._index, query._doc_type, course_id).set_email()
+                           # if not self.request.uri.startswith('/course/cohort_info'):
+                           #    if not isinstance(query._index, list):
+                           #         es_index = query._index
+                           #    else:
+                           #         es_index = query._index[0]
+                           #    key = '%s_%s_%s' %(es_index, query._doc_type, course_id)
+                           #    hash_key, value = self.get_memcache_data(key)
+                           #    if not value:                                
+                           #       feedback(query._index, query._doc_type, course_id).set_email()
+                           #    else:
+                           #       self.set_memcache_data_warning(hash_key, 1)
+                           #       feedback(query._index, query._doc_type, course_id).set_email()
                             if query._index in ['tap_table_video', ['tap_table_video']]:
                                 new_query._index = 'tap_table_video_realtime'
                             elif query._index in ['tap_table_discussion_lock', ['tap_table_discussion_lock']]:
@@ -485,7 +489,7 @@ class BaseHandler(RequestHandler):
     def get_updatetime(self):
         # data_conf集群和my_student_es_cluster一致
         from elasticsearch import Elasticsearch
-        client = Elasticsearch(settings.my_student_es_cluster)
+        client = Elasticsearch(settings.es_cluster)
         query = Search(using=client, index='tap', doc_type='data_conf')[:1]
         result = query.execute().hits
         update_time = '%s 23:59:59' % result[0].latest_data_date
