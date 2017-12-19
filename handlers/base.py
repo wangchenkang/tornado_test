@@ -206,17 +206,17 @@ class BaseHandler(RequestHandler):
                            #    hash_key, value = self.get_memcache_data(key)
                            #    if not value:                                
                            #       feedback(query._index, query._doc_type, course_id).set_email()
-                           #    else:
+                           #    else:j
                            #       self.set_memcache_data_warning(hash_key, 1)
                            #       feedback(query._index, query._doc_type, course_id).set_email()
-                            if query._index in ['tap_table_video', ['tap_table_video']]:
-                                new_query._index = 'tap_table_video_realtime'
-                            elif query._index in ['tap_table_discussion_lock', ['tap_table_discussion_lock']]:
-                                new_query._index = 'realtime_discussion_table'
-                            else:
-                                new_query._index = query._index.split('_lock')[0] if not isinstance(query._index, list) else query._index[0].split('_lock')[0]
-                            new_query._doc_type = query._doc_type[0]
-                            response = new_query.execute()
+                        if query._index in ['tap_table_video', ['tap_table_video']]:
+                            new_query._index = 'tap_table_video_realtime'
+                        elif query._index in ['tap_table_discussion_lock', ['tap_table_discussion_lock']]:
+                            new_query._index = 'realtime_discussion_table'
+                        else:
+                            new_query._index = query._index.split('_lock')[0] if not isinstance(query._index, list) else query._index[0].split('_lock')[0]
+                        new_query._doc_type = query._doc_type[0]
+                        response = new_query.execute()
                 return response
         except (ConnectionError, ConnectionTimeout):
             self.error_response(100, u'Elasticsearch 连接错误')
