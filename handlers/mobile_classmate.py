@@ -30,6 +30,7 @@ class DayListHandler(BaseHandler):
             for i in result:
                 data_dict = {
                     "rank": i['rank'],  # 排名
+                    "user_id": i['user_id'],
                     "study_rate": "%.2f%%" % (i['study_rate'] * 100),  # 昨日学习视频百分比
                     "video_watch_total": str(round((i['video_watch_total'] / 60), 2))+"分钟",  # 昨日视频学习时长
                     "percent": "%.2f%%" % (i['study_rate'] * 100),  # 总进度百分比
@@ -60,6 +61,7 @@ class WeekListHandler(BaseHandler):
             for i in result:
                 data_dict = {
                     "rank": i['rank'],  # 排名
+                    "user_id": i['user_id'],
                     "study_rate": "%.2f%%" % (i['study_rate'] * 100),
                     "video_watch_total": str(round((i['video_watch_total'] / 60), 2))+"分钟",
                     "percent": "%.2f%%" % (i['study_rate'] * 100),
