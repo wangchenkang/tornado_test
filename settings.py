@@ -42,8 +42,8 @@ ES_INDEXS = ['tap', 'tap_lock', 'tap_table_grade', 'tap_table_grade_lock', 'tap_
 NEWCLOUD_ACADEMIC_ES_INDEX = 'education_data'
 TAP_REALTIME_INDEX = 'realtime'
 NEWCLOUD_DATACONF = ['subimissions_score', 'score_video', 'score_comment', 'import_score', 'score_answer_problem', 'score_rule_change', 'score_course_struct']
-#MAIL_TO = ['wangchenkang@xuetangx.com', 'wangxiaoke@xuetangx.com', 'rencan@xuetangx.com', 'zhuhaijun@xuetangx.com']
-MAIL_TO = ['wangchengkang@xuetangx.com']
+MAIL_TO = ['wangchenkang@xuetangx.com', 'wangxiaoke@xuetangx.com', 'rencan@xuetangx.com', 'zhuhaijun@xuetangx.com']
+#MAIL_TO = ['wangchengkang@xuetangx.com']
 MAIL_LOGIN = {'user': 'tap_feedback@xuetangx.com', 'password': 'xuetangX123'}
 #ES_INDEX = 'tapgo'
 with open(CONFIG_FILE) as f:

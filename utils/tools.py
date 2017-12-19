@@ -6,6 +6,7 @@ import math
 import settings
 import email
 import smtplib
+from log import Log
 
 timezone = 'Asia/Chongqing'
 
