@@ -34,7 +34,7 @@ class Academic(BaseHandler):
         results = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_role(self.user_id, self.host)
         role = []
         role.extend([result['mode'] for result in results])
-        for i in ['staff', 'vpc_admin']:
+	for i in ['staff', 'vpc_admin']:
             if i in role:
                 return 1
         return 0
@@ -69,7 +69,8 @@ class Academic(BaseHandler):
         return query
 
     def get_summary(self, course_ids=None):
-        if course_ids:
+        result = []
+	if course_ids:
             query = self.statics_query.filter('terms', course_id=course_ids)
             query.aggs.metric('enrollment_num', 'sum', field='enrollment_num')
             query.aggs.metric('pass_num', 'sum', field='pass_num')
@@ -81,10 +82,8 @@ class Academic(BaseHandler):
             aggs = results.aggregations
             result = [{'course_num': total, 'enrollment_num': int(aggs.enrollment_num.value or 0), 'pass_num': int(aggs.pass_num.value or 0), 'video_length': round(int(aggs.video_length.value or 0)/3600,2), \
                            'active_num': int(aggs.active_num.value or 0), 'no_num': int(aggs.no_num.value or 0)}]
-        else:
-            #total = self.es_execute(self.summary_query).hits.total
-            result = self.es_execute(self.summary_query[:1]).hits
-        return result
+        
+	return result
 
     def get_statics(self, course_ids=None):
         query = self.statics_query
@@ -136,7 +135,7 @@ class EducationCourseOverview(Academic):
     def get(self):    
         _, course_ids = self.teacher_power
         result = self.get_summary() if self.role == 1 else self.get_summary(course_ids)   
-        overview_result = {}
+	overview_result = {}
         overview_result['course_num'] = 0
         overview_result['active_num'] = 0
         overview_result['video_length'] = 0
