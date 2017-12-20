@@ -149,7 +149,7 @@ class EducationCourseOverview(Academic):
         if len(result) != 0:
             overview_result['course_num'] = result[0]['course_num']
             overview_result['active_num'] = result[0]['active_num']
-            overview_result['video_length'] = round(result[0]['video_length']/3600, 2)
+            overview_result['video_length'] = result[0]['video_length']
             overview_result['enrollment_num'] = result[0]['enrollment_num'] or 0
             overview_result['pass_num'] = result[0]['pass_num']
         
