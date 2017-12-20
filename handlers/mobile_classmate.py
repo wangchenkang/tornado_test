@@ -10,7 +10,7 @@ from elasticsearch_dsl import Q
 import json
 import settings
 
-client = Elasticsearch(settings.es_cluster)
+client = Elasticsearch(settings.my_student_es_cluster)
 
 
 @route('/mobile/day_list')
@@ -18,8 +18,10 @@ class DayListHandler(BaseHandler):
     @gen.coroutine
     def get(self):
         course_id = self.get_param('course_id')  # base.py封装了多个函数，还有get_param
+        update_time = yield self.get_updatetime()
         query = Search(using=client, index="classmate", doc_type="video_rank_daily") \
             .query("term", course_id=course_id) \
+            .query("term", rank_date=update_time.replace(' 23:59:59', '')) \
             .sort("rank")  # 按照视频学习时长降序取top10
         size = query[:0].execute().hits.total
         result = query[:size].execute().hits
@@ -37,7 +39,6 @@ class DayListHandler(BaseHandler):
                     "from": i['come_from']  # 来自
                 }
                 data.append(data_dict)
-        update_time = yield self.get_updatetime()
         self.success_response({
             "data": data,
             "update_time": update_time
@@ -49,8 +50,10 @@ class WeekListHandler(BaseHandler):
     @gen.coroutine
     def get(self):
         course_id = self.get_param('course_id')  # base.py封装了多个函数，还有get_param
+        update_time = yield self.get_updatetime()
         query = Search(using=client, index="classmate", doc_type="video_rank_weekly") \
                     .query("term", course_id=course_id) \
+                    .query("term", rank_date=update_time.replace(' 23:59:59', '')) \
                     .sort("rank")  # 按照视频学习时长降序取top10
         size = query[:0].execute().hits.total
         result = query[:size].execute().hits
@@ -68,7 +71,6 @@ class WeekListHandler(BaseHandler):
                     "from": i['come_from']  # 来自
                 }
                 data.append(data_dict)
-        update_time = yield self.get_updatetime()
         self.success_response({
             "data": data,
             "update_time": update_time
@@ -130,14 +132,18 @@ class ClassmateHandler(BaseHandler):
             })
 
     def get_five_data(self, course_id, dim, data):
-        query = Search(using=client, index="classmate", doc_type="user_distr") \
+        query = Search(using=client, index="classmate", doc_type="general_statistics") \
             .query("term", course_id=course_id) \
             .query("term", field_name=dim)
         size = query[:0].execute().hits.total
         result = query[:size].execute().hits
         data[dim] = {}
+        total = 0
         for i in result:
-            data[dim][i['field_value']] = "%.2f%%" % (i['distr'] * 100)
+            total += int(i["statistics"])
+        for i in result:
+            percent = round((int(i['statistics'])) / total, 10)
+            data[dim][i['field_value']] = "%.2f%%" % (percent * 100)
         return data
 
     def get_country_province(self, course_id, dim, data, total_num, self_num):
@@ -152,7 +158,6 @@ class ClassmateHandler(BaseHandler):
         for i in result:
             compare_list.append(int(i['statistics']))
             num += int(i['statistics'])
-
         if self_num - num != 0:
             top19 = 0
             for i in result:
