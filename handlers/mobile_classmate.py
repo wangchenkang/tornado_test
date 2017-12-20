@@ -10,7 +10,7 @@ from elasticsearch_dsl import Q
 import json
 import settings
 
-client = Elasticsearch(settings.my_student_es_cluster)
+client = Elasticsearch(settings.es_cluster)
 
 
 @route('/mobile/day_list')
