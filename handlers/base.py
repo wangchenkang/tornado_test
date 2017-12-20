@@ -181,7 +181,7 @@ class BaseHandler(RequestHandler):
                         if index == 'realtime':
                             query._index='tap_lock'
                         elif index == 'tap_table_video_realtime':
-                            query._index = 'tap_table_video'
+                            query._index = 'tap_table_video_lock'
                         elif index == 'realtime_discussion_table':
                             query._index = 'tap_table_discussion_lock'
                         elif not index.endswith('lock'):
@@ -209,7 +209,7 @@ class BaseHandler(RequestHandler):
                            #    else:j
                            #       self.set_memcache_data_warning(hash_key, 1)
                            #       feedback(query._index, query._doc_type, course_id).set_email()
-                        if query._index in ['tap_table_video', ['tap_table_video']]:
+                        if query._index in ['tap_table_video_lock', ['tap_table_video_lock']]:
                             new_query._index = 'tap_table_video_realtime'
                         elif query._index in ['tap_table_discussion_lock', ['tap_table_discussion_lock']]:
                             new_query._index = 'realtime_discussion_table'
