@@ -333,11 +333,12 @@ class StudentDetail(BaseHandler):
 class StudentRelation(BaseHandler):
     def get(self):
 
-        query = self.es_query(doc_type='discussion_relation') \
-                .filter('term', course_id=self.course_id)
-        data = self.es_execute(query[:0])
-        data = self.es_execute(query[:data.hits.total])
         users = self.get_users()
+        query = self.es_query(doc_type='discussion_relation') \
+                    .filter('term', course_id=self.course_id)\
+                    .filter('terms', user_id=users)
+	data = self.es_execute(query[:0])
+        data = self.es_execute(query[:data.hits.total])
         relations = []
         for item in data.hits:
             relations.append({
