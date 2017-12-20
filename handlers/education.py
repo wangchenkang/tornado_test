@@ -68,7 +68,7 @@ class Academic(BaseHandler):
             query = query.filter('term', term=self.term)
         return query
 
-    def get_summary(self, course_ids=None):
+    def get_summary(self, role, course_ids=None):
         result = []
 	if course_ids:
             query = self.statics_query.filter('terms', course_id=course_ids)
@@ -82,7 +82,10 @@ class Academic(BaseHandler):
             aggs = results.aggregations
             result = [{'course_num': total, 'enrollment_num': int(aggs.enrollment_num.value or 0), 'pass_num': int(aggs.pass_num.value or 0), 'video_length': round(int(aggs.video_length.value or 0)/3600,2), \
                            'active_num': int(aggs.active_num.value or 0), 'no_num': int(aggs.no_num.value or 0)}]
-        
+        else:
+	    if role == 1:
+	    	result = self.es_execute(self.summary_query[:1]).hits 
+		
 	return result
 
     def get_statics(self, course_ids=None):
@@ -134,7 +137,7 @@ class EducationCourseOverview(Academic):
     """
     def get(self):    
         _, course_ids = self.teacher_power
-        result = self.get_summary() if self.role == 1 else self.get_summary(course_ids)   
+        result = self.get_summary(self.role, course_ids)   
 	overview_result = {}
         overview_result['course_num'] = 0
         overview_result['active_num'] = 0
