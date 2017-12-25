@@ -166,12 +166,9 @@ class ClassmateHandler(BaseHandler):
                     break
             for i in result:
                 top19 += int(i['statistics'])
-                percent = round((int(i['statistics'])) / total_num, 10)
-                data[dim][i['field_value']] = "%.2f%%" % (percent * 100)
-            percent = round((self_num - top19) / total_num, 10)
-            data[dim]["其他"] = "%.2f%%" % (percent * 100)
+                data[dim][i['field_value']] = int(i['statistics'])
+            data[dim]["其他"] = self_num - top19
         else:
             for i in result:
-                percent = round((int(i['statistics']) / total_num), 10)
-                data[dim][i['field_value']] = "%.2f%%" % (percent * 100)
+                data[dim][i['field_value']] = int(i['statistics'])
         return data
