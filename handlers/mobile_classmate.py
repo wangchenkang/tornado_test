@@ -17,12 +17,12 @@ client = Elasticsearch(settings.es_cluster)
 class DayListHandler(BaseHandler):
     @gen.coroutine
     def get(self):
-        course_id = self.get_param('course_id')  # base.py封装了多个函数，还有get_param
+        course_id = self.get_param('course_id')
         update_time = yield self.get_updatetime()
         query = Search(using=client, index="classmate", doc_type="video_rank_daily") \
             .query("term", course_id=course_id) \
             .query("term", rank_date=update_time.replace(' 23:59:59', '')) \
-            .sort("rank")  # 按照视频学习时长降序取top10
+            .sort("rank")  
         size = query[:0].execute().hits.total
         result = query[:size].execute().hits
         if not result:
@@ -49,12 +49,12 @@ class DayListHandler(BaseHandler):
 class WeekListHandler(BaseHandler):
     @gen.coroutine
     def get(self):
-        course_id = self.get_param('course_id')  # base.py封装了多个函数，还有get_param
+        course_id = self.get_param('course_id') 
         update_time = yield self.get_updatetime()
         query = Search(using=client, index="classmate", doc_type="video_rank_weekly") \
                     .query("term", course_id=course_id) \
                     .query("term", rank_date=update_time.replace(' 23:59:59', '')) \
-                    .sort("rank")  # 按照视频学习时长降序取top10
+                    .sort("rank")  
         size = query[:0].execute().hits.total
         result = query[:size].execute().hits
         if not result:
