@@ -339,7 +339,9 @@ class StudentRelation(BaseHandler):
                     .filter('term', group_key=self.group_key) \
                     .filter(Q('bool', should=[Q('terms', user_id1=users) | Q('terms', user_id2=users)]))
         data = self.es_execute(query[:0])
-        data = self.es_execute(query[:data.hits.total])
+        total = data.hits.total
+        total = 10000 if total > 10000 else total
+        data = self.es_execute(query[:total])
         relations = []
         for item in data.hits:
             relations.append({
