@@ -127,6 +127,24 @@ class Academic(BaseHandler):
                      .filter('terms',group_key=group_key_list).source(field)
         total = self.es_execute(query).hits.total
         result.extend([hits.to_dict() for hits in self.es_execute(query[:total]).hits])
+        
+        if self.course_status == 'close':
+            result_course_ids = []
+            for item in result:
+                result_course_ids.append(item['course_id'])
+            unlock_course_ids = []
+            unlock_result = []
+            for course_id in course_ids:
+                if course_id not in result_course_ids:
+                    unlock_course_ids.append(course_id)
+
+            query = self.es_query(doc_type='course_health') \
+                        .filter('terms',course_id=unlock_course_ids) \
+                        .filter('terms',group_key=group_key_list).source(field)
+            total = self.es_execute(query).hits.total
+            unlock_result.extend([hits.to_dict() for hits in self.es_execute(query[:total]).hits])
+            result.extend(unlock_result)
+
         return result
 
 
