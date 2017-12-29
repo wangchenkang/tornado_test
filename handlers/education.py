@@ -61,7 +61,7 @@ class Academic(BaseHandler):
         query = self.es_query(index='academics',doc_type='tap_academics_statics')\
                     .filter('term', service_line=self.service_line)\
                     .filter('term', course_status=COURSE_STATUS.get(self.course_status))\
-                    .sort('-start_time')
+                    .sort('-start_time', 'course_id')
         if self.service_line != 'mooc':
             query = query.filter('term', orgid_or_host=self.orgid_or_host)
         if self.term:
