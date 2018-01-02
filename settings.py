@@ -21,7 +21,8 @@ THRIFT_SERVER = ['10.0.2.131', '10.0.2.132', '10.0.2.133', '10.0.2.134']
 SEEK_FIELD = ['event_type','video_id', 'event_time', 'platform', 'duration', 'not_percent','video_st', 'video_et','video_last', 'seek_len']
 MYSQL_PARAMS = {
             'teacher_power': {'host': 'tap-authority.xuetangx.info', 'db': 'tap_authority', 'user': 'data', 'password': 'data@xuetangx'},
-            'auth_userprofile': {'host': 'datamysql.xuetangx.info', 'db': 'edxapp', 'user': 'mysql_ro', 'password': 'xuetangx.com168mysql'}
+            'auth_userprofile': {'host': 'datamysql.xuetangx.info', 'db': 'edxapp', 'user': 'mysql_ro', 'password': 'xuetangx.com168mysql'},
+	    'course_manage': {'host': 'tap-authority.xuetangx.info', 'db': 'course_manage', 'user': 'course', 'password': 'course@xuetangx'}
 }
 
 ROW_FILTER = {

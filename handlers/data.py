@@ -788,7 +788,12 @@ class StudentCourseEnrollment(BaseHandler):
                      .filter('range', **{'status': {'gte': -1}})
          result = self.es_execute(query[:10000])
          children_course_ids = [hit.course_id for hit in result.hits] if result.hits else course_ids
-
+         
+	 #过滤微慕课
+         exclude_tiny_mooc_course_ids = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['course_manage']).get_exclude_tiny_mooc_course_ids(children_course_ids)
+         if exclude_tiny_mooc_course_ids:
+             children_course_ids =  [ item['course_id'] for item in exclude_tiny_mooc_course_ids]
+         
          #父对子
          course_id_pc = self.get_course_2_ids(parent_course_ids, 2, result.hits)
          #查询这些子课程的数据然后聚合
@@ -801,5 +806,6 @@ class StudentCourseEnrollment(BaseHandler):
                 enrollments = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_enrollment([i])
                 course_enrollment = [{'course_id': enrollment['course_id'], 'acc_enrollment_num': enrollment['enroll_all']} for enrollment in enrollments]
                 data.extend(course_enrollment)
-         self.success_response({'data': data})
+         
+	 self.success_response({'data': data})
 
