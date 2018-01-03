@@ -150,11 +150,42 @@ class MysqlConnect(object):
     def get_exclude_tiny_mooc_course_ids(self, course_ids):
         course_ids = [course_id.encode('utf-8') for course_id in course_ids]
         course_ids = tuple(course_ids)
-        sql = """
-              SELECT course_id
-              FROM course_info
-              WHERE course_id in {}
-              AND course_mode != 2
-              """.format(course_ids)
+        if len(course_ids) != 1: 
+            sql = """
+                  SELECT course_id
+                  FROM course_info
+                  WHERE course_id in {}
+                  AND course_mode != 2
+                  """.format(course_ids)
+        else:
+            course_id == course_ids[0]
+            sql = """
+                  SELECT course_id
+                  FROM course_info
+                  WHERE course_id = '{0}'
+                  AND course_mode != 2
+                  """.format(course_id)
         results = self.execute_query(sql)
+        return results
+    
+    def get_tiny_mooc_course_ids(self, course_ids):
+        course_ids = [course_id.encode('utf-8') for course_id in course_ids]
+        course_ids = tuple(course_ids)
+        if len(course_ids) != 1: 
+            sql = """
+                  SELECT course_id
+                  FROM course_info
+                  WHERE course_id in {}
+                  AND course_mode = 2
+                  """.format(course_ids)
+        else:
+            course_id == course_ids[0]
+            sql = """
+                  SELECT course_id
+                  FROM course_info
+                  WHERE course_id = '{0}'
+                  AND course_mode = 2
+                  """.format(course_id)
+        results = self.execute_query(sql)
+        
         return results
