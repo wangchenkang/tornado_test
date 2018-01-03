@@ -753,11 +753,11 @@ class StudentCourseEnrollment(BaseHandler):
          if hits:
             for hit in hits:
                 if sign == 1:
-                    if hit.course_id in course_:
-                        course_[hit.course_id] = hit.parent_id
+                    if hit in course_:
+                        course_[hit] = hit
                 else:
-                    if hit.parent_id in course_:
-                        course_[hit.parent_id].append(hit.course_id)
+                    if hit in course_:
+                        course_[hit].append(hit)
          else:
             for course_id in set(course_ids):
                 if sign == 1:
@@ -779,14 +779,18 @@ class StudentCourseEnrollment(BaseHandler):
          for course_id in course_ids:
              if course_id not in tiny_mooc_course_ids:
                  normal_course_ids.append(course_id)
+         
          #查parent_id
          query = self.es_query(index='course_ancestor', doc_type='course_ancestor')\
                      .filter('terms', course_id=normal_course_ids)
          total = self.es_execute(query[:0]).hits.total
          result = self.es_execute(query[:total])
          parent_course_ids = [hit.parent_id for hit in result.hits] if result.hits else course_ids
+         
          #子对父
-         course_id_cp = self.get_course_2_ids(course_ids, 1, result.hits)
+         course_id_cp = self.get_course_2_ids(normal_course_ids, 1, parent_course_ids)
+         for course_id in tiny_mooc_course_ids:
+             course_id_cp[course_id] = course_id
 
          #根据parent_id查出所有的子课程id
          query = self.es_query(index='course_ancestor', doc_type='course_ancestor')\
@@ -801,9 +805,11 @@ class StudentCourseEnrollment(BaseHandler):
              children_course_ids =  [ item['course_id'] for item in exclude_tiny_mooc_course_ids]
          
          #父对子
-         parent_course_ids.extend(normal_course_ids) 
-         course_id_pc = self.get_course_2_ids(parent_course_ids, 2, result.hits)
+         course_id_pc = self.get_course_2_ids(parent_course_ids, 2, children_course_ids)
+         for course_id in tiny_mooc_course_ids:
+             course_id_pc[course_id] = course_id
          children_course_ids.extend(tiny_mooc_course_ids)
+         
          #查询这些子课程的数据然后聚合
          enrollments = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_enrollment(children_course_ids)
          course_enrollment = [{'course_id': enrollment['course_id'], 'enrollment_num': enrollment['enroll_all']} for enrollment in enrollments]
