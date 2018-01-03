@@ -18,7 +18,7 @@ reload(sys)
 sys.setdefaultencoding('utf-8')
 
 COURSE_DETAIL = ['service_line', 'course_name', 'enroll_num_course', 'effort_course', 'course_status']
-
+COURSE_STUDENT = ['service_line', 'course_name', 'course_status', 'study_rate', 'grade', 'start']
 COURSE_FIELD = ['course_id', 'course_name', 'study_video_rate_course', 'no_watch_person_course', 'enroll_num_course', \
                 'teacher_num_course', 'effort_course', 'score_avg_course', 'course_status', 'service_line', 'org_id', 'course_start']
 TEACHER_FIELD = ['user_id', 'course_num_total', 'course_num', 'first_level', 'term_name', 'course_status', 'discussion_total']
@@ -92,6 +92,19 @@ class AcademicData(BaseHandler):
 
         return data
 
+    def format_student_course_info(self, results):
+        data = []
+        for result in results:
+            course_info = {}
+            course_info['service_line'] = result.service_line
+            course_info['course_name'] = result.course_name
+            course_info['course_status'] = result.course_status
+            course_info['study_rate'] = self.round_data(result.study_rate, 2)
+            course_info['grade'] = self.round_data(result.grade, 2)
+            data.append(course_info)
+
+        return data
+
     def format_teacher_info(self, results):
         data = []
         for result in results:
@@ -152,6 +165,21 @@ class AcademicData(BaseHandler):
 
         if service_line != 'all':
             query = query.filter('term',service_line = service_line)
+
+        return query
+
+    @property
+    def student_course_query(self):
+        org_id = self.get_param('org_id')
+        term_id = self.get_param('term_id')
+        user_id = self.get_param('user_id')
+        service_line = self.get_argument('service_line', None)
+        service_line = 'all' if not service_line else service_line
+
+        query = self.es_query(index='newcloud_wechat', doc_type='student_course').filter('term', org_id=org_id).filter('term', term_id=term_id).filter('term', user_id=user_id)
+
+        if service_line != 'all':
+            query = query.filter('term', service_line=service_line)
 
         return query
 
@@ -242,50 +270,6 @@ class CourseOverview(AcademicData):
         result = self.get_result(query)
 
         self.success_response({'data': result})
-
-
-@route('/course/list')
-class CourseList(AcademicData):
-    """
-    课程概况，课程列表
-    """
-    @property
-    def query(self):
-        sort = self.get_argument('sort', 'course_start')
-        sort_type = self.get_argument('sort_type', 0)
-        sort = '%s' % sort if int(sort_type) else '-%s' % sort
-
-        query = self.course_query
-        query = query.source(COURSE_FIELD)\
-                     .sort(sort)
-
-        return query[:0]
-
-    def get_result(self, query, page, num):
-        total = self.es_execute(query).hits.total
-        total_page = self.get_total_page(total, num)
-
-        result = self.es_execute(self.query[(page-1)*num: page*num]).hits
-
-        return result, total, total_page
-
-    @gen.coroutine
-    def get(self):
-        page = int(self.get_argument('page', 1))
-        num = int(self.get_argument('num', 5))
-        query = self.query
-
-        results, total, total_page = self.get_result(query, page, num)
-        datas = self.format_course_info(results)
-        for data in datas:
-            data['image_url'], end = yield self.get_course_image(data)
-            start = data['course_start']
-            start = '.'.join(start.split(' ')[0].split('-')) if start else ''
-            end = '.'.join(end.split('-')) if end else ''
-            data['course_time'] ='%s-%s' %(start, end)
-            data.pop('course_start')
-
-        self.success_response({'data': datas, 'total_page': total_page, 'course_num': total, 'current_page': page})
 
 
 @route('/teacher/overview')
@@ -397,145 +381,6 @@ class TeacherOverview(AcademicData):
 
         self.success_response({'data': data})
 
-
-# @route('/teacher/list')
-# class TeacherList(AcademicData):
-#     """
-#     教师概况，教师列表
-#     """
-#     @property
-#     def data(self):
-#         org_id = self.get_param('org_id')
-#         faculty = self.get_argument('faculty', None)
-#         faculty = 'all' if not faculty else faculty
-#         term_id = self.get_param('term_id')
-#         page = int(self.get_argument('page', 1))
-#         num = int(self.get_argument('num', 10))
-#         sort = self.get_argument('sort', 'course_num_total')
-#         sort_type = self.get_argument('sort_type', 1)
-#         sort = sort if int(sort_type) else '-%s' % sort
-#
-#
-#         if sort in ('course_num_total', '-course_num_total'):
-#             results, _, total = self.get_result(org_id, faculty, term_id, sort, page, num, status=1)
-#             user_ids = [result['user_id'] for result in results]
-#             results_status, _ = self.get_status_result(org_id, faculty, term_id, sort, page, num, 0, user_ids)
-#
-#             results = self.add2result(results, results_status)
-#         else:
-#             results, _ = self.get_status_result(org_id, faculty, term_id, sort, page, num, status=1)
-#             user_ids = [result['user_id'] for result in results]
-#             sort_user_ids = []
-#             for user_id in user_ids:
-#                 if user_id not in sort_user_ids:
-#                     sort_user_ids.append(user_id)
-#             user_ids = sort_user_ids[(page-1)*num:page*num]
-#             results_status, _, total = self.get_result(org_id, faculty, term_id, sort, page, num, 0, user_ids)
-#
-#             data = []
-#             for user_id in user_ids:
-#                 for result_status in results_status:
-#                     if result_status['user_id'] == user_id and result_status not in data:
-#                         data.append(result_status)
-#
-#             results = self.add2result(data, results)
-#
-#         total_page = self.get_total_page(total, num)
-#
-#         return results, total_page, page
-#
-#     def get_result(self, org_id, faculty, term_id, sort, page, num, status=1, user_ids=None):
-#         query = self.es_query(index = settings.NEWCLOUD_ACADEMIC_ES_INDEX, doc_type = 'org_teacher_level_term')\
-#                     .filter('term', org_id = org_id)\
-#                     .filter('term', term_id = term_id)\
-#                     .source(TEACHER_FIELD)
-#         total = self.es_execute(query[:0]).hits.total
-#         if faculty != 'all':
-#             query = query.filter('term', first_level = faculty)
-#
-#         if status:
-#             query = query.sort(sort, 'user_id')
-#             results = self.es_execute(query[(page-1)*num:page*num]).hits
-#             results = [result.to_dict() for result in results]
-#             size = len(results)
-#         else:
-#             query = query.filter('terms', user_id = user_ids)
-#             num = len(user_ids)
-#             results = self.es_execute(query[:num]).hits
-#             results = [result.to_dict() for result in results]
-#             size = len(results)
-#
-#         return results, size, total
-#
-#     def get_status_result(self, org_id, faculty, term_id, sort, page, num, status=1, user_ids=None):
-#         query = self.es_query(index = settings.NEWCLOUD_ACADEMIC_ES_INDEX, doc_type = 'org_teacher_level_term_status')\
-#                     .filter('term', org_id = org_id)\
-#                     .filter('term', term_id = term_id)\
-#                     .source(TEACHER_FIELD)
-#
-#         if faculty != 'all':
-#             query = query.filter('term', first_level = faculty)
-#         if status:
-#             query = query.sort(sort, 'user_id')
-#             total = self.es_execute(query[:0]).hits.total
-#             num = 10000 if total >10000 else num
-#         else:
-#             query = query.filter('terms', user_id = user_ids)
-#
-#         query.aggs.bucket('user_ids', 'terms', field = 'user_id', size = num)
-#         aggs = self.es_execute(query).aggregations
-#         buckets = aggs.user_ids.buckets
-#         size = len(buckets)
-#
-#         results = self.get_discussion_total(query, size)
-#
-#         return results, size
-#
-#     def get_discussion_total(self, query, size):
-#         query.aggs.bucket('user_ids', 'terms', field = 'user_id', size = size or 1)\
-#                   .metric('discussion_total', 'sum', field = 'discussion_total')
-#         results_ = self.es_execute(query[:size*3])
-#         results_2 = [result.to_dict() for result in results_.hits]
-#         for result in results_2:
-#             result['discussion_total'] = 0
-#             for bucket in results_.aggregations.user_ids.buckets:
-#                 if result['user_id'] == bucket.key:
-#                     result['discussion_total'] = bucket.discussion_total.value
-#
-#         return results_2
-#
-#     def add2result(self, result, result_status):
-#         for item in result:
-#             item['open_num'] = 0
-#             item['unopen_num'] = 0
-#             item['close_num'] = 0
-#             item['faculty'] = item.pop('first_level')
-#             for data in result_status:
-#                 if item['user_id'] == data['user_id']:
-#                     if data['course_status'] == 'open':
-#                         item['open_num'] = data.pop('course_num')
-#                     if data['course_status'] == 'unopen':
-#                         item['unopen_num'] = data.pop('course_num')
-#                     if data['course_status'] == 'close':
-#                         item['close_num'] = data.pop('course_num')
-#                     item['discussion_total'] = int(data.pop('discussion_total'))
-#             item['course_total'] = item.pop('course_num_total')
-#             rname, image_url = self.get_rname_image(item['user_id'])
-#             item['rname'] = rname
-#             item['image_url'] = image_url
-#
-#         return result
-#
-#     def get_rname_image(self, user_id):
-#         image_url, rname = MysqlConnect(settings.MYSQL_PARAMS['auth_userprofile']).get_rname_image(user_id)
-#
-#         return rname, image_url
-#
-#     def get(self):
-#         query, total_page, page = self.data
-#
-#         self.success_response({'data': query, 'total_page': total_page, 'current_page': page})
-
 @route('/student/overview')
 class StudentOverview(AcademicData):
     """
@@ -582,61 +427,6 @@ class StudentOverview(AcademicData):
         result = self.get_result(query)
 
         self.success_response({'data': result})
-
-
-# @route('/student/list')
-# class StudentList(AcademicData):
-#     """
-#     学生概况，学生首页列表
-#     """
-#     @property
-#     def query(self):
-#         query = self.student_query()
-#         query = query.source(STUDENT_FIELD)\
-#                      .sort('-participate_total_user', 'binding_uid')
-#
-#         return query
-#
-#     def get_result(self, query, page, num, student_keyword):
-#         if student_keyword != 'all':
-#             query = query.filter(Q('bool', should=[Q('wildcard', rname = '*%s*' % student_keyword)\
-#                                                  | Q('wildcard', binding_uid = '*%s*' % student_keyword)
-#                                                    ]))
-#
-#         total = self.es_execute(query[:0]).hits.total
-#         total_page = self.get_total_page(total, num)
-#
-#         results = self.es_execute(query[(page-1)*num: page*num]).hits
-#         header, datas = self.get_header_data(page, num ,results)
-#
-#         return header, datas, total_page
-#
-#     def get_header_data(self, page, num, results):
-#         datas = []
-#         header = [{'field': 'id', 'name': u'编号'}]
-#         for index, result in enumerate(results):
-#             data = [index + 1 if page == 1 else (page-1)*num + index + 1]
-#             result = result.to_dict()
-#             for field in STUDENT_FIELD:
-#                 data.append(result[field])
-#             datas.append(data)
-#         for index, field in enumerate(STUDENT_FIELD):
-#             header_item = {}
-#             header_item['field'] = field
-#             header_item['name'] = STUDENT_FORM_HEADER[index]
-#             header.append(header_item)
-#
-#         return header, datas
-#
-#     def get(self):
-#         page = int(self.get_argument('page', 1))
-#         num = int(self.get_argument('num', 10))
-#         student_keyword = self.get_argument('student_keyword', 'all')
-#
-#         query = self.query
-#         header, data, total_page = self.get_result(query, page, num, student_keyword)
-#
-#         self.success_response({'data': data, 'total_page': total_page, 'current_page': page, 'header': header})
 
 
 @route('/student/detail/overview')
@@ -686,73 +476,22 @@ class StudentDetailOverview(AcademicData):
         self.success_response({'data': result})
 
 
-# @route('/student/detail/courses')
-# class StudentDetailCourse(AcademicData):
-#     """
-#     学生概况，学生详情页课程列表信息
-#     """
-#     @property
-#     def query(self):
-#         binding_uid = self.get_param('binding_uid')
-#         term_id = self.get_param('term_id')
-#         query = self.student_query(status=1)
-#         query = query.filter('term', binding_uid = binding_uid)\
-#                      .filter('term', term_id = term_id)\
-#                      .source(STUDENT_COURSE_FIELD)\
-#                      .sort('-course_status', '-end')
-#
-#         return query
-#
-#     def get_result(self, query, page, num):
-#         course_total = self.es_execute(query[:0]).hits.total
-#         total_page = self.get_total_page(course_total, num)
-#
-#         results = self.es_execute(query[(page-1)*num:page*num]).hits
-#         results = [result.to_dict() for result in results]
-#         for index, item in enumerate(results):
-#             item['study_rate'] = self.round_data(item.pop('study_rate_user') or 0, 4)
-#             item['correct_percent'] = self.round_data(item.pop('correct_percent_user') or 0, 4)
-#             item['accomplish_percent'] = self.round_data(item.pop('accomplish_percent_user') or 0, 4)
-#             item['study_video_len'] = self.round_data(item.pop('study_video_len_user') or 0, 2)
-#             item['course_time'] = '%s-%s' % (self.formate_date(item, 'start'), self.formate_date(item, 'end'))
-#             item['id'] = index + 1
-#             item['grade'] = self.round_data(item.pop('grade') or 0, 2)
-#
-#         return results, total_page
-#
-#     def formate_date(self, item, status):
-#         date = item.pop('start') if status == 'start' else item.pop('end')
-#         date = date.split(' ')[0].replace('-', '.') if date else ''
-#
-#         return date
-#
-#     def get(self):
-#         page = int(self.get_argument('page', 1))
-#         num = int(self.get_argument('num', 10))
-#         query = self.query
-#         result, total_page = self.get_result(query, page, num)
-#
-#         self.success_response({'data': result, 'total_page': total_page, 'current_page': page})
-
-# es = Elasticsearch(settings.es_cluster)
 @route('/wechat/teacher/overview')
 class TeacherTotal(AcademicData):
-
+    """
+    教师汇总数据 每个教师只能看到自己的数据
+    """
     def get(self):
         org_id = self.get_param('org_id')
         term_id = self.get_param('term_id')
         user_id = self.get_param('user_id')
         if not org_id or not term_id or not user_id:
             self.error_response(502, u'缺少参数') # error
-        # query = Search(using=es, index='newcloud_wechat', doc_type='teacher_total').query('term', org_id = org_id).query('term',term_id = term_id)
         query = self.es_query(index = 'newcloud_wechat', doc_type = 'teacher_total').filter('term', org_id = org_id).filter('term', term_id = term_id).filter('term', user_id = user_id)
         import json
         print json.dumps(query.to_dict())
         size = self.es_execute(query[:0]).hits.total
-        # size = query.execute().hits.total
-        print size
         results = self.es_execute(query[:size]).hits
-        print results
         data = []
         teacher = {}
         if not results:
@@ -767,20 +506,16 @@ class TeacherTotal(AcademicData):
                 teacher['course_avg_discussion_num'] = self.round_data(result['user_avg_discussion_num'], 2)
                 teacher['accomplish_percent_course'] = self.round_data(result['accomplish_percent_course'], 4)
                 teacher['correct_percent_course'] = self.round_data(result['correct_percent_course'], 4)
-                print teacher
                 data.append(teacher)
-            # print 'aaaa' % data
-        # size = query[:0].execute().hits.total
 
-        # return self.success_response({'data': 1, 'total_page': 1, 'current_page': 1})
         return self.success_response({'data': data})
-
-
 
 
 @route('/wechat/teacher/course')
 class TeacherCourse(AcademicData):
-
+    """
+    教师课程数据 教师每门课的详细数据
+    """
     @property
     def query(self):
         sort = self.get_argument('sort', 'course_start')
@@ -788,7 +523,75 @@ class TeacherCourse(AcademicData):
         sort = '%s' % sort if int(sort_type) else '-%s' % sort
 
         query = self.teacher_course_query
-        query = query.source(COURSE_DETAIL).sort(sort)
+        query = query.source(COURSE_DETAIL).sort(sort, '-enroll_num_course') #desc
+        import json
+        print json.dumps(query.to_dict())
+        return query[:0]
+
+    def get_result(self, query, page, num):
+        total = self.es_execute(query).hits.total
+        total_page = self.get_total_page(total, num)
+        result = self.es_execute(self.query[(page-1)*num: page*num]).hits
+
+        return result, total, total_page
+
+    def get(self):
+        page = int(self.get_argument('page', 1))
+        num = int(self.get_argument('num', 5))
+        query = self.query
+
+        results, total, total_page = self.get_result(query, page, num)
+        datas = self.format_teacher_course_info(results)
+
+        return self.success_response({'data': datas, 'total_page': total_page, 'course_num': total, 'current_page': page})
+
+
+@route('/wechat/student/overview')
+class StudentTotal(AcademicData):
+    """
+    学生汇总数据  每个学生只能看到自己的汇总数据
+    """
+    def get(self):
+        org_id = self.get_param('org_id')
+        term_id = self.get_param('term_id')
+        user_id = self.get_param('user_id')
+        if not org_id or not term_id or not user_id:
+            self.error_response(502, u'缺少参数') # error
+        query = self.es_query(index = 'newcloud_wechat', doc_type = 'student_total').filter('term', org_id = org_id).filter('term', term_id = term_id).filter('term', user_id = user_id)
+        import json
+        print json.dumps(query.to_dict())
+        size = self.es_execute(query[:0]).hits.total
+        results = self.es_execute(query[:size]).hits
+        data = []
+        student = {}
+        if not results:
+            student = {}
+        else:
+            for result in results:
+                student['participate_total_user'] = result['participate_total_user']
+                student['passed_num'] = result['passed_num']
+                student['study_video_user'] = self.round_data(result['study_video_user'], 2)
+                student['discussion_num_user'] = result['discussion_num_user']
+                student['avg_grade'] = self.round_data(result['avg_grade'], 2)
+                print student
+                data.append(student)
+
+        return self.success_response({'data': data})
+
+
+@route('/wechat/student/course')
+class StudentCouse(AcademicData):
+    """
+    学生课程数据  学生所选课程的详细数据
+    """
+    @property
+    def query(self):
+        sort = self.get_argument('sort', 'start')
+        sort_type = self.get_argument('sort_type', 0)
+        sort = '%s' % sort if int(sort_type) else '-%s' % sort
+
+        query = self.student_course_query
+        query = query.source(COURSE_STUDENT).sort(sort, '-study_rate')
         import json
         print json.dumps(query.to_dict())
         return query[:0]
@@ -801,61 +604,15 @@ class TeacherCourse(AcademicData):
 
         return result, total, total_page
 
-
     def get(self):
         page = int(self.get_argument('page', 1))
         num = int(self.get_argument('num', 5))
         query = self.query
 
         results, total, total_page = self.get_result(query, page, num)
-        datas = self.format_teacher_course_info(results)
-        # for data in datas:
-        #     # data['image_url'], end = yield self.get_course_image(data)
-        #     start = data['course_start']
-        #     start = '.'.join(start.split(' ')[0].split('-')) if start else ''
-        #     end = '.'.join(end.split('-')) if end else ''
-        #     data['course_time'] = '%s-%s' % (start, end)
-        #     data.pop('course_start')
+        datas = self.format_student_course_info(results)
 
         return self.success_response({'data': datas, 'total_page': total_page, 'course_num': total, 'current_page': page})
-
-    # def get(self):
-    #     org_id = self.get_param('org_id')
-    #     term_id = self.get_param('term_id')
-    #     user_id = self.get_param('user_id')
-    #     service_line = self.get_param('service_line')
-    #     if not org_id or not term_id or not user_id or not service_line:
-    #         self.error_response(502, u'缺少参数') # error
-    #     # query = Search(using=es, index='newcloud_wechat', doc_type='teacher_total').query('term', org_id = org_id).query('term',term_id = term_id)
-    #     query = self.es_query(index = 'newcloud_wechat', doc_type = 'teacher_course').filter('term', org_id = org_id).filter('term', term_id = term_id).filter('term', user_id = user_id)
-    #     import json
-    #     print json.dumps(query.to_dict())
-    #     size = self.es_execute(query[:0]).hits.total
-    #     # size = query.execute().hits.total
-    #     print size
-    #     results = self.es_execute(query[:size]).hits
-    #     print results
-    #     aa=[]
-    #     data = {}
-    #     if not results:
-    #         data = {}
-    #     else:
-    #         for result in results:
-    #             data['service_line'] = result['service_line']
-    #             data['course_name'] = result['course_name']
-    #             data['enroll_num_course'] = result['enroll_num_course']
-    #             data['effort_course'] = self.round_data(result['effort_course'], 4)
-    #             data['course_status'] = result['course_status']
-    #             aa.append(data)
-    #
-    #     # size = query[:0].execute().hits.total
-    #
-    #     # return self.success_response({'data': 1, 'total_page': 1, 'current_page': 1})
-    #     return self.success_response({'data':aa})
-
-
-
-
 
 
 
