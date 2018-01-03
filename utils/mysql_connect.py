@@ -144,6 +144,7 @@ class MysqlConnect(object):
         except Exception as e:
             Log.create('mysql')
             Log.error(e)
+        
         return results
 
 

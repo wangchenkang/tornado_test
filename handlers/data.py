@@ -753,11 +753,11 @@ class StudentCourseEnrollment(BaseHandler):
          if hits:
             for hit in hits:
                 if sign == 1:
-                    if hit in course_:
-                        course_[hit] = hit
+                    if hit.course_id in course_:
+                        course_[hit.course_id] = hit.parent_id
                 else:
-                    if hit in course_:
-                        course_[hit].append(hit)
+                    if hit.parent_id in course_:
+                        course_[hit.parent_id].append(hit.course_id)
          else:
             for course_id in set(course_ids):
                 if sign == 1:
@@ -788,7 +788,7 @@ class StudentCourseEnrollment(BaseHandler):
          parent_course_ids = [hit.parent_id for hit in result.hits] if result.hits else course_ids
          
          #子对父
-         course_id_cp = self.get_course_2_ids(normal_course_ids, 1, parent_course_ids)
+         course_id_cp = self.get_course_2_ids(normal_course_ids, 1, result.hits)
          for course_id in tiny_mooc_course_ids:
              course_id_cp[course_id] = course_id
 
@@ -803,9 +803,12 @@ class StudentCourseEnrollment(BaseHandler):
          exclude_tiny_mooc_course_ids = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['course_manage']).get_exclude_tiny_mooc_course_ids(children_course_ids)
          if exclude_tiny_mooc_course_ids:
              children_course_ids =  [ item['course_id'] for item in exclude_tiny_mooc_course_ids]
-         
+         hit = []
+         for item in result.hits:
+             if item.course_id in children_course_ids:
+                 hit.append(item)
          #父对子
-         course_id_pc = self.get_course_2_ids(parent_course_ids, 2, children_course_ids)
+         course_id_pc = self.get_course_2_ids(parent_course_ids, 2, hit)
          for course_id in tiny_mooc_course_ids:
              course_id_pc[course_id] = course_id
          children_course_ids.extend(tiny_mooc_course_ids)
