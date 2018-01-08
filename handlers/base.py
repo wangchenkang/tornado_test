@@ -488,9 +488,7 @@ class BaseHandler(RequestHandler):
     @gen.coroutine
     def get_updatetime(self):
         # data_conf集群和my_student_es_cluster一致
-        from elasticsearch import Elasticsearch
-        client = Elasticsearch(settings.es_cluster)
-        query = Search(using=client, index='tap', doc_type='data_conf')[:1]
-        result = query.execute().hits
-        update_time = '%s 23:59:59' % result[0].latest_data_date
+        query = self.es_query(doc_type='data_conf')[:1]
+        result = self.es_execute(query).hits
+        update_time = '%s' % result[0].latest_data_date
         raise gen.Return(update_time)

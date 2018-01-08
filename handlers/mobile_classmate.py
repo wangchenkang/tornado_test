@@ -18,29 +18,23 @@ class DayListHandler(BaseHandler):
     @gen.coroutine
     def get(self):
         course_id = self.get_param('course_id')  # base.py封装了多个函数，还有get_param
-        query = Search(using=client, index="classmate", doc_type="video_rank_daily") \
-            .query("term", course_id=course_id) \
-            .sort("rank")  # 按照视频学习时长降序取top10
-        size = query[:0].execute().hits.total
-        result = query[:size].execute().hits
-        if not result:
-            data = []
-        else:
-            data = []
-            for i in result:
-                data_dict = {
-                    "rank": i['rank'],  # 排名
-                    "study_rate": "%.2f%%" % (i['study_rate'] * 100),  # 昨日学习视频百分比
-                    "video_watch_total": str(round((i['video_watch_total'] / 60), 2))+"分钟",  # 昨日视频学习时长
-                    "percent": "%.2f%%" % (i['study_rate'] * 100),  # 总进度百分比
-                    "from": i['come_from']  # 来自
-                }
-                data.append(data_dict)
         update_time = yield self.get_updatetime()
-        self.success_response({
-            "data": data,
-            "update_time": update_time
-        })
+        query = self.es_query(index='classmate', doc_type='video_rank_daily') \
+                    .filter('term', course_id=course_id) \
+                    .filter('term', rank_date = update_time) \
+                    .sort('rank')  # 按照视频学习时长降序取top10
+        results = self.es_execute(query).hits
+        data = [] 
+        for result in results:
+            item = {}
+            item['rank'] = result['rank']
+            item['study_rate'] = '%.2f%%' % (result['study_rate'] * 100)
+            item['video_watch_total'] = '%s分钟' % round(result['video_watch_total']/ 60.0, 2)
+            item['percent'] = '%.2f%%' % (result['study_rate'] * 100)
+            item['from'] = result['come_from']
+            data.append(item)
+        update_time = '%s 23:59:59' % update_time
+        self.success_response({'data': data, 'update_time': update_time})
 
 
 @route('/mobile/week_list')
@@ -48,29 +42,23 @@ class WeekListHandler(BaseHandler):
     @gen.coroutine
     def get(self):
         course_id = self.get_param('course_id')  # base.py封装了多个函数，还有get_param
-        query = Search(using=client, index="classmate", doc_type="video_rank_weekly") \
-                    .query("term", course_id=course_id) \
-                    .sort("rank")  # 按照视频学习时长降序取top10
-        size = query[:0].execute().hits.total
-        result = query[:size].execute().hits
-        if not result:
-            data = []
-        else:
-            data = []
-            for i in result:
-                data_dict = {
-                    "rank": i['rank'],  # 排名
-                    "study_rate": "%.2f%%" % (i['study_rate'] * 100),
-                    "video_watch_total": str(round((i['video_watch_total'] / 60), 2))+"分钟",
-                    "percent": "%.2f%%" % (i['study_rate'] * 100),
-                    "from": i['come_from']  # 来自
-                }
-                data.append(data_dict)
         update_time = yield self.get_updatetime()
-        self.success_response({
-            "data": data,
-            "update_time": update_time
-        })
+        query = self.es_query(index='classmate', doc_type='video_rank_weekly') \
+                    .filter('term', course_id=course_id) \
+                    .filter('term', rank_date = update_time) \
+                    .sort('rank')  # 按照视频学习时长降序取top10
+        results = self.es_execute(query).hits
+        data = [] 
+        for result in results:
+            item = {}
+            item['rank'] = result['rank']
+            item['study_rate'] = '%.2f%%' % (result['study_rate'] * 100)
+            item['video_watch_total'] = '%s分钟' % round(result['video_watch_total']/60.0, 2)
+            item['percent'] = '%.2f%%' % (result['study_rate'] * 100)
+            item['from'] = result['come_from']
+            data.append(item)
+        update_time =  '%s 23:59:59' % update_time
+        self.success_response({'data': data, 'update_time': update_time})
 
 
 @route('/mobile/classmate')
@@ -78,13 +66,15 @@ class ClassmateHandler(BaseHandler):
     @gen.coroutine
     def get(self):
         course_id = self.get_param('course_id')
-        query = Search(using=client, index="classmate", doc_type="general_statistics") \
-            .query("term", course_id=course_id) \
-            .query("term", field_name="general")
-        size = query[:0].execute().hits.total
-        result = query[:size].execute().hits
+        query = self.es_query(index='classmate', doc_type='general_statistics') \
+                    .filter('term', course_id=course_id) \
+                    .filter('term', field_name='general')
+        total = self.es_execute(query[:0]).hits.total
+        total = 10000 if total > 10000 else total
+        results = self.es_execute(query[:total]).hits
         update_time = yield self.get_updatetime()
-        if not result:
+        update_time = '%s 23:59:59' % update_time
+        if not results:
             data = {}
             self.success_response({
                 "data": data,
@@ -100,10 +90,10 @@ class ClassmateHandler(BaseHandler):
             })
         else:
             statistics = {}
-            for i in result:
-                statistics[i['field_value']] = i['statistics']
-            foreign_percent = round(int(statistics["foreigner_count"]) / int(statistics["total_num"]), 10)
-            country_percent = round((int(statistics["total_num"]) - int(statistics["foreigner_count"])) / int(statistics["total_num"]), 10)
+            for result in results:
+                statistics[result['field_value']] = result['statistics']
+            foreign_percent = round(int(statistics["foreigner_count"]) / float(statistics["total_num"]), 10)
+            country_percent = round((int(statistics["total_num"]) - int(statistics["foreigner_count"])) / float(statistics["total_num"]), 10)
             total_num = int(statistics["total_num"])
             foreign_num = int(statistics["foreigner_count"])
             chinese_num = int(statistics["total_num"]) - int(statistics["foreigner_count"])
@@ -128,22 +118,24 @@ class ClassmateHandler(BaseHandler):
             })
 
     def get_five_data(self, course_id, dim, data):
-        query = Search(using=client, index="classmate", doc_type="user_distr") \
-            .query("term", course_id=course_id) \
-            .query("term", field_name=dim)
-        size = query[:0].execute().hits.total
-        result = query[:size].execute().hits
+        query = self.es_query(index='classmate', doc_type='user_distr') \
+                    .filter('term', course_id=course_id) \
+                    .filter('term', field_name=dim)
+        total = self.es_execute(query[:0]).hits.total
+        total = 10000 if total > 10000 else total
+        results = self.es_execute(query[:total]).hits
         data[dim] = {}
-        for i in result:
-            data[dim][i['field_value']] = "%.2f%%" % (i['distr'] * 100)
+        for result in results:
+            data[dim][result['field_value']] = "%.2f%%" % (result['distr'] * 100)
         return data
 
     def get_country_province(self, course_id, dim, data, total_num, self_num):
-        query = Search(using=client, index="classmate", doc_type="general_statistics") \
-            .query("term", course_id=course_id) \
-            .query("term", field_name=dim)
-        size = query[:0].execute().hits.total
-        result = query[:size].execute().hits
+        query = self.es_query(index='classmate', doc_type='general_statistics') \
+                    .filter('term', course_id=course_id) \
+                    .filter('term', field_name=dim)
+        total = self.es_execute(query[:0]).hits.total
+        total = 10000 if total >10000 else total
+        result = self.es_execute(query[:total]).hits
         data[dim] = {}
         num = 0
         compare_list = []
@@ -159,12 +151,12 @@ class ClassmateHandler(BaseHandler):
                     break
             for i in result:
                 top19 += int(i['statistics'])
-                percent = round((int(i['statistics'])) / total_num, 10)
+                percent = round((int(i['statistics'])) / float(total_num), 10)
                 data[dim][i['field_value']] = "%.2f%%" % (percent * 100)
-            percent = round((self_num - top19) / total_num, 10)
+            percent = round((self_num - top19) / float(total_num), 10)
             data[dim]["其他"] = "%.2f%%" % (percent * 100)
         else:
             for i in result:
-                percent = round((int(i['statistics']) / total_num), 10)
+                percent = round((int(i['statistics']) / float(total_num)), 10)
                 data[dim][i['field_value']] = "%.2f%%" % (percent * 100)
         return data
