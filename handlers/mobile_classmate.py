@@ -115,7 +115,7 @@ class ClassmateHandler(BaseHandler):
             })
 
     def get_five_data(self, course_id, dim, data):
-        query = self.es_query(index='classmate', doc_type='user_distr') \
+        query = self.es_query(index='classmate', doc_type='general_statistics') \
                     .filter('term', course_id=course_id) \
                     .filter('term', field_name=dim)
         total = self.es_execute(query[:0]).hits.total
