@@ -333,11 +333,15 @@ class StudentDetail(BaseHandler):
 class StudentRelation(BaseHandler):
     def get(self):
 
-        query = self.es_query(doc_type='discussion_relation') \
-                .filter('term', course_id=self.course_id)
-        data = self.es_execute(query[:0])
-        data = self.es_execute(query[:data.hits.total])
         users = self.get_users()
+        query = self.es_query(doc_type='discussion_relation') \
+                    .filter('term', course_id=self.course_id) \
+                    .filter('term', group_key=self.group_key) \
+                    .filter(Q('bool', should=[Q('terms', user_id1=users) | Q('terms', user_id2=users)]))
+        data = self.es_execute(query[:0])
+        total = data.hits.total
+        total = 10000 if total > 10000 else total
+        data = self.es_execute(query[:total])
         relations = []
         for item in data.hits:
             relations.append({

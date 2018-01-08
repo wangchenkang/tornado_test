@@ -84,9 +84,11 @@ class Indicator(BaseHandler):
     成绩三大指标（课程平均分，及格人数，不及格人数）
     """
     def get(self):
-        query = self.es_query(index=settings.NEWCLOUD_ES_INDEX, doc_type='score_realtime')\
-                    .filter('term', course_id=self.course_id)\
-                    .filter('term', group_key=self.group_key)
+        user_id = self.get_users()
+        query = self.es_query(index=settings.NEWCLOUD_ES_INDEX, doc_type='score_realtime') \
+                    .filter('term', course_id=self.course_id) \
+                    .filter('term', group_key=self.group_key) \
+                    .filter('terms', user_id=user_id)
         query.aggs.metric('average', 'avg', field='final_score')
         query.aggs.metric('pass_num', 'range', field='final_score', ranges=[{'from': self.get_param('passline')}])#passline获取
         query.aggs.metric('not_pass_num', 'range', field='final_score', ranges=[{'from': 0, 'to': self.get_param('passline')}])
@@ -117,9 +119,11 @@ class Distribution(BaseHandler):
         return ranges
 
     def get(self):
-        query = self.es_query(index=settings.NEWCLOUD_ES_INDEX, doc_type='score_realtime')\
-                    .filter('term', course_id=self.course_id)\
-                    .filter('term', group_key=self.group_key)
+        user_id = self.get_users()
+        query = self.es_query(index=settings.NEWCLOUD_ES_INDEX, doc_type='score_realtime') \
+                    .filter('term', course_id=self.course_id) \
+                    .filter('term', group_key=self.group_key) \
+                    .filter('terms', user_id=user_id)
         query.aggs.metric('num', 'range', field='final_score', ranges=self.ranges)
         query_2 = query.filter('range', **{'final_score': {'lte':0}})
         result_1 = self.es_execute(query)

@@ -34,7 +34,7 @@ class Academic(BaseHandler):
         results = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_role(self.user_id, self.host)
         role = []
         role.extend([result['mode'] for result in results])
-        for i in ['staff', 'vpc_admin']:
+	for i in ['staff', 'vpc_admin']:
             if i in role:
                 return 1
         return 0
@@ -61,15 +61,16 @@ class Academic(BaseHandler):
         query = self.es_query(index='academics',doc_type='tap_academics_statics')\
                     .filter('term', service_line=self.service_line)\
                     .filter('term', course_status=COURSE_STATUS.get(self.course_status))\
-                    .sort('-start_time')
+                    .sort('-start_time', 'course_id')
         if self.service_line != 'mooc':
             query = query.filter('term', orgid_or_host=self.orgid_or_host)
         if self.term:
             query = query.filter('term', term=self.term)
         return query
 
-    def get_summary(self, course_ids=None):
-        if course_ids:
+    def get_summary(self, role, course_ids=None):
+        result = []
+	if course_ids:
             query = self.statics_query.filter('terms', course_id=course_ids)
             query.aggs.metric('enrollment_num', 'sum', field='enrollment_num')
             query.aggs.metric('pass_num', 'sum', field='pass_num')
@@ -82,9 +83,10 @@ class Academic(BaseHandler):
             result = [{'course_num': total, 'enrollment_num': int(aggs.enrollment_num.value or 0), 'pass_num': int(aggs.pass_num.value or 0), 'video_length': round(int(aggs.video_length.value or 0)/3600,2), \
                            'active_num': int(aggs.active_num.value or 0), 'no_num': int(aggs.no_num.value or 0)}]
         else:
-            #total = self.es_execute(self.summary_query).hits.total
-            result = self.es_execute(self.summary_query[:1]).hits
-        return result
+	    if role == 1:
+	    	result = self.es_execute(self.summary_query[:1]).hits 
+		
+	return result
 
     def get_statics(self, course_ids=None):
         query = self.statics_query
@@ -125,6 +127,24 @@ class Academic(BaseHandler):
                      .filter('terms',group_key=group_key_list).source(field)
         total = self.es_execute(query).hits.total
         result.extend([hits.to_dict() for hits in self.es_execute(query[:total]).hits])
+        
+        if self.course_status == 'close':
+            result_course_ids = []
+            for item in result:
+                result_course_ids.append(item['course_id'])
+            unlock_course_ids = []
+            unlock_result = []
+            for course_id in course_ids:
+                if course_id not in result_course_ids:
+                    unlock_course_ids.append(course_id)
+
+            query = self.es_query(doc_type='course_health') \
+                        .filter('terms',course_id=unlock_course_ids) \
+                        .filter('terms',group_key=group_key_list).source(field)
+            total = self.es_execute(query).hits.total
+            unlock_result.extend([hits.to_dict() for hits in self.es_execute(query[:total]).hits])
+            result.extend(unlock_result)
+
         return result
 
 
@@ -135,8 +155,8 @@ class EducationCourseOverview(Academic):
     """
     def get(self):    
         _, course_ids = self.teacher_power
-        result = self.get_summary() if self.role == 1 else self.get_summary(course_ids)   
-        overview_result = {}
+        result = self.get_summary(self.role, course_ids)   
+	overview_result = {}
         overview_result['course_num'] = 0
         overview_result['active_num'] = 0
         overview_result['video_length'] = 0
@@ -147,7 +167,7 @@ class EducationCourseOverview(Academic):
         if len(result) != 0:
             overview_result['course_num'] = result[0]['course_num']
             overview_result['active_num'] = result[0]['active_num']
-            overview_result['video_length'] = round(result[0]['video_length']/3600, 2)
+            overview_result['video_length'] = result[0]['video_length']
             overview_result['enrollment_num'] = result[0]['enrollment_num'] or 0
             overview_result['pass_num'] = result[0]['pass_num']
         

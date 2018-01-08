@@ -10,8 +10,6 @@ from elasticsearch_dsl import Q
 import json
 import settings
 
-client = Elasticsearch(settings.es_cluster)
-
 
 @route('/mobile/day_list')
 class DayListHandler(BaseHandler):
@@ -35,7 +33,6 @@ class DayListHandler(BaseHandler):
             data.append(item)
         update_time = '%s 23:59:59' % update_time
         self.success_response({'data': data, 'update_time': update_time})
-
 
 @route('/mobile/week_list')
 class WeekListHandler(BaseHandler):
@@ -126,7 +123,10 @@ class ClassmateHandler(BaseHandler):
         results = self.es_execute(query[:total]).hits
         data[dim] = {}
         for result in results:
-            data[dim][result['field_value']] = "%.2f%%" % (result['distr'] * 100)
+            total += int(result['statistics'])
+        for result in results:
+            percent = round(int(result['statistics']) /float(total), 10)
+            data[dim][result['field_value']] = "%.2f%%" % (percent * 100)
         return data
 
     def get_country_province(self, course_id, dim, data, total_num, self_num):
@@ -142,7 +142,6 @@ class ClassmateHandler(BaseHandler):
         for i in result:
             compare_list.append(int(i['statistics']))
             num += int(i['statistics'])
-
         if self_num - num != 0:
             top19 = 0
             for i in result:
@@ -151,12 +150,10 @@ class ClassmateHandler(BaseHandler):
                     break
             for i in result:
                 top19 += int(i['statistics'])
-                percent = round((int(i['statistics'])) / float(total_num), 10)
-                data[dim][i['field_value']] = "%.2f%%" % (percent * 100)
-            percent = round((self_num - top19) / float(total_num), 10)
-            data[dim]["其他"] = "%.2f%%" % (percent * 100)
+                data[dim][i['field_value']] = int(i['statistics'])
+            data[dim]["其他"] = self_num - top19
         else:
             for i in result:
-                percent = round((int(i['statistics']) / float(total_num)), 10)
-                data[dim][i['field_value']] = "%.2f%%" % (percent * 100)
+                data[dim][i['field_value']] = int(i['statistics'])
+        
         return data
