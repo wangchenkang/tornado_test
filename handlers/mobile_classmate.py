@@ -30,6 +30,7 @@ class DayListHandler(BaseHandler):
             item['video_watch_total'] = '%s分钟' % round(result['video_watch_total']/ 60.0, 2)
             item['percent'] = '%.2f%%' % (result['study_rate'] * 100)
             item['from'] = result['come_from']
+            item['user_id'] = result.user_id
             data.append(item)
         update_time = '%s 23:59:59' % update_time
         self.success_response({'data': data, 'update_time': update_time})
@@ -53,6 +54,7 @@ class WeekListHandler(BaseHandler):
             item['video_watch_total'] = '%s分钟' % round(result['video_watch_total']/60.0, 2)
             item['percent'] = '%.2f%%' % (result['study_rate'] * 100)
             item['from'] = result['come_from']
+            item['user_id'] = result.user_id
             data.append(item)
         update_time =  '%s 23:59:59' % update_time
         self.success_response({'data': data, 'update_time': update_time})
