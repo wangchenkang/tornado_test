@@ -379,7 +379,7 @@ class DiscussionDetail(TableJoinHandler):
 
     def get_es_type(self, sort_field, status):
         if status:
-            self.es_types = ['tap_table_discussion_lock/discussion_summary', '%s/course_grade' % settings.ES_INDEX_LOCK, '%s/student_enrollment_info' % settings.ES_INDEX_LOCK]
+            self.es_types = ['realtime_discussion_table/realtime_discussion_data', '%s/course_grade' % settings.ES_INDEX_LOCK, '%s/student_enrollment_info' % settings.ES_INDEX_LOCK]
         
         if sort_field in self.GRADE_FIELDS:
             if status:
@@ -393,7 +393,7 @@ class DiscussionDetail(TableJoinHandler):
                 return '%s/student_enrollment_info' % settings.TAP_REALTIME_INDEX
 
         if status:
-            return 'tap_table_discussion_lock/discussion_summary'
+            return 'realtime_discussion_table/realtime_discussion_data'
         else: 
             return 'realtime_discussion_table/realtime_discussion_data'
 
