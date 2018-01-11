@@ -25,11 +25,11 @@ class DayListHandler(BaseHandler):
         data = [] 
         for result in results:
             item = {}
-            item['rank'] = result['rank']
-            item['study_rate'] = '%.2f%%' % (result['study_rate'] * 100)
-            item['video_watch_total'] = '%s分钟' % round(result['video_watch_total']/ 60.0, 2)
-            item['percent'] = '%.2f%%' % (result['study_rate'] * 100)
-            item['from'] = result['come_from']
+            item['rank'] = result.rank
+            item['study_rate'] = '%.2f%%' % (result.study_rate * 100)
+            item['video_watch_total'] = '%s分钟' % round(result.video_watch_total/ 60.0, 2)
+            item['percent'] = '%.2f%%' % (result.study_rate * 100)
+            item['from'] = result.come_from
             item['user_id'] = result.user_id
             data.append(item)
         update_time = '%s 23:59:59' % update_time
@@ -49,11 +49,11 @@ class WeekListHandler(BaseHandler):
         data = [] 
         for result in results:
             item = {}
-            item['rank'] = result['rank']
-            item['study_rate'] = '%.2f%%' % (result['study_rate'] * 100)
-            item['video_watch_total'] = '%s分钟' % round(result['video_watch_total']/60.0, 2)
-            item['percent'] = '%.2f%%' % (result['study_rate'] * 100)
-            item['from'] = result['come_from']
+            item['rank'] = result.rank
+            item['study_rate'] = '%.2f%%' % (result.study_rate * 100)
+            item['video_watch_total'] = '%s分钟' % round(result.video_watch_total/60.0, 2)
+            item['percent'] = '%.2f%%' % (result.study_rate * 100)
+            item['from'] = result.come_from
             item['user_id'] = result.user_id
             data.append(item)
         update_time =  '%s 23:59:59' % update_time
@@ -73,30 +73,29 @@ class ClassmateHandler(BaseHandler):
         results = self.es_execute(query[:total]).hits
         update_time = yield self.get_updatetime()
         update_time = '%s 23:59:59' % update_time
+	data = {}
         if not results:
-            data = {}
             self.success_response({
                 "data": data,
                 "student_total": 0,  # 共有学生总数，ok
                 "countries": 0,  # 国家个数, ok
                 "country_percent": 0,  # 国内占比
                 "foreign_percent": 0,  # 国外占比
-                "provinces_from_china": 0,  # 中国学生来自的省市个数ok
-                "province_most_people": 0,  # 人数最多的省份 ok
-                "age_level": 0,  # 年龄分布最多的阶段 ok
-                "education_level": 0,  # 学历分布最多的阶段 ok
+                "provinces_from_china": 0,  # 中国学生的省市个数ok
+                "province_most_people": '',  # 人数最多的省份 ok
+                "age_level": '',  # 年龄分布最多的阶段 ok
+                "education_level": '',  # 学历分布最多的阶段 ok
                 "update_time": update_time  # 更新时间,取自于data_conf
             })
         else:
             statistics = {}
             for result in results:
-                statistics[result['field_value']] = result['statistics']
-            foreign_percent = round(int(statistics["foreigner_count"]) / float(statistics["total_num"]), 10)
-            country_percent = round((int(statistics["total_num"]) - int(statistics["foreigner_count"])) / float(statistics["total_num"]), 10)
-            total_num = int(statistics["total_num"])
-            foreign_num = int(statistics["foreigner_count"])
-            chinese_num = int(statistics["total_num"]) - int(statistics["foreigner_count"])
-            data = {}
+                statistics[result.field_value] = result.statistics
+            foreign_percent = round(int(statistics.get('foreigner_count', 0)) / float(statistics.get('total_num', 0)), 4)
+            country_percent = round((int(statistics.get('total_num', 0)) - int(statistics.get('foreigner_count', 0))) / float(statistics.get('total_num', 0)), 4)
+            total_num = int(statistics.get('total_num', 0))
+            foreign_num = int(statistics.get('foreigner_count', 0))
+            chinese_num = int(statistics.get('total_num', 0)) - int(statistics.get('foreigner_count', 0))
             data = self.get_five_data(course_id, "gender", data)
             data = self.get_five_data(course_id, "education", data)
             data = self.get_five_data(course_id, "age", data)
@@ -105,14 +104,14 @@ class ClassmateHandler(BaseHandler):
 
             self.success_response({
                 "data": data,
-                "student_total": statistics['total_num'],  # 共有学生总数，ok
-                "countries": statistics['country_num'],  # 国家个数, ok
+                "student_total": statistics.get('total_num', 0),  # 共有学生总数，ok
+                "countries": statistics.get('country_num',0),  # 国家个数, ok
                 "country_percent": "%.2f%%" % (country_percent * 100),  # 国内占比
                 "foreign_percent": "%.2f%%" % (foreign_percent * 100),  # 国外占比
-                "provinces_from_china": statistics['province_num'],  # 中国学生来自的省市个数ok
-                "province_most_people": statistics['max_num_province'],  # 人数最多的省份 ok
-                "age_level": statistics['max_num_age'],  # 年龄分布最多的阶段 ok
-                "education_level": statistics['max_num_education'],  # 学历分布最多的阶段 ok
+                "provinces_from_china": statistics.get('province_num', 0),  # 中国学生来自的省市个数ok
+                "province_most_people": statistics.get('max_num_province', ''),  # 人数最多的省份 ok
+                "age_level": statistics.get('max_num_age', ''),  # 年龄分布最多的阶段 ok
+                "education_level": statistics.get('max_num_education',''),  # 学历分布最多的阶段 ok
                 "update_time": update_time  # 更新时间,取自于data_conf
             })
 
