@@ -128,7 +128,7 @@ class TableJoinHandler(TableHandler):
         
             size = len(user_ids)
             #不同的group_key下，user_id是一样的
-            if es_type in ('study_warning_person', 'student_enrollment_info', 'score_realtime'):
+            if es_type in ('study_warning_person', 'student_enrollment_info'):
                 query = query.filter('term', group_key=self.group_key)
             # 如果是第一个查询，需要排序，查询后更新学生列表
             if idx == 0:
@@ -143,7 +143,6 @@ class TableJoinHandler(TableHandler):
                 query = self.es_query(index='newcloud_tap', doc_type='score_realtime') \
                             .filter('term', course_id=course_id) \
                             .filter('terms', user_id=user_ids) \
-                            .filter('term', group_key=self.group_key) \
                             .source('user_id')
                 result_score_realtime = self.es_execute(query[:size]).hits
                 score_realtime_user_ids = [str(item.user_id) for item in result_score_realtime ] 
@@ -216,8 +215,7 @@ class TableJoinHandler(TableHandler):
         """
         query = self.es_query(index=settings.NEWCLOUD_ES_INDEX, doc_type='score_realtime')\
                     .filter('term', course_id=course_id)\
-                    .filter('terms', user_id=user_ids) \
-                    .filter('term', group_key=self.group_key)
+                    .filter('terms', user_id=user_ids) 
         for item in screen_index:
             query = query.filter('range', **{item['field']: {'gte': item['min'] or 0, 'lte': item['max'] or 100}})
         user_ids = [str(item.user_id) for item in self.es_execute(query[:total]).hits]

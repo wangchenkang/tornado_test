@@ -87,7 +87,6 @@ class Indicator(BaseHandler):
         user_id = self.get_users()
         query = self.es_query(index=settings.NEWCLOUD_ES_INDEX, doc_type='score_realtime') \
                     .filter('term', course_id=self.course_id) \
-                    .filter('term', group_key=self.group_key) \
                     .filter('terms', user_id=user_id)
         query.aggs.metric('average', 'avg', field='final_score')
         query.aggs.metric('pass_num', 'range', field='final_score', ranges=[{'from': self.get_param('passline')}])#passline获取
@@ -122,7 +121,6 @@ class Distribution(BaseHandler):
         user_id = self.get_users()
         query = self.es_query(index=settings.NEWCLOUD_ES_INDEX, doc_type='score_realtime') \
                     .filter('term', course_id=self.course_id) \
-                    .filter('term', group_key=self.group_key) \
                     .filter('terms', user_id=user_id)
         query.aggs.metric('num', 'range', field='final_score', ranges=self.ranges)
         query_2 = query.filter('range', **{'final_score': {'lte':0}})
