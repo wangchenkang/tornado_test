@@ -143,6 +143,7 @@ class TableJoinHandler(TableHandler):
                 query = self.es_query(index='newcloud_tap', doc_type='score_realtime') \
                             .filter('term', course_id=course_id) \
                             .filter('terms', user_id=user_ids) \
+                            .filter('term', group_key=group_key) \
                             .source('user_id')
                 result_score_realtime = self.es_execute(query[:size]).hits
                 score_realtime_user_ids = [str(item.user_id) for item in result_score_realtime ] 
