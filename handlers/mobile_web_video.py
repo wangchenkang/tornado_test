@@ -180,6 +180,81 @@ class MobileWebStudyProgress(BaseHandler):
         self.success_response({'data': data})
 
 
+@route('/mobile/mobile_study_progress')
+class MobileStudyProgress(BaseHandler):
+
+    def get(self): 
+        course_id = self.get_argument('course_id', None)
+        user_id = self.get_argument('user_id', None)
+        chapter_id = self.get_argument('chapter_id', None)
+        sequential_id = self.get_argument('sequential_id', None)
+        vertical_id = self.get_argument('vertical_id', None)
+        day = self.get_argument('day', '')
+        if not course_id or not user_id:
+            self.error_response(502, u'缺少参数')
+        course_id = fix_course_id(course_id)
+        
+        query = self.moocnd_es_query(index=settings.MOOCND_ES_INDEX, doc_type='chapter_seq_video') \
+                    .filter('term', course_id = course_id) \
+                    .filter('term', user_id = user_id)  \
+                    .filter('range', **{'watched_duration': {'gt': 0}}) 
+        import json
+        print json.dumps(query.to_dict())
+        if day:
+            query = query.filter('range', **{'date': {'lte': day}})
+        size = self.es_execute(query[:0]).hits.total
+        if size == 0: size=1 
+        if chapter_id:
+            query = query.filter('term', chapter_id = chapter_id)
+        elif sequential_id:
+            query = query.filter('term', sequential_id = sequential_id)
+        elif vertical_id:
+            query = query.filter('term', vertical_id = vertical_id)
+        
+        query.aggs.bucket('video_ids', 'terms', field='video_id', size=size)
+        query.aggs.metric('watched_durations', 'sum', field='watched_duration')
+        query.aggs.metric('video_lengths', 'sum', field='video_length')
+
+        response = self.es_execute(query)
+        aggs = response.aggregations
+        buckets = aggs.video_ids.buckets
+        watched_num = len(buckets)
+        watched_duration = int(aggs.watched_durations.value)
+        video_lengths = int(aggs.video_lengths.value)
+        if watched_duration > video_lengths:watched_duration=video_lengths
+        update_time = self.get_moocnd_update_time()
+        data = {'watched_num': watched_num, 'watched_duration': watched_duration, 'update_time': update_time}
+        
+        self.success_response({'data': data})
+
+@route('/mobile/mobile_user_rank')
+class MobileUserRank(BaseHandler):
+
+    def get(self):
+        user_id = self.get_argument('user_id', None)
+        day = self.get_argument('day', '')
+        query = self.moocnd_es_query(index=settings.MOOCND_ES_INDEX, doc_type='chapter_seq_video') \
+                    .filter('term', user_id = user_id) \
+                    .filter('range', **{'watched_duration': {'gt': 0}})
+        if day:
+            query = query.filter('range', **{'date': {'lte': day}})
+        size = self.es_execute(query[:0]).hits.total 
+        if size ==0: size=1
+        query.aggs.bucket('course_ids', 'terms', field='course_id', size=size)
+        query.aggs.metric('watched_durations', 'sum', field='watched_duration')
+        query.aggs.metric('video_lengths', 'sum', field='video_length')
+        response = self.es_execute(query)
+        aggs = response.aggregations
+        buckets = aggs.course_ids.buckets
+        watched_courses = len(buckets)
+        watched_duration = int(aggs.watched_durations.value)
+        video_lengths = int(aggs.video_lengths.value)
+        if watched_duration > video_lengths:watched_duration=video_lengths
+        update_time = self.get_moocnd_update_time()
+        result = {'watched_duration': watched_duration, 'watched_courses': watched_courses, 'update_time': update_time} 
+        
+        self.success_response({'data': result})
+
 @route('/mobile/mobile_user_study')
 class MobileUserStudy(BaseHandler):
 

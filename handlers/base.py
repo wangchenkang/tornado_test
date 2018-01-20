@@ -9,6 +9,7 @@ from tornado.options import options
 from tornado.escape import url_unescape, json_encode, json_decode
 from elasticsearch import ConnectionError, ConnectionTimeout, RequestError
 from elasticsearch_dsl import Search, Q
+from elasticsearch_dsl.connections import connections
 from utils.service import CourseService, AsyncService, AsyncCourseService 
 from utils.tools import fix_course_id
 from utils.tools import get_group_type
@@ -161,6 +162,10 @@ class BaseHandler(RequestHandler):
         if 'index' not in kwargs:
             kwargs['index'] = settings.ES_INDEX
         return Search(using=self.es, **kwargs)
+
+    def moocnd_es_query(self, **kwargs):
+        moocnd_es = connections.create_connection(hosts=settings.moocnd_es_cluster, timeout=60)
+        return Search(using=moocnd_es, **kwargs)
 
     def es_execute(self, query):
         try:
@@ -492,3 +497,10 @@ class BaseHandler(RequestHandler):
         result = self.es_execute(query).hits
         update_time = '%s' % result[0].latest_data_date
         raise gen.Return(update_time)
+
+    def get_moocnd_update_time(self):
+        query = self.moocnd_es_query(index='moocnd_datetime', doc_type='processstate')
+        response = self.es_execute(query).hits
+        update_time = response[0].current_time
+        update_time = update_time.split('+')[0].replace('T', ' ')
+        return update_time

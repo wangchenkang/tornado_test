@@ -37,6 +37,7 @@ ROW_FILTER = {
                 }
 DISPATCH_OPTIMIZE = True
 ES_INDEX = 'tap'
+MOOCND_ES_INDEX = 'moocnd_video'
 NEWCLOUD_ES_INDEX = 'newcloud_tap'
 ES_INDEX_LOCK = 'tap_lock'
 ES_INDEXS = ['tap', 'tap_lock', 'tap_table_grade', 'tap_table_grade_lock', 'tap_table_video_lock', 'tap_table_video_realtime', 'tap_table_question', 'tap_table_question_lock','realtime', 'realtime_discussion_table', 'tap_table_discussion_lock']
