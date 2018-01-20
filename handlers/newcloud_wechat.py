@@ -5,18 +5,22 @@ import settings
 from tornado.web import gen
 from base import BaseHandler
 from utils.routes import route
-from elasticsearch_dsl import Q
 from utils.tools import date_from_string
+from utils.tools import fix_course_id
+from elasticsearch_dsl import Q
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search
 from elasticsearch_dsl import A
-
-# from utils.mysql_connect import MysqlConnect
 
 import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
+VIDEO_COURSE = ['course_id','course_name','seek_persons_num','seek_persons_num_percent','not_seek_persons', \
+                'not_seek_persons_percent','person_avg_seek_num','person_avg_seek_num_percent','person_avg_not_watch','person_avg_not_watch_percent']
+WARNING_COURSE = ['course_id','course_name','study_week','time','study_warning_num','study_warning_num_rate','least_2_week_num', \
+                  'least_2_week_num_rate','low_video_rate_num','low_video_num_rate','low_grade_num','low_grade_num_rate']
+WARNING_TOTAL = ['course_id','course_name','course_status','course_start','study_warning_num','seek_persons_num']
 COURSE_DETAIL = ['service_line', 'course_name', 'enroll_num_course', 'effort_course', 'course_status']
 COURSE_STUDENT = ['service_line', 'course_name', 'course_status', 'study_rate', 'grade', 'start']
 COURSE_FIELD = ['course_id', 'course_name', 'study_video_rate_course', 'no_watch_person_course', 'enroll_num_course', \
@@ -182,6 +186,26 @@ class AcademicData(BaseHandler):
             query = query.filter('term', service_line=service_line)
 
         return query
+
+    @property
+    def warning_total_query(self):
+        org_id = self.get_param('org_id')
+        term_id = self.get_param('term_id')
+        service_line = self.get_param('service_line', None)
+        service_line = 'all' if not service_line else service_line
+        # sort = self.get_param('sort', 'course_start')
+        # sort_type = self.get_argument('sort_type', 0)
+        # sort = '%s' % sort if int(sort_type) else '-%s' % sort
+        if not org_id or not term_id or not service_line:
+            self.error_response(502, u'缺少参数')  # error
+
+        query = self.es_query(index='newcloud_wechat', doc_type='video_warning_total').filter('term', org_id=org_id).filter(
+            'term', term_id=term_id)
+        if service_line != 'all':
+            query = query.filter('term', service_line=service_line)
+
+        return query
+
 
     
     def student_query(self, status=0):
@@ -599,7 +623,6 @@ class StudentCouse(AcademicData):
     def get_result(self, query, page, num):
         total = self.es_execute(query).hits.total
         total_page = self.get_total_page(total, num)
-
         result = self.es_execute(self.query[(page-1)*num: page*num]).hits
 
         return result, total, total_page
@@ -614,8 +637,120 @@ class StudentCouse(AcademicData):
 
         return self.success_response({'data': datas, 'total_page': total_page, 'course_num': total, 'current_page': page})
 
+@route('/wechat/warning/total')
+class WarningTotal(AcademicData):
+    """
+    预警汇总数据数据
+    """
+    def get(self):
+        org_id = self.get_argument('org_id')
+        term_id = self.get_argument('term_id')
+        service_line = self.get_argument('service_line', None)
+        service_line = 'all' if not service_line else service_line
+        sort = self.get_argument('sort', 'course_start')
+        sort_type = self.get_argument('sort_type', 0)
+        sort = '%s' % sort if int(sort_type) else '-%s' % sort
+        if not org_id or not term_id or not service_line:
+            self.error_response(502, u'缺少参数')  # error
+        query = self.es_query(index='newcloud_wechat', doc_type='video_warning_total').filter('term',
+        org_id=org_id).filter('term', term_id=term_id)
+        if service_line != 'all':
+            query = query.filter('term', service_line=service_line)
+        query = query.source(WARNING_TOTAL).sort(sort, '-study_warning_num')
+        import json
+        print json.dumps(query.to_dict())
+        size = self.es_execute(query[:0]).hits.total
+        results = self.es_execute(query[:size]).hits
+        data = []
+        # course = {}
+        if not results:
+            course = {}
+        else:
+            for result in results:
+                course = {}
+                course['course_id'] = result['course_id']
+                course['course_name'] = result['course_name']
+                course['course_status'] = result['course_status']
+                course['course_start'] = result['course_start']
+                course['study_warning_num'] = result['study_warning_num']
+                course['seek_persons_num'] = result['seek_persons_num']
+                data.append(course)
+        return self.success_response({'data': data})
 
 
+@route('/wechat/warning/course')
+class WarningCourse(AcademicData):
+    """
+    课程预警数据
+    """
+    def get(self):
+        org_id = self.get_argument('org_id')
+        term_id = self.get_argument('term_id')
+        course_id = self.get_argument('course_id')
+        course_id = fix_course_id(course_id)
+        service_line = self.get_argument('service_line', None)
+        if not org_id or not term_id or not course_id:
+            self.error_response(502, u'缺少参数')  # error
+        query = self.es_query(index='newcloud_wechat', doc_type='study_warning').filter('term',
+        org_id = org_id).filter('term', term_id = term_id).filter('term', course_id = course_id).filter('term',
+        service_line = service_line)
+        query = query.source(WARNING_COURSE).sort('-_ut')
+        import json
+        print json.dumps(query.to_dict())
+        result = self.es_execute(query)
+        print result
+        print result[0].to_dict()
+        # course = {}
+        # course['course_id'] = result[0]['course_id']
+        # course['course_name'] = result[0]['course_name']
+        # course['study_week'] = result[0]['study_week']
+        # course['time'] = result[0]['time']
+        # course['study_warning_num'] = result[0]['study_warning_num']
+        # course['study_warning_num_rate'] = result[0]['study_warning_num_rate']
+        # course['least_2_week_num'] = result[0]['least_2_week_num']
+        # course['least_2_week_num_rate'] = result[0]['least_2_week_num_rate']
+        # course['low_video_rate_num'] = result[0]['low_video_rate_num']
+        # course['low_video_num_rate'] = result[0]['low_video_num_rate']
+        # course['low_grade_num'] = result[0]['low_grade_num']
+        # course['low_grade_num_rate'] = result[0]['low_grade_num_rate']
+
+        return self.success_response({'data': result[0].to_dict()})
+
+
+@route('/wechat/video/course')
+class VideoCourse(AcademicData):
+    """
+    课程预警数据
+    """
+    def get(self):
+        org_id = self.get_argument('org_id')
+        term_id = self.get_argument('term_id')
+        course_id = self.get_argument('course_id')
+        course_id = fix_course_id(course_id)
+        service_line = self.get_argument('service_line', None)
+        if not org_id or not term_id or not course_id:
+            self.error_response(502, u'缺少参数')  # error
+        query = self.es_query(index='newcloud_wechat', doc_type='seek_video').filter('term',
+        org_id = org_id).filter('term', term_id = term_id).filter('term', course_id = course_id).filter('term',
+        service_line = service_line)
+        query = query.source(VIDEO_COURSE).sort('-_ut')
+        import json
+        print json.dumps(query.to_dict())
+        result = self.es_execute(query).hits
+        print result[0].to_dict()
+        # course = {}
+        # course['course_id'] = result[0]['course_id']
+        # course['course_name'] = result[0]['course_name']
+        # course['seek_persons_num'] = result[0]['seek_persons_num']
+        # course['seek_persons_num_percent'] = result[0]['seek_persons_num_percent']
+        # course['not_seek_persons'] = result[0]['not_seek_persons']
+        # course['not_seek_persons_percent'] = result[0]['not_seek_persons_percent']
+        # course['person_avg_seek_num'] = result[0]['person_avg_seek_num']
+        # course['person_avg_seek_num_percent'] = result[0]['person_avg_seek_num_percent']
+        # course['person_avg_not_watch'] = result[0]['person_avg_not_watch']
+        # course['person_avg_not_watch_percent'] = result[0]['person_avg_not_watch_percent']
+
+        return self.success_response({'data': result[0].to_dict()})
 
 
 
