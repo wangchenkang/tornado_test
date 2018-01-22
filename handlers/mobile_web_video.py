@@ -198,8 +198,6 @@ class MobileStudyProgress(BaseHandler):
                     .filter('term', course_id = course_id) \
                     .filter('term', user_id = user_id)  \
                     .filter('range', **{'watched_duration': {'gt': 0}}) 
-        import json
-        print json.dumps(query.to_dict())
         if day:
             query = query.filter('range', **{'date': {'lte': day}})
         size = self.es_execute(query[:0]).hits.total
@@ -272,7 +270,7 @@ class MobileUserStudyByCourse(BaseHandler):
 
     def get(self):
         user_id = self.get_argument('user_id', None)
-
+        final = []
         sp = study_progress.StudyProgress(thrift_server_list=settings.THRIFT_SERVER, namespace='heartbeat')
         course_study = sp.get_user_watched_video_by_course(user_id)
         course_ids = course_study.keys()
@@ -303,7 +301,6 @@ class MobileUserStudyByCourse(BaseHandler):
         for row in course_durations:
             course_durations_d[row['course_id']] = row['course_duration']
 
-        final = []
         Log.info(result)
         for course_id in course_ids:
             record = {}
