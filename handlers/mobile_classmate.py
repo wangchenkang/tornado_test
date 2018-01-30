@@ -1,14 +1,17 @@
 #! -*- coding: utf-8 -*-
+
 from __future__ import division
+import json
+from math import ceil
 from tornado import gen
-from .base import BaseHandler
-from utils.routes import route
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search
 from elasticsearch_dsl import A
 from elasticsearch_dsl import Q
-import json
+
 import settings
+from utils.routes import route
+from handlers.base import BaseHandler
 
 
 @route('/mobile/day_list')
@@ -27,7 +30,7 @@ class DayListHandler(BaseHandler):
             item = {}
             item['rank'] = result.rank
             item['study_rate'] = '%.2f%%' % (result.study_rate * 100)
-            item['video_watch_total'] = '%s分钟' % round(result.video_watch_total/ 60.0, 2)
+            item['video_watch_total'] = '%s分钟' % ceil(result.video_watch_total/ 60.0)
             item['percent'] = '%.2f%%' % (result.study_rate * 100)
             item['from'] = result.come_from
             item['user_id'] = result.user_id
@@ -51,7 +54,7 @@ class WeekListHandler(BaseHandler):
             item = {}
             item['rank'] = result.rank
             item['study_rate'] = '%.2f%%' % (result.study_rate * 100)
-            item['video_watch_total'] = '%s分钟' % round(result.video_watch_total/60.0, 2)
+            item['video_watch_total'] = '%s分钟' % ceil(result.video_watch_total/60.0)
             item['percent'] = '%.2f%%' % (result.study_rate * 100)
             item['from'] = result.come_from
             item['user_id'] = result.user_id
