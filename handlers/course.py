@@ -366,14 +366,14 @@ class CourseDistribution(BaseHandler):
     获取用户省份统计
     """
     def get(self):
-        top = int(self.get_argument('top', 10))
         query = self.es_query(doc_type="course_student_location")\
                     .filter("term", group_key=self.group_key)\
                     .filter("term", course_id=self.course_id)\
-                    .filter("term", country='中国')[:0]
-        query.aggs.bucket("area", "terms", field="province", size=top)
-        results = self.es_execute(query)
-        aggs = results.aggregations["area"]["buckets"]
+                    .filter("term", country='中国')
+        size = self.es_execute(query[:0]).hits.total
+        query.aggs.bucket("area", "terms", field="province", size=size)
+        results = self.es_execute(query[:0])
+        aggs = results.aggregations.area.buckets
         data = []
         for item in aggs:
             data.append({
