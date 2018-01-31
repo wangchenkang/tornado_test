@@ -7,6 +7,7 @@ from base import BaseHandler
 from utils.routes import route
 from utils.tools import date_from_string
 from utils.tools import fix_course_id
+from utils.log import Log
 from elasticsearch_dsl import Q
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import Search
@@ -123,8 +124,6 @@ class AcademicData(BaseHandler):
             teacher_info['correct_percent_course'] = self.round_data(result.correct_percent_course, 4)
             data.append(teacher_info)
         return data
-
-
 
     @gen.coroutine
     def get_course_image(self, result):
@@ -246,7 +245,7 @@ class AcademicData(BaseHandler):
 
         return round(data, size)
 
-  
+# @route('/mobile/course/overview')
 @route('/course/overview')
 class CourseOverview(AcademicData):
     """
@@ -290,12 +289,14 @@ class CourseOverview(AcademicData):
         return data
 
     def get(self):
+        # Log.create('wechat')
+        # Log.info('%s-%s')
         query = self.query
         result = self.get_result(query)
 
         self.success_response({'data': result})
 
-
+# @route('/mobile/teacher/overview')
 @route('/teacher/overview')
 class TeacherOverview(AcademicData):
     """
@@ -401,10 +402,13 @@ class TeacherOverview(AcademicData):
         return data
     
     def get(self):
+        # Log.create('wechat')
+        # Log.info('%s-%s')
         data = self.data
 
         self.success_response({'data': data})
 
+# @route('/mobile/student/overview')
 @route('/student/overview')
 class StudentOverview(AcademicData):
     """
@@ -445,6 +449,8 @@ class StudentOverview(AcademicData):
         return data
 
     def get(self):
+        # Log.create('wechat')
+        # Log.info('%s-%s')
         query = self.query
 
 
@@ -452,7 +458,7 @@ class StudentOverview(AcademicData):
 
         self.success_response({'data': result})
 
-
+# @route('/mobile/student/detail/overview')
 @route('/student/detail/overview')
 class StudentDetailOverview(AcademicData):
     """
@@ -494,18 +500,22 @@ class StudentDetailOverview(AcademicData):
         return result
 
     def get(self):
+        # Log.create('wechat')
+        # Log.info('%s-%s')
         query_total, query_avg = self.query
         result = self.get_result(query_total, query_avg)
 
         self.success_response({'data': result})
 
-
+# @route('/mobile/wechat/teacher/overview')
 @route('/wechat/teacher/overview')
 class TeacherTotal(AcademicData):
     """
     教师汇总数据 每个教师只能看到自己的数据
     """
     def get(self):
+        # Log.create('wechat')
+        # Log.info('%s-%s')
         org_id = self.get_param('org_id')
         term_id = self.get_param('term_id')
         user_id = self.get_param('user_id')
@@ -534,7 +544,7 @@ class TeacherTotal(AcademicData):
 
         return self.success_response({'data': data})
 
-
+# @route('/mobile/wechat/teacher/course')
 @route('/wechat/teacher/course')
 class TeacherCourse(AcademicData):
     """
@@ -560,8 +570,10 @@ class TeacherCourse(AcademicData):
         return result, total, total_page
 
     def get(self):
+        # Log.create('wechat')
+        # Log.info('%s-%s')
         page = int(self.get_argument('page', 1))
-        num = int(self.get_argument('num', 5))
+        num = int(self.get_argument('num', 10))
         query = self.query
 
         results, total, total_page = self.get_result(query, page, num)
@@ -569,13 +581,15 @@ class TeacherCourse(AcademicData):
 
         return self.success_response({'data': datas, 'total_page': total_page, 'course_num': total, 'current_page': page})
 
-
+# @route('/mobile/wechat/student/overview')
 @route('/wechat/student/overview')
 class StudentTotal(AcademicData):
     """
     学生汇总数据  每个学生只能看到自己的汇总数据
     """
     def get(self):
+        # Log.create('wechat')
+        # Log.info('%s-%s')
         org_id = self.get_param('org_id')
         term_id = self.get_param('term_id')
         user_id = self.get_param('user_id')
@@ -602,7 +616,7 @@ class StudentTotal(AcademicData):
 
         return self.success_response({'data': data})
 
-
+# @route('/mobile/wechat/student/course')
 @route('/wechat/student/course')
 class StudentCouse(AcademicData):
     """
@@ -628,8 +642,10 @@ class StudentCouse(AcademicData):
         return result, total, total_page
 
     def get(self):
+        # Log.create('wechat')
+        # Log.info('%s-%s')
         page = int(self.get_argument('page', 1))
-        num = int(self.get_argument('num', 5))
+        num = int(self.get_argument('num', 10))
         query = self.query
 
         results, total, total_page = self.get_result(query, page, num)
@@ -637,12 +653,15 @@ class StudentCouse(AcademicData):
 
         return self.success_response({'data': datas, 'total_page': total_page, 'course_num': total, 'current_page': page})
 
+# @route('/mobile/wechat/warning/total')
 @route('/wechat/warning/total')
 class WarningTotal(AcademicData):
     """
     预警汇总数据数据
     """
     def get(self):
+        # Log.create('wechat')
+        # Log.info('%s-%s')
         org_id = self.get_argument('org_id')
         term_id = self.get_argument('term_id')
         service_line = self.get_argument('service_line', None)
@@ -662,7 +681,6 @@ class WarningTotal(AcademicData):
         size = self.es_execute(query[:0]).hits.total
         results = self.es_execute(query[:size]).hits
         data = []
-        # course = {}
         if not results:
             course = {}
         else:
@@ -677,13 +695,15 @@ class WarningTotal(AcademicData):
                 data.append(course)
         return self.success_response({'data': data})
 
-
+# @route('/mobile/wechat/warning/course')
 @route('/wechat/warning/course')
 class WarningCourse(AcademicData):
     """
-    课程预警数据
+    课程预警数据 每天计算需要预警的课
     """
     def get(self):
+        # Log.create('wechat')
+        # Log.info('%s-%s')
         org_id = self.get_argument('org_id')
         term_id = self.get_argument('term_id')
         course_id = self.get_argument('course_id')
@@ -698,31 +718,33 @@ class WarningCourse(AcademicData):
         import json
         print json.dumps(query.to_dict())
         result = self.es_execute(query)
-        print result
         print result[0].to_dict()
-        # course = {}
-        # course['course_id'] = result[0]['course_id']
-        # course['course_name'] = result[0]['course_name']
-        # course['study_week'] = result[0]['study_week']
-        # course['time'] = result[0]['time']
-        # course['study_warning_num'] = result[0]['study_warning_num']
-        # course['study_warning_num_rate'] = result[0]['study_warning_num_rate']
-        # course['least_2_week_num'] = result[0]['least_2_week_num']
-        # course['least_2_week_num_rate'] = result[0]['least_2_week_num_rate']
-        # course['low_video_rate_num'] = result[0]['low_video_rate_num']
-        # course['low_video_num_rate'] = result[0]['low_video_num_rate']
-        # course['low_grade_num'] = result[0]['low_grade_num']
-        # course['low_grade_num_rate'] = result[0]['low_grade_num_rate']
+        course = {}
+        course['course_id'] = result[0]['course_id']
+        course['course_name'] = result[0]['course_name']
+        course['study_week'] = result[0]['study_week']
+        course['time'] = result[0]['time']
+        course['study_warning_num'] = result[0]['study_warning_num']
+        course['study_warning_num_rate'] = self.round_data(result[0]['study_warning_num_rate'], 4)
+        course['least_2_week_num'] = result[0]['least_2_week_num']
+        course['least_2_week_num_rate'] = self.round_data(result[0]['least_2_week_num_rate'], 4)
+        course['low_video_rate_num'] = result[0]['low_video_rate_num']
+        course['low_video_num_rate'] = self.round_data(result[0]['low_video_num_rate'], 4)
+        course['low_grade_num'] = result[0]['low_grade_num']
+        course['low_grade_num_rate'] = self.round_data(result[0]['low_grade_num_rate'], 4)
 
-        return self.success_response({'data': result[0].to_dict()})
+        return self.success_response({'data': course})
 
 
+# @route('/mobile/wechat/video/course')
 @route('/wechat/video/course')
 class VideoCourse(AcademicData):
     """
-    课程预警数据
+    视频拖拽数据 每天计算一次
     """
     def get(self):
+        # Log.create('wechat')
+        # Log.info('%s-%s')
         org_id = self.get_argument('org_id')
         term_id = self.get_argument('term_id')
         course_id = self.get_argument('course_id')
@@ -730,29 +752,48 @@ class VideoCourse(AcademicData):
         service_line = self.get_argument('service_line', None)
         if not org_id or not term_id or not course_id:
             self.error_response(502, u'缺少参数')  # error
-        query = self.es_query(index='newcloud_wechat', doc_type='seek_video').filter('term',
-        org_id = org_id).filter('term', term_id = term_id).filter('term', course_id = course_id).filter('term',
-        service_line = service_line)
+        query = self.es_query(index='newcloud_wechat', doc_type='seek_video').filter('term',org_id = org_id).filter('term',
+        term_id = term_id).filter('term', course_id = course_id).filter('term', service_line = service_line)
         query = query.source(VIDEO_COURSE).sort('-_ut')
         import json
         print json.dumps(query.to_dict())
         result = self.es_execute(query).hits
         print result[0].to_dict()
-        # course = {}
-        # course['course_id'] = result[0]['course_id']
-        # course['course_name'] = result[0]['course_name']
-        # course['seek_persons_num'] = result[0]['seek_persons_num']
-        # course['seek_persons_num_percent'] = result[0]['seek_persons_num_percent']
-        # course['not_seek_persons'] = result[0]['not_seek_persons']
-        # course['not_seek_persons_percent'] = result[0]['not_seek_persons_percent']
-        # course['person_avg_seek_num'] = result[0]['person_avg_seek_num']
-        # course['person_avg_seek_num_percent'] = result[0]['person_avg_seek_num_percent']
-        # course['person_avg_not_watch'] = result[0]['person_avg_not_watch']
-        # course['person_avg_not_watch_percent'] = result[0]['person_avg_not_watch_percent']
+        course = {}
+        course['course_id'] = result[0]['course_id']
+        course['course_name'] = result[0]['course_name']
+        course['seek_persons_num'] = result[0]['seek_persons_num']
+        course['seek_persons_num_percent'] = self.round_data(result[0]['seek_persons_num_percent'], 4)
+        course['not_seek_persons'] = self.round_data(result[0]['not_seek_persons'], 2)
+        course['not_seek_persons_percent'] = self.round_data(result[0]['not_seek_persons_percent'], 4)
+        course['person_avg_seek_num'] = self.round_data(result[0]['person_avg_seek_num'], 2)
+        course['person_avg_seek_num_percent'] = self.round_data(result[0]['person_avg_seek_num_percent'], 4)
+        course['person_avg_not_watch'] = self.round_data(result[0]['person_avg_not_watch'], 2)
+        course['person_avg_not_watch_percent'] = self.round_data(result[0]['person_avg_not_watch_percent'], 4)
 
-        return self.success_response({'data': result[0].to_dict()})
+        return self.success_response({'data': course})
 
+# @route('/mobile/data/finish')
+@route('/data/finish')
+class DataDateConfig(BaseHandler):
+    """
+    获取数据有效时间
+    """
+    def get(self)
+        # Log.create('wechat')
+        # Log.info('%s-%s')
+        query = self.es_query(index='newcloud_wechat', doc_type='data_conf')
+        response = self.es_execute(query)
 
+        try:
+            config = response[0]
+            time = config.latest_data_date
+            time = time[0:10]
+            self.success_response({
+                'latest_data_date': time
+            })
+        except (IndexError, AttributeError):
+            self.error_response(101, u'数据时间配置错误')
 
 
 

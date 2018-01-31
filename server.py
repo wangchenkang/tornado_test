@@ -10,7 +10,7 @@ from elasticsearch_dsl.connections import connections
 import settings
 from utils.log import Log
 from handlers import *
-import memcache
+# import memcache
 
 define('port', default=8001, help='run port', type=int)
 define('debug', default=True, help='debug', type=bool)
@@ -37,13 +37,16 @@ class Application(tornado.web.Application):
 
         #self.es = Elasticsearch(settings.es_cluster)
         self.es = connections.create_connection(hosts=settings.es_cluster, timeout=30)
-        self.memcache = memcache.Client(settings.memcache_host)
+        # self.memcache = memcache.Client(settings.memcache_host)
+
         super(Application, self).__init__(routed_handlers, **app_settings)
 
 def main():
     tornado.options.parse_command_line()
     http_server = tornado.httpserver.HTTPServer(Application())
-    http_server.listen(options.port)
+    # http_server.listen(options.port)
+    http_server.bind(options.port, address="0.0.0.0")
+    http_server.start(1)
     Log.debug('server start on %s' % options.port)
     tornado.ioloop.IOLoop.instance().start()
 
