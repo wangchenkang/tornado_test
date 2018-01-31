@@ -779,7 +779,7 @@ class DataDateConfig(BaseHandler):
     """
     获取数据有效时间
     """
-    def get(self)
+    def get(self):
         # Log.create('wechat')
         # Log.info('%s-%s')
         query = self.es_query(index='newcloud_wechat', doc_type='data_conf')
