@@ -718,7 +718,7 @@ class WarningCourse(AcademicData):
         import json
         print json.dumps(query.to_dict())
         result = self.es_execute(query)
-        print result[0].to_dict()
+        # print result[0].to_dict()
         if result is not None:
             course = {}
             course['course_id'] = result[0]['course_id']
