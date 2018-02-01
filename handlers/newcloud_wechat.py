@@ -517,8 +517,8 @@ class TeacherTotal(AcademicData):
         if not org_id or not term_id or not user_id:
             self.error_response(502, u'缺少参数') # error
         query = self.es_query(index = 'newcloud_wechat', doc_type = 'teacher_total').filter('term', org_id = org_id).filter('term', term_id = term_id).filter('term', user_id = user_id)
-        import json
-        print json.dumps(query.to_dict())
+        # import json
+        # print json.dumps(query.to_dict())
         size = self.es_execute(query[:0]).hits.total
         results = self.es_execute(query[:size]).hits
         data = []
@@ -552,8 +552,8 @@ class TeacherCourse(AcademicData):
 
         query = self.teacher_course_query
         query = query.source(COURSE_DETAIL).sort(sort, '-enroll_num_course') #desc
-        import json
-        print json.dumps(query.to_dict())
+        # import json
+        # print json.dumps(query.to_dict())
         return query[:0]
 
     def get_result(self, query, page, num):
@@ -589,8 +589,8 @@ class StudentTotal(AcademicData):
         if not org_id or not term_id or not user_id:
             self.error_response(502, u'缺少参数') # error
         query = self.es_query(index = 'newcloud_wechat', doc_type = 'student_total').filter('term', org_id = org_id).filter('term', term_id = term_id).filter('term', user_id = user_id)
-        import json
-        print json.dumps(query.to_dict())
+        # import json
+        # print json.dumps(query.to_dict())
         size = self.es_execute(query[:0]).hits.total
         results = self.es_execute(query[:size]).hits
         data = []
@@ -667,8 +667,8 @@ class WarningTotal(AcademicData):
         if service_line != 'all':
             query = query.filter('term', service_line=service_line)
         query = query.source(WARNING_TOTAL).sort(sort, '-study_warning_num')
-        import json
-        print json.dumps(query.to_dict())
+        # import json
+        # print json.dumps(query.to_dict())
         size = self.es_execute(query[:0]).hits.total
         results = self.es_execute(query[:size]).hits
         data = []
@@ -705,8 +705,8 @@ class WarningCourse(AcademicData):
         org_id = org_id).filter('term', term_id = term_id).filter('term', course_id = course_id).filter('term',
         service_line = service_line)
         query = query.source(WARNING_COURSE).sort('-_ut')
-        import json
-        print json.dumps(query.to_dict())
+        # import json
+        # print json.dumps(query.to_dict())
         result = self.es_execute(query)
         if result.hits.total!=0:
             course = {}
@@ -746,10 +746,9 @@ class VideoCourse(AcademicData):
         query = self.es_query(index='newcloud_wechat', doc_type='seek_video').filter('term',org_id = org_id).filter('term',
         term_id = term_id).filter('term', course_id = course_id).filter('term', service_line = service_line)
         query = query.source(VIDEO_COURSE).sort('-_ut')
-        import json
-        print json.dumps(query.to_dict())
+        # import json
+        # print json.dumps(query.to_dict())
         result = self.es_execute(query).hits
-        print result[0].to_dict()
         course = {}
         course['course_id'] = result[0]['course_id']
         course['course_name'] = result[0]['course_name']
