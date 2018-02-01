@@ -245,8 +245,7 @@ class AcademicData(BaseHandler):
 
         return round(data, size)
 
-# @route('/mobile/course/overview')
-@route('/course/overview')
+@route('/mobile/course/overview')
 class CourseOverview(AcademicData):
     """
     新学堂云教务数据课程概况课程列表
@@ -289,15 +288,14 @@ class CourseOverview(AcademicData):
         return data
 
     def get(self):
-        # Log.create('wechat')
-        # Log.info('%s-%s')
+        Log.create('wechat')
+        Log.info('%s-%s')
         query = self.query
         result = self.get_result(query)
 
         self.success_response({'data': result})
 
-# @route('/mobile/teacher/overview')
-@route('/teacher/overview')
+@route('/mobile/teacher/overview')
 class TeacherOverview(AcademicData):
     """
     教师概况，教师数据汇总
@@ -402,14 +400,13 @@ class TeacherOverview(AcademicData):
         return data
     
     def get(self):
-        # Log.create('wechat')
-        # Log.info('%s-%s')
+        Log.create('wechat')
+        Log.info('%s-%s')
         data = self.data
 
         self.success_response({'data': data})
 
-# @route('/mobile/student/overview')
-@route('/student/overview')
+@route('/mobile/student/overview')
 class StudentOverview(AcademicData):
     """
     学生概况，学生
@@ -449,8 +446,8 @@ class StudentOverview(AcademicData):
         return data
 
     def get(self):
-        # Log.create('wechat')
-        # Log.info('%s-%s')
+        Log.create('wechat')
+        Log.info('%s-%s')
         query = self.query
 
 
@@ -458,8 +455,7 @@ class StudentOverview(AcademicData):
 
         self.success_response({'data': result})
 
-# @route('/mobile/student/detail/overview')
-@route('/student/detail/overview')
+@route('/mobile/student/detail/overview')
 class StudentDetailOverview(AcademicData):
     """
     学生概况，学生详情页汇总信息
@@ -500,22 +496,21 @@ class StudentDetailOverview(AcademicData):
         return result
 
     def get(self):
-        # Log.create('wechat')
-        # Log.info('%s-%s')
+        Log.create('wechat')
+        Log.info('%s-%s')
         query_total, query_avg = self.query
         result = self.get_result(query_total, query_avg)
 
         self.success_response({'data': result})
 
-# @route('/mobile/wechat/teacher/overview')
-@route('/wechat/teacher/overview')
+@route('/mobile/wechat/teacher/overview')
 class TeacherTotal(AcademicData):
     """
     教师汇总数据 每个教师只能看到自己的数据
     """
     def get(self):
-        # Log.create('wechat')
-        # Log.info('%s-%s')
+        Log.create('wechat')
+        Log.info('%s-%s')
         org_id = self.get_param('org_id')
         term_id = self.get_param('term_id')
         user_id = self.get_param('user_id')
@@ -544,8 +539,7 @@ class TeacherTotal(AcademicData):
 
         return self.success_response({'data': data})
 
-# @route('/mobile/wechat/teacher/course')
-@route('/wechat/teacher/course')
+@route('/mobile/wechat/teacher/course')
 class TeacherCourse(AcademicData):
     """
     教师课程数据 教师每门课的详细数据
@@ -570,8 +564,8 @@ class TeacherCourse(AcademicData):
         return result, total, total_page
 
     def get(self):
-        # Log.create('wechat')
-        # Log.info('%s-%s')
+        Log.create('wechat')
+        Log.info('%s-%s')
         page = int(self.get_argument('page', 1))
         num = int(self.get_argument('num', 10))
         query = self.query
@@ -581,15 +575,14 @@ class TeacherCourse(AcademicData):
 
         return self.success_response({'data': datas, 'total_page': total_page, 'course_num': total, 'current_page': page})
 
-# @route('/mobile/wechat/student/overview')
-@route('/wechat/student/overview')
+@route('/mobile/wechat/student/overview')
 class StudentTotal(AcademicData):
     """
     学生汇总数据  每个学生只能看到自己的汇总数据
     """
     def get(self):
-        # Log.create('wechat')
-        # Log.info('%s-%s')
+        Log.create('wechat')
+        Log.info('%s-%s')
         org_id = self.get_param('org_id')
         term_id = self.get_param('term_id')
         user_id = self.get_param('user_id')
@@ -616,8 +609,7 @@ class StudentTotal(AcademicData):
 
         return self.success_response({'data': data})
 
-# @route('/mobile/wechat/student/course')
-@route('/wechat/student/course')
+@route('/mobile/wechat/student/course')
 class StudentCouse(AcademicData):
     """
     学生课程数据  学生所选课程的详细数据
@@ -642,8 +634,8 @@ class StudentCouse(AcademicData):
         return result, total, total_page
 
     def get(self):
-        # Log.create('wechat')
-        # Log.info('%s-%s')
+        Log.create('wechat')
+        Log.info('%s-%s')
         page = int(self.get_argument('page', 1))
         num = int(self.get_argument('num', 10))
         query = self.query
@@ -653,15 +645,14 @@ class StudentCouse(AcademicData):
 
         return self.success_response({'data': datas, 'total_page': total_page, 'course_num': total, 'current_page': page})
 
-# @route('/mobile/wechat/warning/total')
-@route('/wechat/warning/total')
+@route('/mobile/wechat/warning/total')
 class WarningTotal(AcademicData):
     """
     预警汇总数据数据
     """
     def get(self):
-        # Log.create('wechat')
-        # Log.info('%s-%s')
+        Log.create('wechat')
+        Log.info('%s-%s')
         org_id = self.get_argument('org_id')
         term_id = self.get_argument('term_id')
         service_line = self.get_argument('service_line', None)
@@ -695,15 +686,14 @@ class WarningTotal(AcademicData):
                 data.append(course)
         return self.success_response({'data': data})
 
-# @route('/mobile/wechat/warning/course')
-@route('/wechat/warning/course')
+@route('/mobile/wechat/warning/course')
 class WarningCourse(AcademicData):
     """
     课程预警数据 每天计算需要预警的课
     """
     def get(self):
-        # Log.create('wechat')
-        # Log.info('%s-%s')
+        Log.create('wechat')
+        Log.info('%s-%s')
         org_id = self.get_argument('org_id')
         term_id = self.get_argument('term_id')
         course_id = self.get_argument('course_id')
@@ -738,15 +728,14 @@ class WarningCourse(AcademicData):
             return self.success_response({'data': ""})
 
 
-# @route('/mobile/wechat/video/course')
-@route('/wechat/video/course')
+@route('/mobile/wechat/video/course')
 class VideoCourse(AcademicData):
     """
     视频拖拽数据 每天计算一次
     """
     def get(self):
-        # Log.create('wechat')
-        # Log.info('%s-%s')
+        Log.create('wechat')
+        Log.info('%s-%s')
         org_id = self.get_argument('org_id')
         term_id = self.get_argument('term_id')
         course_id = self.get_argument('course_id')
@@ -775,15 +764,14 @@ class VideoCourse(AcademicData):
 
         return self.success_response({'data': course})
 
-# @route('/mobile/data/finish')
-@route('/data/finish')
+@route('/mobile/data/finish')
 class DataDateConfig(BaseHandler):
     """
     获取数据有效时间
     """
     def get(self):
-        # Log.create('wechat')
-        # Log.info('%s-%s')
+        Log.create('wechat')
+        Log.info('%s-%s')
         query = self.es_query(index='newcloud_wechat', doc_type='data_conf')
         response = self.es_execute(query)
 
