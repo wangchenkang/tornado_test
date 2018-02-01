@@ -719,21 +719,24 @@ class WarningCourse(AcademicData):
         print json.dumps(query.to_dict())
         result = self.es_execute(query)
         print result[0].to_dict()
-        course = {}
-        course['course_id'] = result[0]['course_id']
-        course['course_name'] = result[0]['course_name']
-        course['study_week'] = result[0]['study_week']
-        course['time'] = result[0]['time']
-        course['study_warning_num'] = result[0]['study_warning_num']
-        course['study_warning_num_rate'] = self.round_data(result[0]['study_warning_num_rate'], 4)
-        course['least_2_week_num'] = result[0]['least_2_week_num']
-        course['least_2_week_num_rate'] = self.round_data(result[0]['least_2_week_num_rate'], 4)
-        course['low_video_rate_num'] = result[0]['low_video_rate_num']
-        course['low_video_num_rate'] = self.round_data(result[0]['low_video_num_rate'], 4)
-        course['low_grade_num'] = result[0]['low_grade_num']
-        course['low_grade_num_rate'] = self.round_data(result[0]['low_grade_num_rate'], 4)
+        if result is None:
+            course = {}
+            course['course_id'] = result[0]['course_id']
+            course['course_name'] = result[0]['course_name']
+            course['study_week'] = result[0]['study_week']
+            course['time'] = result[0]['time']
+            course['study_warning_num'] = result[0]['study_warning_num']
+            course['study_warning_num_rate'] = self.round_data(result[0]['study_warning_num_rate'], 4)
+            course['least_2_week_num'] = result[0]['least_2_week_num']
+            course['least_2_week_num_rate'] = self.round_data(result[0]['least_2_week_num_rate'], 4)
+            course['low_video_rate_num'] = result[0]['low_video_rate_num']
+            course['low_video_num_rate'] = self.round_data(result[0]['low_video_num_rate'], 4)
+            course['low_grade_num'] = result[0]['low_grade_num']
+            course['low_grade_num_rate'] = self.round_data(result[0]['low_grade_num_rate'], 4)
 
-        return self.success_response({'data': course})
+            return self.success_response({'data': course})
+        else:
+            return self.success_response({'data': ""})
 
 
 # @route('/mobile/wechat/video/course')
