@@ -10,14 +10,12 @@ from tornado.escape import url_unescape, json_encode, json_decode
 from elasticsearch import ConnectionError, ConnectionTimeout, RequestError
 from elasticsearch_dsl import Search, Q
 from elasticsearch_dsl.connections import connections
-from utils.service import CourseService, AsyncService, AsyncCourseService 
+from utils.service import CourseService, AsyncService, AsyncCourseService
 from utils.tools import fix_course_id
 from utils.tools import get_group_type
 from utils.tools import is_ended, date_from_string, feedback
 import settings
 from datetime import datetime
-
-#Log = Log.create(__name__)
 
 class BaseHandler(RequestHandler):
 
@@ -341,11 +339,11 @@ class BaseHandler(RequestHandler):
         return owner
 
     def get_problem_users(self):
-        #hashstr = "problem_student" + self.course_id + (str(self.group_key) or "")
-        #hashcode = hashlib.md5(hashstr).hexdigest()
-        #users = self.memcache.get(hashcode)
-        #if users:
-        #    return users
+       # hashstr = "problem_student" + self.course_id + (str(self.group_key) or "")
+       # hashcode = hashlib.md5(hashstr).hexdigest()
+       # users = self.memcache.get(hashcode)
+       # if users:
+       #     return users
         users = self.get_users()
         query = self.es_query(doc_type='study_problem')\
                 .filter("term", course_id=self.course_id)\

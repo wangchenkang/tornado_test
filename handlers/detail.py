@@ -53,7 +53,6 @@ class DetailCourseGradeRatioDetail(BaseHandler):
                     .filter('terms', user_id=problem_users)
         total = self.es_execute(query).hits.total
         response = self.es_execute(query[:total])
-
         result = {}
         for hit in response:
             result[hit.user_id] = float(hit.total_grade_rate or 0)
