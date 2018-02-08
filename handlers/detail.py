@@ -47,10 +47,11 @@ class DetailCourseGradeRatioDetail(BaseHandler):
     http://confluence.xuetangx.com/pages/viewpage.action?pageId=9044555 1.1图
     """
     def get(self):
-        problem_users = self.get_problem_users()
+        users = self.get_users()
         query = self.es_query(doc_type='course_grade')\
                     .filter('term', course_id=self.course_id)\
-                    .filter('terms', user_id=problem_users)
+                    .filter('terms', user_id=users) \
+                    .filter('range', **{'grade': {'gt': 0}})
         total = self.es_execute(query).hits.total
         response = self.es_execute(query[:total])
         result = {}
