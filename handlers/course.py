@@ -371,7 +371,7 @@ class CourseDistribution(BaseHandler):
                     .filter("term", course_id=self.course_id)\
                     .filter("term", country='中国')
         size = self.es_execute(query[:0]).hits.total
-        query.aggs.bucket("area", "terms", field="province", size=size)
+        query.aggs.bucket("area", "terms", field="province", size=size or 10)
         results = self.es_execute(query[:0])
         aggs = results.aggregations.area.buckets
         data = []
