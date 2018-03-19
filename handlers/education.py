@@ -1,13 +1,16 @@
-#! -*- coding: utf-8 -*-
-from elasticsearch_dsl import Q
-from utils.routes import route
-from utils.tools import var
-from utils.log import Log
-from utils import mysql_connect
-from .base import BaseHandler
-import settings
-import datetime
+#! /usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import time
+import datetime
+from elasticsearch_dsl import Q
+
+import settings
+from utils.log import Log
+from utils.tools import var
+from .base import BaseHandler
+from utils.routes import route
+from utils import mysql_connect
 
 
 COURSE_STATUS = {'process': '开课中', 'close': '已结课', 'unopen': '即将开课'}
@@ -21,7 +24,6 @@ FIELD_DOWNLOAD = {'process': FIELD_DOWNLOAD_PROCESS, 'close': FIELD_DOWNLOAD_CLO
 EDUCATION_GROUP = {settings.MOOC_GROUP_KEY: '全部学生', settings.SPOC_GROUP_KEY: '全部学生'}
 
 class Academic(BaseHandler):
-    
     @property
     def orgid_or_host(self):
         orgid_or_host = self.get_argument('orgid_or_host', None)
@@ -31,10 +33,11 @@ class Academic(BaseHandler):
 
     @property
     def role(self):
+        #TODO
         results = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_role(self.user_id, self.host)
         role = []
         role.extend([result['mode'] for result in results])
-	for i in ['staff', 'vpc_admin']:
+        for i in ['staff', 'vpc_admin']:
             if i in role:
                 return 1
         return 0
@@ -70,7 +73,7 @@ class Academic(BaseHandler):
 
     def get_summary(self, role, course_ids=None):
         result = []
-	if course_ids:
+        if course_ids:
             query = self.statics_query.filter('terms', course_id=course_ids)
             query.aggs.metric('enrollment_num', 'sum', field='enrollment_num')
             query.aggs.metric('pass_num', 'sum', field='pass_num')
@@ -83,10 +86,10 @@ class Academic(BaseHandler):
             result = [{'course_num': total, 'enrollment_num': int(aggs.enrollment_num.value or 0), 'pass_num': int(aggs.pass_num.value or 0), 'video_length': round(int(aggs.video_length.value or 0)/3600,2), \
                            'active_num': int(aggs.active_num.value or 0), 'no_num': int(aggs.no_num.value or 0)}]
         else:
-	    if role == 1:
-	    	result = self.es_execute(self.summary_query[:1]).hits 
-		
-	return result
+            if role == 1:
+                result = self.es_execute(self.summary_query[:1]).hits
+
+        return result
 
     def get_statics(self, course_ids=None):
         query = self.statics_query
@@ -95,7 +98,6 @@ class Academic(BaseHandler):
         total = self.es_execute(query).hits.total
         result = self.es_execute(query[:total]).hits
         return result
-    
 
     def course_search(self, page, size, course_ids, course_name=None):
         query = self.statics_query.filter('terms', course_id=course_ids) if course_ids != 'all' else self.statics_query
@@ -156,7 +158,7 @@ class EducationCourseOverview(Academic):
     def get(self):    
         _, course_ids = self.teacher_power
         result = self.get_summary(self.role, course_ids)   
-	overview_result = {}
+        overview_result = {}
         overview_result['course_num'] = 0
         overview_result['active_num'] = 0
         overview_result['video_length'] = 0

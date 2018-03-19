@@ -96,10 +96,13 @@ class MysqlConnect(object):
             return True
         return False
 
-    def course_group_key(self, user_id, course_id):
+    def course_group_key(self, user_id, course_id, host):
         query = """
-                select group_key from teacher_power where user_id='{0}' and course_id='{1}' order by group_key
-                """.format(user_id, course_id)
+                select group_key 
+                from teacher_power 
+                where user_id='{0}' and course_id='{1}' and host = '{2}'
+                order by group_key
+                """.format(user_id, course_id, host)
         results = self.execute_query(query)
         if len(results)>0:
             return results[0]
