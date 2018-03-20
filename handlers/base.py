@@ -162,8 +162,7 @@ class BaseHandler(RequestHandler):
         return Search(using=self.es, **kwargs)
 
     def moocnd_es_query(self, **kwargs):
-        moocnd_es = connections.create_connection(hosts=settings.moocnd_es_cluster, timeout=60)
-        return Search(using=moocnd_es, **kwargs)
+        return Search(using=self.moocnd_es, **kwargs)
 
     def es_execute(self, query):
         try:
@@ -171,7 +170,7 @@ class BaseHandler(RequestHandler):
                 response = query.execute()
                 return response
             else:
-                if not list(set(query._index)&set(settings.ES_INDEXS)):
+                if not list(set(query._index)&set(settings.ES_INDEXS)) or query._doc_type in ['data_conf', ['data_conf']]:
                     response = query.execute()
                     return response
                 course_id = self.get_argument('course_id', None)
