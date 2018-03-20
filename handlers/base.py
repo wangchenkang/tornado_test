@@ -27,7 +27,11 @@ class BaseHandler(RequestHandler):
     @property
     def es(self):
         return self.application.es
-
+    
+    @property
+    def moocnd_es(self):
+        return self.application.moocnd_es
+    
     @property
     def memcache(self):
         return self.application.memcache
