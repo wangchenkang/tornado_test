@@ -799,7 +799,10 @@ class StudentEnrollment(BaseHandler):
          for result in results.hits:
              if result.course_id not in course_ids:
                  course_ids.append(result.course_id)
-        
+         
+         if not course_ids:
+             course_ids.append(course_id)
+         
          normal_course_ids = self.get_not_tiny_mooc_course_ids(course_ids) 
          return normal_course_ids 
          
