@@ -33,6 +33,10 @@ class BaseHandler(RequestHandler):
         return self.application.moocnd_es
     
     @property
+    def search_es(self):
+        return self.application.search_es
+    
+    @property
     def memcache(self):
         return self.application.memcache
 
@@ -167,6 +171,9 @@ class BaseHandler(RequestHandler):
 
     def moocnd_es_query(self, **kwargs):
         return Search(using=self.moocnd_es, **kwargs)
+    
+    def search_es_query(self, **kwargs):
+        return Search(using=self.search_es, **kwargs)
 
     def es_execute(self, query):
         try:
@@ -229,6 +236,15 @@ class BaseHandler(RequestHandler):
         except RequestError as e:
             self.error_response(100, u'查询错误: {} - {}'.format(e.status_code, e.error))
 
+    def acc_es_execute(self, query):
+        try:
+           response = query.execute()
+           return response
+        except (ConnectionError, ConnectionTimeout):
+            self.error_response(100, u'Elasticsearch 连接错误')
+        except RequestError as e:
+            self.error_response(100, u'查询错误: {} - {}'.format(e.status_code, e.error))
+           
     def get_enroll(self, group_key=None, course_id=None):
         query = self.es_query(doc_type='student_enrollment_info') \
             .filter('term', is_active=1)
