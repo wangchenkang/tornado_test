@@ -29,14 +29,6 @@ class BaseHandler(RequestHandler):
         return self.application.es
     
     @property
-    def moocnd_es(self):
-        return self.application.moocnd_es
-    
-    @property
-    def search_es(self):
-        return self.application.search_es
-    
-    @property
     def memcache(self):
         return self.application.memcache
 
@@ -170,10 +162,12 @@ class BaseHandler(RequestHandler):
         return Search(using=self.es, **kwargs)
 
     def moocnd_es_query(self, **kwargs):
-        return Search(using=self.moocnd_es, **kwargs)
+        moocnd_es = connections.create_connection(hosts=settings.moocnd_es_cluster, timeout=30, max_retries=3)
+        return Search(using=moocnd_es, **kwargs)
     
     def search_es_query(self, **kwargs):
-        return Search(using=self.search_es, **kwargs)
+        search_es = connections.create_connection(hosts=settings.search_es_cluster, timeout=30, max_retries=3)
+        return Search(using=search_es, **kwargs)
 
     def es_execute(self, query):
         try:

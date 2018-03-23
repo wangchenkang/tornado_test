@@ -36,8 +36,6 @@ class Application(tornado.web.Application):
                 tornado.web.url(r'/static/(.*)', tornado.web.StaticFileHandler, {'path': app_settings['static_path']}))
 
         self.es = connections.create_connection(hosts=settings.es_cluster, timeout=30, max_retries=3)
-        self.moocnd_es = connections.create_connection(hosts=settings.moocnd_es_cluster, timeout=30, max_retries=2)
-        self.search_es = connections.create_connection(hosts=settings.search_es_cluster, timeout=30, max_retries=3)
         self.memcache = memcache.Client(settings.memcache_host)
 
         super(Application, self).__init__(routed_handlers, **app_settings)
