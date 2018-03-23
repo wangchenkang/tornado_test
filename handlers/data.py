@@ -424,7 +424,7 @@ class DataMOOCAP(BaseHandler):
             effect_val = ("与均值持平", "与均值持平")
         user_info["ref"]["effect"]["desc"] = "<p><strong>本学生学习效度{}。在投入时间{}的情况下，取得了较好的成绩。</strong></p><p>学习效度是基于学生的学习速度和课程最终得分计算的。</p>".format(*effect_val)
 
-        user_info["authentication"] = "2016" + "年"
+        user_info["authentication"] = "2017" + "年"
         self.success_response(user_info)
 
 
