@@ -730,6 +730,7 @@ class StudentCourseEnrollment(BaseHandler):
       def get_data(self):
           query, new_course_ids = self.get_query()
           total = len(new_course_ids)
+          total = 1 if not total else total
           results = self.acc_es_execute(query[:total])
           
           data = list()
@@ -791,6 +792,7 @@ class StudentEnrollment(BaseHandler):
                      .filter('term', parent_id=parent_id) \
                      .source('course_id')
          total = self.acc_es_execute(query[:0]).hits.total 
+         total = 1 if not total else total
          results = self.acc_es_execute(query[:total])
          
          course_ids = list()
