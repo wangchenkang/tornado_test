@@ -708,6 +708,9 @@ class DataDownload(BaseHandler):
 #      临时供主站调用
 #      """
 #      def get(self):
+           #app_id = '201803240000000002'
+           #Log.create('student_courseenrollment')
+           #Log.info(app_id)
 #          data = self.get_data()
 #          self.success_response({'data': data})
 #      
@@ -760,7 +763,7 @@ class StudentCourseEnrollment(BaseHandler):
      """
      @gen.coroutine
      def get(self):
-         app_id = self.get_argument('app_id', '201803240000000002')
+         app_id = self.get_argument('app_id', '201803240000000001')
          Log.create('student_course_enrollment')
          Log.info(app_id)
          
@@ -852,6 +855,181 @@ class StudentCourseEnrollment(BaseHandler):
          
          raise gen.Return(tiny_mooc_course_ids) 
   
+#@route('/data/student_courseenrollment')
+#class StudentEnrollment(BaseHandler):
+#     """
+#     课程累计选课人数
+#     """
+#     def get_course_ids(self):
+#         course_ids = self.get_argument('course_id', None)
+#         if not course_ids:
+#             self.error_response(502, u'缺少课程id参数')
+#         course_ids = course_ids.split(',')
+#         new_course_ids = []
+#         for course_id in course_ids:
+#             course_id = fix_course_id(course_id)
+#             if course_id not in new_course_ids:
+#                new_course_ids.append(course_id)
+#         return new_course_ids
+#
+#     def get_course_enrollments(self, course_id_pc, course_id_cp, course_enrollment):
+#         parent_enrollment_num = {}
+#         for parent, children in course_id_pc.items():
+#             num = 0
+#             for course in course_enrollment:
+#                 if course['course_id'] in children:
+#                     num += course['enrollment_num']
+#             parent_enrollment_num[parent] = num
+#         data = []
+#         for child, parent in course_id_cp.items():
+#             data_ = {}
+#             for parent_, enrollment_num in parent_enrollment_num.items():
+#                 if parent == parent_:
+#                     data_['course_id'] = child
+#                     data_['acc_enrollment_num'] = enrollment_num
+#                     data.append(data_)
+#         data.sort(lambda x,y: -cmp(x['acc_enrollment_num'], y['acc_enrollment_num']))
+#         return data
+#
+#     def get_course_2_ids(self, course_ids, sign, hits=None):
+#         """
+#         子对父，父对子字典关系
+#         """
+#         #sign:1 子对父
+#         #sign:2 父对子
+#         course_ = {}
+#         for course_id in set(course_ids):
+#            course_[course_id] = '' if sign == 1 else []
+#         if hits:
+#            for hit in hits:
+#                if sign == 1:
+#                    if hit.course_id in course_:
+#                        course_[hit.course_id] = hit.parent_id
+#                else:
+#                    if hit.parent_id in course_:
+#                        course_[hit.parent_id].append(hit.course_id)
+#         else:
+#            for course_id in set(course_ids):
+#                if sign == 1:
+#                    course_[course_id] = course_id
+#                else:
+#                    course_[course_id].append(course_id)
+#         return course_
+#
+#     @gen.coroutine
+#     def get_tiny_mooc_course_ids(self, course_ids):
+#         query = self.es_query(doc_type='course_community') \
+#                     .filter('terms', course_id=course_ids) \
+#                     .filter('terms', group_key=[settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY]) \
+#                     .source(['course_id', 'course_name'])
+#         size = len(course_ids) * 2
+#         results = self.acc_es_execute(query[:size])
+#         tiny_mooc_course_ids = list()
+#         normal_course_ids = list()
+#         for result in results:
+#             if result.course_name.__contains__('微慕课'):
+#                 if result.course_id not in tiny_mooc_course_ids:
+#                     tiny_mooc_course_ids.append(result.course_id)
+#             else:
+#                 if result.course_id not in normal_course_ids:
+#                     normal_course_ids.append(result.course_id)
+#                     
+#         diff_course_ids = list(set(tiny_mooc_course_ids)^set(course_ids)^set(normal_course_ids))
+#         for course_id in diff_course_ids:
+#             try:
+#                 course_detail = yield self.course_detail(course_id)
+#                 if course_detail['name'].__contains__('微慕课'):
+#                     if course_id not in tiny_course_ids:
+#                         tiny_mooc_course_ids.append(course_id)
+#             except Exception as e:
+#                 Log.create('course-service')
+#                 Log.create('course_detail service unable %s' % course_id)
+#         raise gen.Return(tiny_mooc_course_ids) 
+#   
+#     def get_acc_enrollment(self, course_ids):
+#         query = self.es_query(index='realtime', doc_type='student_enrollment_info') \
+#                     .filter('terms', course_id=course_ids) \
+#                     .filter('terms', group_key=[settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY])
+#         size = len(course_ids)
+#         query.aggs.bucket('enrollment', 'terms', field='course_id', size=size)
+#         results = self.acc_es_execute(query)
+#         aggs = results.aggregations.enrollment
+#         data = list()
+#         for bucket in aggs.buckets:
+#             d = dict()
+#             d['course_id'] = bucket.key
+#             d['enroll_all'] = bucket.doc_count
+#             data.append(d)
+#          
+#         return data
+#     
+#     @gen.coroutine
+#     def get(self):
+#         """
+#         先查出课程的parent_id，再根据parent_id查出所有的子课程，再拿这些子课程去查选课人数，进行聚合
+#         """
+#         app_id = self.get_argument('app_id', '201803240000000002')
+#         Log.create('student_courseenrollment')
+#         Log.info(app_id)
+#         
+#         course_ids = self.get_course_ids()
+#
+#         #微慕课课程
+#         #tiny_mooc_course_ids = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['course_manage']).get_tiny_mooc_course_ids(course_ids)
+#         #tiny_mooc_course_ids =  [item ['course_id'] for item in tiny_mooc_course_ids]
+#         tiny_mooc_course_ids = yield self.get_tiny_mooc_course_ids(course_ids)
+#         normal_course_ids = []
+#         for course_id in course_ids:
+#             if course_id not in tiny_mooc_course_ids:
+#                 normal_course_ids.append(course_id)
+#         #查parent_id
+#         query = self.es_query(index='course_ancestor', doc_type='course_ancestor')\
+#                     .filter('terms', course_id=normal_course_ids)
+#         total = len(normal_course_ids)
+#         result = self.es_execute(query[:total])
+#         parent_course_ids = [hit.parent_id for hit in result.hits] if result.hits else course_ids
+#         #子对父
+#         course_id_cp = self.get_course_2_ids(normal_course_ids, 1, result.hits)
+#         for course_id in tiny_mooc_course_ids:
+#             course_id_cp[course_id] = course_id
+#         #根据parent_id查出所有的子课程id
+#         query = self.es_query(index='course_ancestor', doc_type='course_ancestor')\
+#                     .filter('terms', parent_id=parent_course_ids)\
+#                     .filter('range', **{'status': {'gte': -1}})
+#         result = self.es_execute(query[:10000])
+#         children_course_ids = [hit.course_id for hit in result.hits] if result.hits else course_ids
+#         #过滤微慕课
+#         #exclude_tiny_mooc_course_ids = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['course_manage']).get_exclude_tiny_mooc_course_ids(children_course_ids)
+#         #if exclude_tiny_mooc_course_ids:
+#         #    children_course_ids =  [ item['course_id'] for item in exclude_tiny_mooc_course_ids]
+#         include_tiny_mooc_course_ids = yield self.get_tiny_mooc_course_ids(children_course_ids)
+#         exclude_tiny_mooc_course_ids = list(set(children_course_ids)^set(include_tiny_mooc_course_ids))
+#         hit = []
+#         for item in result.hits:
+#             if item.course_id in exclude_tiny_mooc_course_ids:
+#                 hit.append(item)
+#         #父对子
+#         course_id_pc = self.get_course_2_ids(parent_course_ids, 2, hit)
+#         for course_id in tiny_mooc_course_ids:
+#             course_id_pc[course_id] = course_id
+#         #children_course_ids.extend(tiny_mooc_course_ids)
+#         #查询这些子课程的数据然后聚合
+#         #enrollments = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_enrollment(children_course_ids)
+#         enrollments = self.get_acc_enrollment(children_course_ids) 
+#         course_enrollment = [{'course_id': enrollment['course_id'], 'enrollment_num': enrollment['enroll_all']} for enrollment in enrollments]
+#         data = self.get_course_enrollments(course_id_pc, course_id_cp, course_enrollment)
+#         actual_course_ids = [i['course_id'] for i in data]
+#         for i in course_ids:
+#            if i not in actual_course_ids:
+#                enrollments = self.get_acc_enrollment([i]) 
+#                #enrollments = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_enrollment([i])
+#                course_enrollment = [{'course_id': enrollment['course_id'], 'acc_enrollment_num': enrollment['enroll_all']} for enrollment in enrollments]
+#                if not course_enrollment:
+#                   data.extend([{'course_id': i, 'acc_enrollment_num': 0}])
+#                else:
+#                   data.extend(course_enrollment)
+#         self.success_response({'data': data}) 
+
 @route('/data/student_courseenrollment')
 class StudentEnrollment(BaseHandler):
      """
@@ -913,68 +1091,15 @@ class StudentEnrollment(BaseHandler):
                     course_[course_id].append(course_id)
          return course_
 
-     @gen.coroutine
-     def get_tiny_mooc_course_ids(self, course_ids):
-         query = self.es_query(doc_type='course_community') \
-                     .filter('terms', course_id=course_ids) \
-                     .filter('terms', group_key=[settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY]) \
-                     .source(['course_id', 'course_name'])
-         size = len(course_ids) * 2
-         results = self.acc_es_execute(query[:size])
-         tiny_mooc_course_ids = list()
-         normal_course_ids = list()
-         for result in results:
-             if result.course_name.__contains__('微慕课'):
-                 if result.course_id not in tiny_mooc_course_ids:
-                     tiny_mooc_course_ids.append(result.course_id)
-             else:
-                 if result.course_id not in normal_course_ids:
-                     normal_course_ids.append(result.course_id)
-                     
-         diff_course_ids = list(set(tiny_mooc_course_ids)^set(course_ids)^set(normal_course_ids))
-         for course_id in diff_course_ids:
-             try:
-                 course_detail = yield self.course_detail(course_id)
-                 if course_detail['name'].__contains__('微慕课'):
-                     if course_id not in tiny_course_ids:
-                         tiny_mooc_course_ids.append(course_id)
-             except Exception as e:
-                 Log.create('course-service')
-                 Log.create('course_detail service unable %s' % course_id)
-         raise gen.Return(tiny_mooc_course_ids) 
-   
-     def get_acc_enrollment(self, course_ids):
-         query = self.es_query(index='realtime', doc_type='student_enrollment_info') \
-                     .filter('terms', course_id=course_ids) \
-                     .filter('terms', group_key=[settings.MOOC_GROUP_KEY, settings.SPOC_GROUP_KEY])
-         size = len(course_ids)
-         query.aggs.bucket('enrollment', 'terms', field='course_id', size=size)
-         results = self.acc_es_execute(query)
-         aggs = results.aggregations.enrollment
-         data = list()
-         for bucket in aggs.buckets:
-             d = dict()
-             d['course_id'] = bucket.key
-             d['enroll_all'] = bucket.doc_count
-             data.append(d)
-          
-         return data
-     
-     @gen.coroutine
      def get(self):
          """
          先查出课程的parent_id，再根据parent_id查出所有的子课程，再拿这些子课程去查选课人数，进行聚合
          """
-         app_id = self.get_argument('app_id', '201803240000000002')
-         Log.create('student_courseenrollment')
-         Log.info(app_id)
-         
          course_ids = self.get_course_ids()
 
          #微慕课课程
-         #tiny_mooc_course_ids = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['course_manage']).get_tiny_mooc_course_ids(course_ids)
-         #tiny_mooc_course_ids =  [item ['course_id'] for item in tiny_mooc_course_ids]
-         tiny_mooc_course_ids = yield self.get_tiny_mooc_course_ids(course_ids)
+         tiny_mooc_course_ids = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['course_manage']).get_tiny_mooc_course_ids(course_ids)
+         tiny_mooc_course_ids =  [item ['course_id'] for item in tiny_mooc_course_ids]
          normal_course_ids = []
          for course_id in course_ids:
              if course_id not in tiny_mooc_course_ids:
@@ -996,33 +1121,30 @@ class StudentEnrollment(BaseHandler):
          result = self.es_execute(query[:10000])
          children_course_ids = [hit.course_id for hit in result.hits] if result.hits else course_ids
          #过滤微慕课
-         #exclude_tiny_mooc_course_ids = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['course_manage']).get_exclude_tiny_mooc_course_ids(children_course_ids)
-         #if exclude_tiny_mooc_course_ids:
-         #    children_course_ids =  [ item['course_id'] for item in exclude_tiny_mooc_course_ids]
-         include_tiny_mooc_course_ids = yield self.get_tiny_mooc_course_ids(children_course_ids)
-         exclude_tiny_mooc_course_ids = list(set(children_course_ids)^set(include_tiny_mooc_course_ids))
+         exclude_tiny_mooc_course_ids = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['course_manage']).get_exclude_tiny_mooc_course_ids(children_course_ids)
+         if exclude_tiny_mooc_course_ids:
+             children_course_ids =  [ item['course_id'] for item in exclude_tiny_mooc_course_ids]
+         #include_tiny_mooc_course_ids = yield self.get_tiny_mooc_course_ids(children_course_ids)
+         #exclude_tiny_mooc_course_ids = list(set(children_course_ids)^set(include_tiny_mooc_course_ids))
          hit = []
          for item in result.hits:
-             if item.course_id in exclude_tiny_mooc_course_ids:
+             if item.course_id in children_course_ids:
                  hit.append(item)
          #父对子
          course_id_pc = self.get_course_2_ids(parent_course_ids, 2, hit)
          for course_id in tiny_mooc_course_ids:
              course_id_pc[course_id] = course_id
-         #children_course_ids.extend(tiny_mooc_course_ids)
+         children_course_ids.extend(tiny_mooc_course_ids)
          #查询这些子课程的数据然后聚合
-         #enrollments = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_enrollment(children_course_ids)
-         enrollments = self.get_acc_enrollment(children_course_ids) 
+         enrollments = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_enrollment(children_course_ids)
+         #enrollments = self.get_acc_enrollment(children_course_ids) 
          course_enrollment = [{'course_id': enrollment['course_id'], 'enrollment_num': enrollment['enroll_all']} for enrollment in enrollments]
          data = self.get_course_enrollments(course_id_pc, course_id_cp, course_enrollment)
          actual_course_ids = [i['course_id'] for i in data]
          for i in course_ids:
             if i not in actual_course_ids:
-                enrollments = self.get_acc_enrollment([i]) 
-                #enrollments = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_enrollment([i])
+                #enrollments = self.get_acc_enrollment([i]) 
+                enrollments = mysql_connect.MysqlConnect(settings.MYSQL_PARAMS['teacher_power']).get_enrollment([i])
                 course_enrollment = [{'course_id': enrollment['course_id'], 'acc_enrollment_num': enrollment['enroll_all']} for enrollment in enrollments]
-                if not course_enrollment:
-                   data.extend([{'course_id': i, 'acc_enrollment_num': 0}])
-                else:
-                   data.extend(course_enrollment)
+                data.extend(course_enrollment)
          self.success_response({'data': data}) 
