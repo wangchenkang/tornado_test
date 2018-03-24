@@ -21,3 +21,4 @@ from .open_times import *
 from .newcloud_academic import *
 from .mobile_classmate import *
 from .newcloud_wechat import *
+from .credit_data import *
