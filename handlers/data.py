@@ -761,7 +761,7 @@ class StudentCourseEnrollment(BaseHandler):
      @gen.coroutine
      def get(self):
          app_id = self.get_argument('app_id', '201803240000000002')
-         Log.create('data')
+         Log.create('student_course_enrollment')
          Log.info(app_id)
          
          result = yield self.get_result()
@@ -966,7 +966,7 @@ class StudentEnrollment(BaseHandler):
          先查出课程的parent_id，再根据parent_id查出所有的子课程，再拿这些子课程去查选课人数，进行聚合
          """
          app_id = self.get_argument('app_id', '201803240000000002')
-         Log.create('data')
+         Log.create('student_courseenrollment')
          Log.info(app_id)
          
          course_ids = self.get_course_ids()
