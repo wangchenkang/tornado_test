@@ -28,6 +28,7 @@ import settings
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
+Log.create('student_courseenrollment')
 
 download_data_type = { 
     'study_progress': u'学习进度数据',
@@ -709,8 +710,7 @@ class StudentEnrollment(BaseHandler):
       """
       def get(self):
           app_id = self.get_argument('app_id', '201803240000000002')
-          Log.create('student_courseenrollment')
-          Log.info(app_id)
+          Log.info('student_courseenrollment-%s' % app_id)
           
           data = self.get_data()
           self.success_response({'data': data})
@@ -765,7 +765,6 @@ class StudentCourseEnrollment(BaseHandler):
      @gen.coroutine
      def get(self):
          app_id = self.get_argument('app_id', '201803240000000001')
-         Log.create('student_course_enrollment')
          Log.info(app_id)
          
          result = yield self.get_result()
@@ -851,7 +850,6 @@ class StudentCourseEnrollment(BaseHandler):
                      if course_id not in tiny_course_ids:
                          tiny_mooc_course_ids.append(course_id)
              except Exception as e:
-                 Log.create('course-service')
-                 Log.create('course_detail service unable %s' % course_id)
+                 Log.info('course_detail service unable %s' % course_id)
          
          raise gen.Return(tiny_mooc_course_ids) 
