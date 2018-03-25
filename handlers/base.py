@@ -162,11 +162,11 @@ class BaseHandler(RequestHandler):
         return Search(using=self.es, **kwargs)
 
     def moocnd_es_query(self, **kwargs):
-        moocnd_es = connections.create_connection(hosts=settings.moocnd_es_cluster, timeout=30, max_retries=3)
+        moocnd_es = connections.create_connection(hosts=settings.moocnd_es_cluster, timeout=30)
         return Search(using=moocnd_es, **kwargs)
     
     def search_es_query(self, **kwargs):
-        search_es = connections.create_connection(hosts=settings.search_es_cluster, timeout=30, max_retries=3)
+        search_es = connections.create_connection(hosts=settings.search_es_cluster, timeout=30)
         return Search(using=search_es, **kwargs)
 
     def es_execute(self, query):
