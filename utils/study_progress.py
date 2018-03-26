@@ -31,6 +31,7 @@ from log import Log
 1、在所有端最后一次观看的课程视频与观看进度    = get_user_last_pos(user_id)
 '''
 
+Log.create('hbase')
 class Counter:
     def __init__(self, initial=0):
         self.counter = initial
@@ -46,7 +47,6 @@ class StudyProgress:
             self.thrift_server = random.choice(thrift_server_list)
             self.connection = happybase.Connection(host=self.thrift_server, port=self.thrift_port)
         except Exception as e:
-            Log.create('hbase')
             Log.error('Hbase Warning %s' % self.thrift_server)
             self.thrift_server = random.choice(thrift_server_list)
             self.connection = happybase.Connection(host=self.thrift_server, port=self.thrift_port)

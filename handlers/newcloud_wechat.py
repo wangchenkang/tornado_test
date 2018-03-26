@@ -17,6 +17,7 @@ import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
+Log.create('wechat')
 APP_ID = '201802010000000001'
 VIDEO_COURSE = ['course_id','course_name','seek_persons_num','seek_persons_num_percent','not_seek_persons', \
                 'not_seek_persons_percent','person_avg_seek_num','person_avg_seek_num_percent','person_avg_not_watch','person_avg_not_watch_percent']
@@ -284,8 +285,7 @@ class MobileCourseOverview(AcademicData):
         return data
 
     def get(self):
-        Log.create('wechat')
-        Log.info('%s' % APP_ID)
+        Log.info('wechat-%s' % APP_ID)
         query = self.query
         result = self.get_result(query)
 
@@ -396,8 +396,7 @@ class MobileTeacherOverview(AcademicData):
         return data
     
     def get(self):
-        Log.create('wechat')
-        Log.info('%s' % APP_ID)
+        Log.info('wechat-%s' % APP_ID)
         data = self.data
 
         self.success_response({'data': data})
@@ -442,8 +441,7 @@ class MobileStudentOverview(AcademicData):
         return data
 
     def get(self):
-        Log.create('wechat')
-        Log.info('%s' % APP_ID)
+        Log.info('wechat-%s' % APP_ID)
         query = self.query
         result = self.get_result(query)
 
@@ -490,8 +488,7 @@ class MobileStudentDetailOverview(AcademicData):
         return result
 
     def get(self):
-        Log.create('wechat')
-        Log.info('%s' % APP_ID)
+        Log.info('wechat-%s' % APP_ID)
         query_total, query_avg = self.query
         result = self.get_result(query_total, query_avg)
 
@@ -503,8 +500,7 @@ class MobileTeacherTotal(AcademicData):
     教师汇总数据 每个教师只能看到自己的数据
     """
     def get(self):
-        Log.create('wechat')
-        Log.info('%s' % APP_ID)
+        Log.info('wechat-%s' % APP_ID)
         org_id = self.get_param('org_id')
         term_id = self.get_param('term_id')
         user_id = self.get_param('user_id')
@@ -555,8 +551,7 @@ class MobileTeacherCourse(AcademicData):
         return result, total, total_page
 
     def get(self):
-        Log.create('wechat')
-        Log.info('%s' % APP_ID)
+        Log.info('wechat-%s' % APP_ID)
         page = int(self.get_argument('page', 1))
         num = int(self.get_argument('num', 10))
         query = self.query
@@ -572,8 +567,7 @@ class MobileStudentTotal(AcademicData):
     学生汇总数据  每个学生只能看到自己的汇总数据
     """
     def get(self):
-        Log.create('wechat')
-        Log.info('%s' % APP_ID)
+        Log.info('wechat-%s' % APP_ID)
         org_id = self.get_param('org_id')
         term_id = self.get_param('term_id')
         user_id = self.get_param('user_id')
@@ -621,8 +615,7 @@ class MobileStudentCouse(AcademicData):
         return result, total, total_page
 
     def get(self):
-        Log.create('wechat')
-        Log.info('%s' % APP_ID)
+        Log.info('wechat-%s' % APP_ID)
         page = int(self.get_argument('page', 1))
         num = int(self.get_argument('num', 10))
         query = self.query
@@ -638,8 +631,7 @@ class MobileWarningTotal(AcademicData):
     预警汇总数据数据
     """
     def get(self):
-        Log.create('wechat')
-        Log.info('%s' % APP_ID)
+        Log.info('wechat-%s' % APP_ID)
         org_id = self.get_argument('org_id')
         term_id = self.get_argument('term_id')
         service_line = self.get_argument('service_line', None)
@@ -678,8 +670,7 @@ class MobileWarningCourse(AcademicData):
     课程预警数据 每天计算需要预警的课
     """
     def get(self):
-        Log.create('wechat')
-        Log.info('%s' % APP_ID)
+        Log.info('wechat-%s' % APP_ID)
         org_id = self.get_argument('org_id')
         term_id = self.get_argument('term_id')
         course_id = self.get_argument('course_id')
@@ -719,8 +710,7 @@ class MobileVideoCourse(AcademicData):
     视频拖拽数据 每天计算一次
     """
     def get(self):
-        Log.create('wechat')
-        Log.info('%s' % APP_ID)
+        Log.info('wechat-%s' % APP_ID)
         org_id = self.get_argument('org_id')
         term_id = self.get_argument('term_id')
         course_id = self.get_argument('course_id')
@@ -753,8 +743,7 @@ class MobileDataDateConfig(BaseHandler):
     获取数据有效时间
     """
     def get(self):
-        Log.create('wechat')
-        Log.info('%s' % APP_ID)
+        Log.info('wechat-%s' % APP_ID)
         query = self.es_query(index='newcloud_wechat', doc_type='data_conf')
         response = self.es_execute(query)
 
