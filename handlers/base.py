@@ -17,6 +17,7 @@ from utils.tools import is_ended, date_from_string, feedback
 import settings
 from datetime import datetime
 
+Log.create('es')
 class BaseHandler(RequestHandler):
 
     def write_error(self, status_code, **kwargs):
@@ -202,7 +203,6 @@ class BaseHandler(RequestHandler):
                         now = datetime.utcnow()
                         expires = (now-end).days
                         if expires > 3:
-                            Log.create('es')
                             Log.info('%s-%s' % (query._index,course_id))
                            # if not self.request.uri.startswith('/course/cohort_info'):
                            #    if not isinstance(query._index, list):

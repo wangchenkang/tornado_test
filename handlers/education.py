@@ -10,6 +10,7 @@ import datetime
 import time
 
 
+Log.create('academic')
 COURSE_STATUS = {'process': '开课中', 'close': '已结课', 'unopen': '即将开课'}
 COURSE_TYPE = {1: '自主模式', 0: '随堂模式'}
 FIELD_COURSE_SEARCH = ['course_id', 'group_key', 'group_name', 'active_rank', 'enroll_rank', 'reply_rank', 'interactive_rank', 'comment_rank', 'enroll_num', 'active_rate', 'accomplish_num', 'avg_grade', 'post_per', 'accomplish_rate']
@@ -253,7 +254,6 @@ class EducationCourseNameSearch(Academic):
                 if is_exist:
                     course_id_group_key[data_course['course_id']] = teacher_power[data_course['course_id']]
                 else:
-                    Log.create('academic')
                     Log.error('Academic Warning course_id:%s user_id:%s host:%s' % (data_course['course_id'], self.user_id, self.host))
 
             #查健康度以及相关数据
