@@ -28,7 +28,7 @@ import settings
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
-Log.create('student_courseenrollment')
+#Log.create('student_courseenrollment')
 
 download_data_type = { 
     'study_progress': u'学习进度数据',

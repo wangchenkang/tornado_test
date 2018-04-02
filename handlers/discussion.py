@@ -8,7 +8,7 @@ from utils.tools import date_from_query, date_to_str, utc_to_cst
 from collections import defaultdict
 from utils.log import Log
 
-Log.create('discussion')
+#Log.create('discussion')
 @route('/discussion/course_stat')
 class CourseDiscussion(BaseHandler):
     """

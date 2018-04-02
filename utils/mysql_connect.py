@@ -87,10 +87,13 @@ class MysqlConnect(object):
         data = results if results else []
         return data
 
-    def course_permission(self, user_id, course_id, group_key):
+    def course_permission(self, user_id, course_id, group_key, host):
         query = """
-                select * from teacher_power where user_id='{0}' and course_id='{1}' and group_key='{2}'
-                """.format(user_id, course_id, group_key)
+                select * 
+                from teacher_power 
+                where user_id='{0}' and course_id='{1}' and group_key='{2}' \
+                and host='{3}'
+                """.format(user_id, course_id, group_key, host)
         results = self.execute_query(query)
         if len(results) > 0:
             return True
