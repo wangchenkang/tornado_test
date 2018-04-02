@@ -148,7 +148,7 @@ class MysqlConnect(object):
                     data.append({'course_id': course_id, 'enroll_all': 0})
                 results = data
         except Exception as e:
-            Log.create('mysql')
+            #Log.create('mysql')
             Log.error(e)
         
         return results

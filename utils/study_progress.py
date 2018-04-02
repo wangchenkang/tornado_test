@@ -32,6 +32,7 @@ from log import Log
 '''
 #Log.create('hbase')
 
+#Log.create('hbase')
 class Counter:
     def __init__(self, initial=0):
         self.counter = initial

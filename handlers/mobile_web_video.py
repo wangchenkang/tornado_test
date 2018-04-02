@@ -13,7 +13,7 @@ import time
 from time import sleep
 import settings
 
-Log.create('mobile_web_video')
+#Log.create('mobile_web_video')
 
 
 class MysqlConnect(object):
@@ -301,7 +301,6 @@ class MobileUserStudyByCourse(BaseHandler):
         for row in course_durations:
             course_durations_d[row['course_id']] = row['course_duration']
 
-        Log.info(result)
         for course_id in course_ids:
             record = {}
             record['course_id'] = course_id
