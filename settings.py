@@ -40,6 +40,7 @@ ES_INDEX = 'tap'
 MOOCND_ES_INDEX = 'moocnd_video'
 NEWCLOUD_ES_INDEX = 'newcloud_tap'
 ES_INDEX_LOCK = 'tap_lock'
+SEARCH_ES_INDEX = 'course'
 ES_INDEXS = ['tap', 'tap_lock', 'tap_table_grade', 'tap_table_grade_lock', 'tap_table_video_lock', 'tap_table_video_realtime', 'tap_table_question', 'tap_table_question_lock','realtime', 'realtime_discussion_table', 'tap_table_discussion_lock']
 NEWCLOUD_ACADEMIC_ES_INDEX = 'education_data'
 TAP_REALTIME_INDEX = 'realtime'

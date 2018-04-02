@@ -17,6 +17,7 @@ from utils.tools import is_ended, date_from_string, feedback
 import settings
 from datetime import datetime
 
+Log.create('es')
 class BaseHandler(RequestHandler):
 
     def write_error(self, status_code, **kwargs):
@@ -27,7 +28,7 @@ class BaseHandler(RequestHandler):
     @property
     def es(self):
         return self.application.es
-
+    
     @property
     def memcache(self):
         return self.application.memcache
@@ -161,9 +162,13 @@ class BaseHandler(RequestHandler):
             kwargs['index'] = settings.ES_INDEX
         return Search(using=self.es, **kwargs)
 
-    def moocnd_es_query(self, **kwargs):
-        moocnd_es = connections.create_connection(hosts=settings.moocnd_es_cluster, timeout=60)
-        return Search(using=moocnd_es, **kwargs)
+   # def moocnd_es_query(self, **kwargs):
+   #     moocnd_es = connections.create_connection(hosts=settings.moocnd_es_cluster, timeout=30)
+   #     return Search(using=moocnd_es, **kwargs)
+   # 
+   # def search_es_query(self, **kwargs):
+   #     search_es = connections.create_connection(hosts=settings.search_es_cluster, timeout=30)
+   #     return Search(using=search_es, **kwargs)
 
     def es_execute(self, query):
         try:
@@ -171,7 +176,7 @@ class BaseHandler(RequestHandler):
                 response = query.execute()
                 return response
             else:
-                if not list(set(query._index)&set(settings.ES_INDEXS)):
+                if not list(set(query._index)&set(settings.ES_INDEXS)) or query._doc_type in ['data_conf', ['data_conf']]:
                     response = query.execute()
                     return response
                 course_id = self.get_argument('course_id', None)
@@ -198,7 +203,6 @@ class BaseHandler(RequestHandler):
                         now = datetime.utcnow()
                         expires = (now-end).days
                         if expires > 3:
-                            Log.create('es')
                             Log.info('%s-%s' % (query._index,course_id))
                            # if not self.request.uri.startswith('/course/cohort_info'):
                            #    if not isinstance(query._index, list):
@@ -226,6 +230,15 @@ class BaseHandler(RequestHandler):
         except RequestError as e:
             self.error_response(100, u'查询错误: {} - {}'.format(e.status_code, e.error))
 
+    def acc_es_execute(self, query):
+        try:
+           response = query.execute()
+           return response
+        except (ConnectionError, ConnectionTimeout):
+            self.error_response(100, u'Elasticsearch 连接错误')
+        except RequestError as e:
+            self.error_response(100, u'查询错误: {} - {}'.format(e.status_code, e.error))
+           
     def get_enroll(self, group_key=None, course_id=None):
         query = self.es_query(doc_type='student_enrollment_info') \
             .filter('term', is_active=1)

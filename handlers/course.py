@@ -10,6 +10,7 @@ from utils.log import Log
 from elasticsearch_dsl import Q
 
 
+Log.create('course')
 @route('/course/week_activity')
 class CourseActivity(BaseHandler):
     """
@@ -295,7 +296,6 @@ class CourseEnrollmentsDateRealtime(BaseHandler):
         not_enroll_time_enroll = not_enroll_time_result.hits.total 
         enroll += not_enroll_time_enroll 
         
-        Log.create('course')
         Log.info('enroll: %s' % enroll)
 
         unenroll_query = self.es_query(index='realtime', doc_type="student_enrollment_info") \
@@ -309,7 +309,6 @@ class CourseEnrollmentsDateRealtime(BaseHandler):
         not_enroll_time_unenroll_result = self.es_execute(not_enroll_time_unenroll_query)
         not_enroll_time_unenroll = not_enroll_time_unenroll_result.hits.total
         unenroll += not_enroll_time_unenroll
-        Log.create('course')
         Log.info('unenroll: %s' % unenroll)
 
         data = sorted(res_dict.values(), key=lambda x: x["date"])
