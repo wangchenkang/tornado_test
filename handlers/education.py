@@ -10,7 +10,7 @@ import datetime
 import time
 
 
-Log.create('academic')
+#Log.create('academic')
 COURSE_STATUS = {'process': '开课中', 'close': '已结课', 'unopen': '即将开课'}
 COURSE_TYPE = {1: '自主模式', 0: '随堂模式'}
 FIELD_COURSE_SEARCH = ['course_id', 'group_key', 'group_name', 'active_rank', 'enroll_rank', 'reply_rank', 'interactive_rank', 'comment_rank', 'enroll_num', 'active_rate', 'accomplish_num', 'avg_grade', 'post_per', 'accomplish_rate']

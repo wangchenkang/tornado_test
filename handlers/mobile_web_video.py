@@ -13,7 +13,7 @@ import time
 from time import sleep
 import settings
 
-Log.create('mobile_web_video')
+#Log.create('mobile_web_video')
 
 
 class MysqlConnect(object):

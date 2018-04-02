@@ -17,7 +17,7 @@ import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
-Log.create('wechat')
+#Log.create('wechat')
 APP_ID = '201802010000000001'
 VIDEO_COURSE = ['course_id','course_name','seek_persons_num','seek_persons_num_percent','not_seek_persons', \
                 'not_seek_persons_percent','person_avg_seek_num','person_avg_seek_num_percent','person_avg_not_watch','person_avg_not_watch_percent']
