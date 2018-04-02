@@ -10,7 +10,7 @@ from utils.log import Log
 from elasticsearch_dsl import Q
 
 
-Log.create('course')
+#Log.create('course')
 @route('/course/week_activity')
 class CourseActivity(BaseHandler):
     """

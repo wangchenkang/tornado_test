@@ -9,7 +9,7 @@ from .log import Log
 import settings
 import datetime
 
-Log.create('service')
+#Log.create('service')
 
 class AsyncService(object):
     """

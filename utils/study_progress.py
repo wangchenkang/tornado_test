@@ -30,9 +30,9 @@ from log import Log
 二、对于某用户：
 1、在所有端最后一次观看的课程视频与观看进度    = get_user_last_pos(user_id)
 '''
-Log.create('hbase')
+#Log.create('hbase')
 
-Log.create('hbase')
+#Log.create('hbase')
 class Counter:
     def __init__(self, initial=0):
         self.counter = initial
