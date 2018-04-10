@@ -161,3 +161,24 @@ class ClassmateHandler(BaseHandler):
                 data[dim][i['field_value']] = int(i['statistics'])
         
         return data
+      
+
+@route('/mobile/video_watch_daily')
+class VideoWatchdaily(BaseHandler):
+    @gen.coroutine
+    def get(self):
+        course_id = self.get_param('course_id')
+        day = self.get_param('day')
+        user_id = self.get_param('user_id')
+        query = self.es_query(index='classmate', doc_type='video_watch_daily') \
+                    .filter('term', course_id=course_id) \
+                    .filter('term', user_id=user_id) \
+                    .filter('term', day=day)
+        results = self.es_execute(query).hits
+        result = dict()
+        result['video_watch_total'] = 0
+        result['course_id'] = course_id
+        result['user_id'] = user_id
+        if results:
+            result['video_watch_total'] = results[0].video_watch_total
+        self.success_response({'data': result}) 
