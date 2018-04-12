@@ -3,21 +3,18 @@
 
 import json
 from copy import copy
-from tornado.web import gen, HTTPError
+from tornado.web import gen
 from elasticsearch_dsl import Q
 
 import settings
 from base import BaseHandler
 from utils.routes import route
-from utils.tools import date_from_string
-from utils.mysql_connect import MysqlConnect
 from utils.log import Log
 
 import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
 
-#Log.create('credit')
 COURSE_OVERVIEW_FIELD = ['course_name', 'course_id', 'enroll_num', 'society_enroll_num', 'platform_enroll_num', \
                          'main_enroll_num', 'use_platform_num', 'course_status']
 
@@ -77,7 +74,56 @@ class CreditData(BaseHandler):
         header = [{'field': field, 'name': name[index] } for index, field in enumerate(fields)]
         
         return header
+   
+    @gen.coroutine 
+    def get_update_time(self):
+        update_time = yield self.get_updatetime()
+        update_time = '%s 23:59:59' % update_time
+        
+        raise gen.Return(update_time)
 
+    def make_result(self, **kwargs):
+        result = dict()
+        for k, v in kwargs.items():
+            result[k] = v
+        return result
+        
+    def get_params(self):
+        search_argument = self.get_argument('search_argument', '')
+        sort_argument = self.get_argument('sort_argument', 'enroll_num')
+        sort_type = self.get_argument('sort_type', '1')
+        sort_type = json.loads(sort_type)
+        sort_argument = sort_argument if sort_type else '-%s' % sort_argument
+        download_status = self.get_argument('download_status', '1')
+        download_status = json.loads(download_status)
+        page = self.get_argument('page', '1')
+        page = json.loads(page)
+        num = self.get_argument('num', '20')
+        num = json.loads(num)
+        
+        return search_argument, sort_argument, download_status, page, num
+        
+    def make_query(self, query, download_status,  page, num):
+        total = self.es_execute(query[:0]).hits.total
+        if download_status:
+            query = query[:total]
+        else:
+            query = query[(page-1)*num:page*num]
+        
+        return query
+        
+    def get_num_base_status(self, buckets):
+        open_num = 0
+        unopen_num = 0
+        close_num = 0
+        for i in buckets:
+            if i.key == 'open':
+                open_num = i.doc_count
+            elif i.key == 'unopen':
+                unopen_num = i.doc_count
+            elif i.key == 'close':
+                close_num = i.doc_count
+        return open_num, unopen_num, close_num
 
 @route('/credit/course_overview')
 class CreditCourseOverview(CreditData):
@@ -86,24 +132,20 @@ class CreditCourseOverview(CreditData):
     """
     @gen.coroutine
     def post(self):
-        result = self.get_result()
-        update_time = yield self.get_updatetime()
-        result['update_time'] = '%s 23:59:59' % update_time
+        result = yield self.get_result()
         
         self.success_response({'data': result})
-   
+  
+    @gen.coroutine 
     def get_result(self): 
         header = self.get_header('course_overview_table_field', 'course_overview_table_name') 
         data, course_num, total_page, current_page = self.get_data()
-        
-        result = dict()
-        result['course_num'] = course_num
-        result['total_page'] = total_page
-        result['current_page'] = current_page
-        result['header'] = header
-        result['data'] = data
+       
+        update_time = yield self.get_update_time()
+        result = self.make_result(header=header, data=data, course_num=course_num, total_page=total_page, \
+                                 current_page=current_page, update_time=update_time)
          
-        return result
+        raise gen.Return(result)
     
     def get_data(self):
         query, num, page = self.get_query()
@@ -127,26 +169,28 @@ class CreditCourseOverview(CreditData):
         return data, course_num, total_page, page
     
     def get_query(self):
-        app_id = self.get_argument('app_id', None)
+        params = json.loads(self.request.body) 
+        app_id = params.get('app_id', None)
+        if not app_id:
+            self.error_response(200, u'参数错误') 
         Log.info('%s-%s' % ('credit_data', app_id)) 
         
-        params = json.loads(self.request.body) 
-        course_ids = params.get('course_id', None)
-        download_status = params.get('download_status', None)
+        course_ids = params.get('course_ids', None)
+        download_status = params.get('download_status', 1)
         page = params.get('page', 1)
         num = params.get('num', 20)
+        sort_argument = params.get('sort_argument', 'enroll_num')
+        sort_type = params.get('sort_type', 1)
+        sort_argument = sort_argument if sort_type else '-%s' % sort_argument 
+        
        
         query = self.es_query(index=settings.CREDIT_ES_INDEX, doc_type='course_aggs') \
-                    .source(COURSE_OVERVIEW_FIELD)
+                    .source(COURSE_OVERVIEW_FIELD) \
+                    .sort(sort_argument)
         if course_ids:
             query = query.filter('terms', course_id=course_ids) 
-        
-        if download_status:
-            total = self.es_execute(query[:0]).hits.total
-            query = query[:total] 
-        else:
-            query = query[(page-1)*num:num*page] 
-        
+       
+        query = self.make_query(query, download_status, page, num) 
         return query, num, page
 
 
@@ -195,20 +239,12 @@ class CreditCourseTable(CreditData):
     """
     @gen.coroutine 
     def get(self):
-        data = self.get_result()
-        update_time = yield self.get_updatetime()
-        data['update_time'] = '%s 23:59:59' %update_time 
+        data = yield self.get_result()
         
         self.success_response({'data': data})
     
+    @gen.coroutine 
     def get_result(self):
-        header = self.get_header('course_table_field', 'course_table_name') 
-        result = self.get_data()
-        result['header'] = header 
-        
-        return result 
-    
-    def get_data(self):
         query, page, num = self.get_query()
         results = self.es_execute(query)
         plat_num = results.hits.total
@@ -224,42 +260,26 @@ class CreditCourseTable(CreditData):
             l.append(round(result.avg_accmp_rate or 0, 2))
             l.append(result.discussion_num)
             data.append(l)
+       
+        header = self.get_header('course_table_field', 'course_table_name') 
+        update_time = yield self.get_update_time()
+        result = self.make_result(header=header, data=data, plat_num=plat_num, total_page=total_page, \
+                                 current_page=page, update_time=update_time) 
         
-        result = dict()
-        result['data'] = data
-        result['plat_num'] = plat_num
-        result['total_page'] = total_page
-        result['current_page'] = page 
-        
-        return result
+        raise gen.Return(result)
 
     def get_query(self):
         app_id = self.get_param('app_id')
         Log.info('%s-%s' % ('credit_data', app_id))
         
         course_id = self.get_param('course_id') 
-        sort_argument = self.get_argument('sort_argument', 'enroll_num')
-        sort_type = self.get_argument('sort_type', '1')
-        sort_type = json.loads(sort_type)
-        sort_argument = '-%s' % sort_argument if not sort_type else sort_argument 
-        download_status = self.get_argument('download_status', '0')
-        download_status = json.loads(download_status) 
-        page = self.get_argument('page', '1')
-        page = json.loads(page)
-        num = self.get_argument('num', '20')
-        num = json.loads(num) 
-        
+        _, sort_argument, download_status, page, num = self.get_params() 
          
         query = self.es_query(index=settings.CREDIT_ES_INDEX, doc_type='course_plat_detail') \
                     .filter('term', course_id=course_id) \
                     .sort('is_credit',sort_argument) \
                     .source(COURSE_TABLE_FIELD) 
-       
-        if download_status:
-            total = self.es_execute(query[:0]).hits.total
-            query = query[:total]
-        else:
-            query = query[(page-1)*num:num*page] 
+        query = self.make_query(query, download_status, page, num) 
         
         return query, page, num
     
@@ -271,28 +291,15 @@ class CreditPlatformOverview(CreditData):
     """
     @gen.coroutine
     def get(self):
-        data = self.get_result()
-        update_time = yield self.get_updatetime()
-        data['update_time'] = '%s 23:59:59' % update_time
+        result = yield self.get_result()
         
-        self.success_response({'data': data})
+        self.success_response({'data': result})
    
+    @gen.coroutine 
     def get_result(self):
-        header = self.get_header('platform_overview_field', 'platform_overview_table_name')
-        data = self.get_data()
-        data['header'] = header
-        
-        return data
- 
-    def get_data(self):
         query = self.get_query()
         results = self.es_execute(query)
-        download_status = self.get_argument('download_status', '0')
-        download_status = json.loads(download_status) 
-        num = self.get_argument('num', '20')
-        num = json.loads(num)
-        page = self.get_argument('page', '1')
-        page = json.loads(page) 
+        _, _, download_status, page, num = self.get_params()
         
         aggs = results.aggregations
         plats = aggs.plat_ids.buckets
@@ -305,7 +312,6 @@ class CreditPlatformOverview(CreditData):
             plats = plats[(page-1)*num:page*num]
         
         data = list() 
-        result = dict() 
         for index, plat in enumerate(plats):
             l = list()
             l.append(index+1)
@@ -313,25 +319,18 @@ class CreditPlatformOverview(CreditData):
             l.append(plat.plat_names.buckets[0].key) 
             l.append(plat.credit_enroll_num.value)
             l.append(plat.import_credit_num.value)
-            open_num = 0
-            unopen_num = 0
-            close_num = 0
+           
             status_num = plat.course_status.buckets 
-            for status in status_num:
-                if status.key == 'open': 
-                    open_num = status.doc_count
-                elif status.key == 'unopen': 
-                    unopen_num = status.doc_count
-                elif status.key == 'close': 
-                    close_num = status.doc_count
+            open_num, unopen_num, close_num = self.get_num_base_status(status_num) 
+            
             l.append('%s/%s/%s' % (open_num, unopen_num, close_num))
             data.append(l) 
-          
-        result['data'] = data
-        result['total_page'] = total_page
-        result['current_page'] = page
+        header = self.get_header('platform_overview_field', 'platform_overview_table_name')
+        update_time = yield self.get_update_time()
+        result = self.make_result(header=header, data=data, total_page=total_page, current_page=page, \
+                                 update_time=update_time, plat_num=plat_num)      
         
-        return result
+        raise gen.Return(result)
 
     def get_query(self):
         app_id = self.get_param('app_id')
@@ -381,18 +380,12 @@ class CreditPlatformDetail(CreditData):
         import_credit_num = 0
         for i in aggs.credit.buckets:
             if i.key:
-                import_credit_num = i.enroll_num.value
+                import_credit_num = i.doc_count
         data['import_credit_num'] = import_credit_num
-        open_num = 0
-        unopen_num = 0
-        close_num = 0
-        for i in aggs.course_status.buckets:
-            if i.key == 'open':
-                open_num = i.doc_count
-            elif i.key == 'unopen':
-                unopen_num = i.doc_count
-            elif i.key == 'close':
-                close_num = i.doc_count
+       
+        status_num = aggs.course_status.buckets 
+        open_num, unopen_num, close_num = self.get_num_base_status(status_num) 
+        
         data['course_status_num'] = '%s/%s/%s' % (open_num, unopen_num, close_num)
         data['discussion_num'] = aggs.discussion_num.value or 0
         
@@ -400,9 +393,9 @@ class CreditPlatformDetail(CreditData):
     
     def get_query(self):
         app_id = self.get_param('app_id')
-        Log.info(app_id) 
+        Log.info('%s-%s' % ('credit_data', app_id)) 
         
-        plat_id = self.get_param('plat_id')
+        plat_id = self.get_param('org_id')
         query = self.es_query(index=settings.CREDIT_ES_INDEX, doc_type='course_plat_detail') \
                     .filter('term', plat_id=plat_id)
         query.aggs.metric('enroll_num', 'sum', field='enroll_num')
@@ -421,43 +414,29 @@ class CreditPlatformTable(CreditData):
     """
     @gen.coroutine
     def get(self):
-        result = self.get_result() 
-        header = self.get_header('platform_table_field', 'platform_table_name')
-        result['header'] = header 
-        update_time = yield self.get_updatetime()
-        result['update_time'] = '%s 23:59:59' % update_time
-       
+        result = yield self.get_result() 
+        
         self.success_response({'data': result})
     
     def get_query(self):
         app_id = self.get_param('app_id')
-        Log.info(app_id)
+        Log.info('%s-%s' % ('credit_data', app_id)) 
         
         plat_id = self.get_param('plat_id')
-        search_argument = self.get_argument('search_argument', '')
-        sort_argument = self.get_argument('sort_argument', 'enroll_num')
-        sort_type = self.get_argument('sort_type', '1')
-        sort_argument = sort_argument if sort_type else '-%s' % sort_argument
-        download_status = self.get_argument('download_status', '0')
-        page = self.get_argument('page', '1')
-        num = self.get_argument('num', '20')
-
+        search_argument, sort_argument, download_status, page, num = self.get_params()
+        
         query = self.es_query(index=settings.CREDIT_ES_INDEX, doc_type='course_plat_detail') \
                     .filter('term', plat_id=plat_id) \
                     .filter(Q('bool', should=[Q('wildcard', course_name= '*%s*' % search_argument)])) \
                     .source(['course_name', 'course_status', 'enroll_num', 'discussion_num','avg_score']) \
                     .sort(sort_argument) 
         
-        total = self.es_execute(query[:0]).hits.total
-        if download_status:
-            query = query[:total]
-        else:
-            query = query[(page-1)*num:page*num]
-                
+        query = self.make_query(query, download_status, page, num) 
+        
         return query, page, num
 
+    @gen.coroutine
     def get_result(self):
-        header = self.get_header('platform_table_field', 'platform_table_name')
         query, page, num = self.get_query()
         results = self.es_execute(query).hits
         course_num = results.total
@@ -475,10 +454,11 @@ class CreditPlatformTable(CreditData):
             l.append(round(result.avg_score or 0, 2))
             data.append(l)
         
-        result = dict()
-        result['data'] = data
-        result['course_num'] = course_num
-        result['total_page'] = total_page
-        result['current_page'] = page 
-        return result
+        header = self.get_header('platform_table_field', 'platform_table_name')
+        update_time = yield self.get_update_time()
+        
+        result = self.make_result(header=header, update_time=update_time, data=data, course_num=course_num, \
+                                 total_page=total_page, current_page=page)        
+        
+        raise gen.Return(result)
 
