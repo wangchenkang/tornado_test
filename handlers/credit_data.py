@@ -156,7 +156,7 @@ class CreditCourseOverview(CreditData):
         data = list() 
         for index, result in enumerate(results.hits):
              i = list()
-             i.append(index)
+             i.append(index+1)
              i.append(result.course_name)      
              i.append(result.course_id)      
              i.append(result.enroll_num)      
@@ -340,7 +340,7 @@ class CreditPlatformOverview(CreditData):
         sort_argument = self.get_argument('sort_argument', 'credit_enroll_num')
         if sort_argument not in ('credit_enroll_num', 'import_credit_num'):
             sort_argument = 'credit_enroll_num'
-        sort = self.get_argument('sort', '1')
+        sort = self.get_argument('sort_type', '1')
         sort = json.loads(sort)
         sort = 'asc' if sort else 'desc'
        
