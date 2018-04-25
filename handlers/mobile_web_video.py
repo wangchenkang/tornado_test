@@ -19,7 +19,7 @@ import settings
 class MysqlConnect(object):
     
     def __init__(self):
-        self.host= '10.0.0.247'
+        self.host= 'video-vms.xuetangx.info'
         self.db= 'vms'
         self.user= 'vmsselect'
         self.password= 'readonly'
